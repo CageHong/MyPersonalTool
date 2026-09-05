@@ -98,6 +98,11 @@ MVP 只有三種錯誤碼,不要自行增加:
 - 驗證失敗時 throw 自訂錯誤類別(帶 `fields` 資訊),定義在 `src/server/`。
 - route handler 用 `instanceof` 判斷錯誤類別,對映到狀態碼。`src/server/` 不可以知道 HTTP 的存在——不 import Next.js 的任何東西,不回傳 Response。
 
+驗證 vs 解析的判準:這條規則在**非 HTTP 的呼叫路徑**上還成立嗎?
+
+- 成立(例:title 不能為空)→ 業務驗證,寫在 `src/server/`
+- 不成立(例:網址上的 id 是 "abc"、body 不是合法 JSON)→ 協定層解析,寫在 route handler,同樣回 `VALIDATION_FAILED`
+
 ## 紀律
 
 1. **業務邏輯一律寫在 `src/server/` 的純函式。** route handler 只做三件事:解析請求、呼叫 `src/server/` 的函式、回傳 JSON。不要在 route handler 裡寫任何邏輯或直接碰資料庫。理由:之後這個 API 要搬到獨立伺服器常駐。
