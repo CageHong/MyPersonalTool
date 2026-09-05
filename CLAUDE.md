@@ -63,6 +63,41 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - `checklist_item` 表:任務底下的待辦項,**不是**任務——沒有截止日、不排程、不出現在任務清單查詢裡。
 - 子任務 UI:用既有的 `parentTaskId`。
 
+## API 設計
+
+端點:
+
+| 方法 | 路徑 | 說明 |
+|---|---|---|
+| GET | `/api/tasks` | 列出全部 |
+| POST | `/api/tasks` | 建立 |
+| PATCH | `/api/tasks/:id` | 部分更新(含勾完成) |
+| DELETE | `/api/tasks/:id` | 刪除 |
+
+用 PATCH 不用 PUT:勾完成只改 `completedAt` 一個欄位,不是整個資源替換。
+
+錯誤回應一律用 HTTP 狀態碼 + 結構化 JSON:
+
+```json
+{ "error": { "code": "VALIDATION_FAILED", "message": "...", "fields": { "title": "required" } } }
+```
+
+MVP 只有三種錯誤碼,不要自行增加:
+
+| 狀態碼 | code | 用在 |
+|---|---|---|
+| 400 | `VALIDATION_FAILED` | 輸入不合法,附 `fields` |
+| 404 | `NOT_FOUND` | 指定 id 不存在 |
+| 500 | `INTERNAL_ERROR` | 其他所有情況 |
+
+**不要**用「一律回 200,錯誤放 body」的做法。
+
+驗證的位置:
+
+- 驗證邏輯寫在 `src/server/` 的函式裡,不寫在 route handler。理由:純函式是唯一入口,之後從重複任務產生邏輯或匯入 script 呼叫時,驗證不會被繞過。
+- 驗證失敗時 throw 自訂錯誤類別(帶 `fields` 資訊),定義在 `src/server/`。
+- route handler 用 `instanceof` 判斷錯誤類別,對映到狀態碼。`src/server/` 不可以知道 HTTP 的存在——不 import Next.js 的任何東西,不回傳 Response。
+
 ## 紀律
 
 1. **業務邏輯一律寫在 `src/server/` 的純函式。** route handler 只做三件事:解析請求、呼叫 `src/server/` 的函式、回傳 JSON。不要在 route handler 裡寫任何邏輯或直接碰資料庫。理由:之後這個 API 要搬到獨立伺服器常駐。
