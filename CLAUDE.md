@@ -30,6 +30,38 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - `data/` — SQLite 檔(不進版控)
 
 
+## 資料模型
+
+`task` 表(一列 = 一個具體的任務實例,不是重複規則):
+
+| 欄位 | 型別 | 可空 | 說明 |
+|---|---|---|---|
+| `id` | integer PK autoincrement | 否 | |
+| `title` | text | 否 | |
+| `notes` | text | 是 | 描述 |
+| `dueDate` | text `YYYY-MM-DD` | 是 | 日曆日,**不是**時間戳 |
+| `dueTime` | text `HH:MM` | 是 | 有指定時刻才填 |
+| `scheduledAt` | integer (Unix 秒) | 是 | 打算執行的時刻 |
+| `durationMinutes` | integer | 是 | 預估長度 |
+| `priority` | integer 預設 0 | 否 | |
+| `completedAt` | integer (Unix 秒) | 是 | `null` = 未完成 |
+| `createdAt` | integer (Unix 秒) | 否 | |
+| `parentTaskId` | integer FK → `task.id` | 是 | 子任務;本輪不做 UI |
+
+時間處理規則:
+
+- 絕對瞬間一律存 **Unix 秒數整數**(`createdAt`、`completedAt`、`scheduledAt`)。
+- `dueDate` 是**日曆日**,存文字 `YYYY-MM-DD`。不要轉成時間戳——跨時區會偏一天。
+- `dueTime` 與 `dueDate` 分開,因為「9/10 到期」和「9/10 15:00 到期」語意不同。
+- `durationMinutes` 是長度不是時刻,存分鐘數。
+- 完成狀態用 `completedAt` 判斷,**不要**加布林欄位。
+
+之後才做(現在不要提出實作):
+
+- `recurrence` 表:重複規則(每日/每週/每月),`task` 用 `templateId` 指回。
+- `checklist_item` 表:任務底下的待辦項,**不是**任務——沒有截止日、不排程、不出現在任務清單查詢裡。
+- 子任務 UI:用既有的 `parentTaskId`。
+
 ## 紀律
 
 1. **業務邏輯一律寫在 `src/server/` 的純函式。** route handler 只做三件事:解析請求、呼叫 `src/server/` 的函式、回傳 JSON。不要在 route handler 裡寫任何邏輯或直接碰資料庫。理由:之後這個 API 要搬到獨立伺服器常駐。
