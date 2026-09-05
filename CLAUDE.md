@@ -55,6 +55,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - `dueTime` 與 `dueDate` 分開,因為「9/10 到期」和「9/10 15:00 到期」語意不同。
 - `durationMinutes` 是長度不是時刻,存分鐘數。
 - 完成狀態用 `completedAt` 判斷,**不要**加布林欄位。
+- `createdAt` 在 schema 層**沒有**預設值,由 `src/server/` 的建立函式填入 `Math.floor(Date.now() / 1000)`。理由:那是業務規則,不放資料層。
 
 之後才做(現在不要提出實作):
 
