@@ -68,7 +68,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 
 - 值域固定為 0 / 1 / 3 / 5,對映 無 / 低 / 中 / 高。數字大 = 重要。
 - 刻意留空隙(2、4 不用),之後插一級不需要改既有資料。
-- 欄位保持 nullable;null 與 0 同義(無優先級)。createTask 未傳時填 0。
+- 資料庫欄位是 NOT NULL DEFAULT 0。應用層接受 null,但在 src/server/ 正規化成 0 再寫入;createTask 未傳時同樣填 0。
 
 ## API 設計
 
