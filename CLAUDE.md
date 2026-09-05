@@ -103,6 +103,16 @@ MVP 只有三種錯誤碼,不要自行增加:
 - 成立(例:title 不能為空)→ 業務驗證,寫在 `src/server/`
 - 不成立(例:網址上的 id 是 "abc"、body 不是合法 JSON)→ 協定層解析,寫在 route handler,同樣回 `VALIDATION_FAILED`
 
+## 前端
+
+**資料一律走 HTTP。** 畫面用 Client Component,以 `fetch('/api/tasks')` 取資料。不要在頁面或元件直接 import `src/server/`,不要用 Server Action。理由:這個 API 之後要搬到獨立伺服器,屆時只換網址。
+
+**樣式一律 CSS Modules。** 元件的 `.module.css` 不可以寫死顏色、間距、圓角、字型,一律引用 `src/app/globals.css` `:root` 的變數。需要新的值先加進 `:root`,不要在元件裡寫數值。
+
+變數命名用語意(`--color-text`)不用外觀(`--gray-900`)。間距只能用 `--space-1` 到 `--space-5`。
+
+現階段不做深色模式,不做共用設計系統。
+
 ## 紀律
 
 1. **業務邏輯一律寫在 `src/server/` 的純函式。** route handler 只做三件事:解析請求、呼叫 `src/server/` 的函式、回傳 JSON。不要在 route handler 裡寫任何邏輯或直接碰資料庫。理由:之後這個 API 要搬到獨立伺服器常駐。
