@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db'
 import { task } from '../db/schema'
 
@@ -32,7 +32,7 @@ export type CreateTaskInput = {
   dueTime?: string | null
   scheduledAt?: number | null
   durationMinutes?: number | null
-  priority?: number
+  priority?: number | null
   parentTaskId?: number | null
 }
 
@@ -44,13 +44,16 @@ export type UpdateTaskPatch = {
   dueTime?: string | null
   scheduledAt?: number | null
   durationMinutes?: number | null
-  priority?: number
+  priority?: number | null
   completedAt?: number | null
   parentTaskId?: number | null
 }
 
 const DUE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const DUE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+
+// 無 / 低 / 中 / 高;刻意留空隙,之後插一級不動既有資料
+const PRIORITY_VALUES: readonly number[] = [0, 1, 3, 5]
 
 const UPDATABLE_KEYS = [
   'title',
@@ -88,8 +91,9 @@ function collectErrors(
     }
   }
 
-  if (input.priority !== undefined && !Number.isInteger(input.priority)) {
-    fields.priority = 'must_be_integer'
+  // null 與 0 同義,寫入前才正規化
+  if (input.priority != null && !PRIORITY_VALUES.includes(input.priority)) {
+    fields.priority = 'invalid_value'
   }
 
   return fields
@@ -102,8 +106,24 @@ function assertValid(input: CreateTaskInput | UpdateTaskPatch, requireTitle: boo
   }
 }
 
-export function listTasks(): Task[] {
-  return db.select().from(task).all()
+export type TaskSort = 'default'
+
+export type ListTasksOptions = {
+  sort?: TaskSort
+}
+
+// 白名單:欄位名只能從這裡來,不從呼叫端的字串拼進 ORDER BY
+const SORT_ORDERS: Record<TaskSort, SQL[]> = {
+  // 未完成(0)在前,已完成(1)在後;同組內 createdAt 升冪,再以 id 打破平手
+  default: [asc(sql`(${task.completedAt} is not null)`), asc(task.createdAt), asc(task.id)],
+}
+
+export function listTasks(options: ListTasksOptions = {}): Task[] {
+  return db
+    .select()
+    .from(task)
+    .orderBy(...SORT_ORDERS[options.sort ?? 'default'])
+    .all()
 }
 
 export function createTask(input: CreateTaskInput): Task {
@@ -141,6 +161,10 @@ export function updateTask(id: number, patch: UpdateTaskPatch): Task {
   }
   if (typeof updates.title === 'string') {
     updates.title = updates.title.trim()
+  }
+  // 欄位是 NOT NULL DEFAULT 0,null 在這裡正規化成 0
+  if (updates.priority === null) {
+    updates.priority = 0
   }
 
   if (Object.keys(updates).length === 0) {
