@@ -1,0 +1,37 @@
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.checkbox {
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.checkbox:disabled {
+  cursor: not-allowed;
+}
+
+.dueDate {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* 已完成:淡化加刪除線區分,但列仍留在清單裡 */
+.completed .title {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}

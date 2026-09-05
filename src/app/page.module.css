@@ -1,0 +1,9 @@
+.main {
+  /* 這一頁的版面寬度,不是共用 token;有第二個頁面用到同一個值再抽成變數 */
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
