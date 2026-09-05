@@ -63,6 +63,13 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - `checklist_item` 表:任務底下的待辦項,**不是**任務——沒有截止日、不排程、不出現在任務清單查詢裡。
 - 子任務 UI:用既有的 `parentTaskId`。
 
+
+### priority 的語意
+
+- 值域固定為 0 / 1 / 3 / 5,對映 無 / 低 / 中 / 高。數字大 = 重要。
+- 刻意留空隙(2、4 不用),之後插一級不需要改既有資料。
+- 欄位保持 nullable;null 與 0 同義(無優先級)。createTask 未傳時填 0。
+
 ## API 設計
 
 端點:
@@ -102,6 +109,14 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 - 成立(例:title 不能為空)→ 業務驗證,寫在 `src/server/`
 - 不成立(例:網址上的 id 是 "abc"、body 不是合法 JSON)→ 協定層解析,寫在 route handler,同樣回 `VALIDATION_FAILED`
+
+
+### GET /api/tasks 的回傳順序
+
+- 排序在 `listTasks()` 裡用 SQL `ORDER BY` 完成,route handler 與前端不排序。
+- 順序:未完成在前(`completedAt IS NULL`),已完成在後;同一組內 `createdAt` 升冪,再以 `id` 升冪打破平手。
+- `dueDate`、`priority` 目前不參與排序。
+- `listTasks()` 接受一個排序選項參數,`ORDER BY` 從白名單組出;現在只有一種選項(上述預設),之後加 `?sort=` 時只加選項,不改函式形狀。
 
 ## 前端
 
