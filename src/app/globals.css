@@ -7,6 +7,11 @@
   --color-accent: #2563eb;
   --color-danger: #dc2626;
 
+  /* priority 的三級;顏色是文字標籤之外的輔助,不是唯一區分方式 */
+  --color-priority-low: #047857;
+  --color-priority-medium: #b45309;
+  --color-priority-high: #b91c1c;
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 16px;

@@ -25,9 +25,49 @@
   cursor: not-allowed;
 }
 
+/* 右側:優先級、截止日、刪除 */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .dueDate {
   color: var(--color-text-muted);
   white-space: nowrap;
+}
+
+.priority {
+  white-space: nowrap;
+}
+
+/* class 名對應 PRIORITY_LEVELS 的 tone;色碼一律走 :root 變數 */
+.low {
+  color: var(--color-priority-low);
+}
+
+.medium {
+  color: var(--color-priority-medium);
+}
+
+.high {
+  color: var(--color-priority-high);
+}
+
+.delete {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-danger);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.delete:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
 
 /* 已完成:淡化加刪除線區分,但列仍留在清單裡 */

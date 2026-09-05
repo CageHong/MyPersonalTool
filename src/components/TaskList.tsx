@@ -10,13 +10,38 @@ export type Task = {
   id: number
   title: string
   dueDate: string | null
+  priority: number
   completedAt: number | null
 }
 
 export type NewTask = {
   title: string
   dueDate: string | null
+  priority: number
 }
+
+export type PriorityLevel = { label: string; tone: 'low' | 'medium' | 'high' }
+
+// priority 的整數值 → 標籤與樣式 token,同一張表;
+// tone 對應 TaskItem.module.css 的 class 名,色碼在 globals.css 的 :root。
+const PRIORITY_LEVELS: Record<number, PriorityLevel | undefined> = {
+  1: { label: '低', tone: 'low' },
+  3: { label: '中', tone: 'medium' },
+  5: { label: '高', tone: 'high' },
+}
+
+// 0(與 null)查不到 = 無優先級,不標示
+export function priorityLevel(priority: number | null): PriorityLevel | undefined {
+  return priority === null ? undefined : PRIORITY_LEVELS[priority]
+}
+
+// 表單多一個「無」,其餘從同一張表長出來,標籤不重打第二次
+export const PRIORITY_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: '無' },
+  ...Object.entries(PRIORITY_LEVELS).flatMap(([value, level]) =>
+    level === undefined ? [] : [{ value: Number(value), label: level.label }],
+  ),
+]
 
 // API 的錯誤一律是 { error: { code, message, fields? } }
 async function readErrorMessage(response: Response): Promise<string> {
@@ -122,6 +147,12 @@ export default function TaskList() {
     [mutate],
   )
 
+  // 硬刪除,沒有 undo;失敗訊息走 mutate() 同一條路徑
+  const handleDelete = useCallback(
+    (id: number) => mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' })),
+    [mutate],
+  )
+
   return (
     <div className={styles.container}>
       <NewTaskForm onCreate={handleCreate} disabled={mutating} />
@@ -141,7 +172,13 @@ export default function TaskList() {
       {tasks.length > 0 && (
         <ul className={styles.list}>
           {tasks.map((task) => (
-            <TaskItem key={task.id} task={task} onToggle={handleToggle} disabled={mutating} />
+            <TaskItem
+              key={task.id}
+              task={task}
+              onToggle={handleToggle}
+              onDelete={handleDelete}
+              disabled={mutating}
+            />
           ))}
         </ul>
       )}
