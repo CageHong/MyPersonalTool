@@ -126,6 +126,9 @@
   --color-dialog-bg: var(--palette-base);
   --color-dialog-border: var(--palette-line);
   --color-dialog-section-line: var(--palette-line);
+  /* 下拉選單;不借用 dialog 的名字,兩者之後可能各自調 */
+  --color-menu-bg: var(--palette-base);
+  --color-menu-border: var(--palette-line);
   --color-backdrop: var(--palette-shade);
   /* 捲軸:軌道透明,免得深色欄底上多出一條帶子蓋掉分隔線 */
   --color-scrollbar-thumb: var(--palette-line);

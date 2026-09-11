@@ -1,20 +1,14 @@
+/* 壓成一列:標題吃剩餘寬度,右側依序是日期、優先級、送出 */
 .form {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.label {
-  color: var(--color-field-label);
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .input {
+  flex: 1;
+  /* 沒有這行的話,flex 子項不會縮到內容寬度以下 */
+  min-width: 0;
   padding: var(--space-2);
   border: 1px solid var(--color-field-border);
   border-radius: var(--radius);
@@ -23,6 +17,10 @@
   /* 不寫死字型,跟著 body 的 --font-sans */
   font-family: inherit;
   font-size: inherit;
+}
+
+.input::placeholder {
+  color: var(--color-field-placeholder);
 }
 
 .input:focus-visible {
@@ -34,29 +32,31 @@
   color: var(--color-field-disabled-text);
 }
 
-/* 和 .input 同一組邊框與間距,只是原生控制項 */
-.select {
-  align-self: flex-start;
+/* 日期觸發鈕;未設定時只有圖示,已設定時圖示加日期 */
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   padding: var(--space-2);
-  border: 1px solid var(--color-field-border);
+  border: 1px solid var(--color-button-border);
   border-radius: var(--radius);
-  background: var(--color-field-bg);
-  color: var(--color-field-text);
-  font-family: inherit;
-  font-size: inherit;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.select:focus-visible {
-  outline: 2px solid var(--color-field-border-focus);
+.triggerSet {
+  color: var(--color-text);
 }
 
-.select:disabled {
-  background: var(--color-field-disabled-bg);
+.trigger:disabled {
   color: var(--color-field-disabled-text);
+  cursor: not-allowed;
 }
 
 .submit {
-  align-self: flex-start;
   padding: var(--space-2) var(--space-3);
   border: none;
   border-radius: var(--radius);
@@ -64,6 +64,7 @@
   color: var(--color-action-text);
   font-family: inherit;
   font-size: inherit;
+  white-space: nowrap;
   cursor: pointer;
 }
 
