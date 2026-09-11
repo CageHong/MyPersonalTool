@@ -2,17 +2,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* 列內左右兩區的間距,不是列與列的間距 */
   gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-row-border);
-  border-radius: var(--radius);
-  background: var(--color-row-bg);
+  padding: var(--space-2);
+  /* 分隔線式:分界就是這條線,沒有底色、外框、圓角 */
+  border-bottom: 1px solid var(--color-row-border);
   cursor: pointer;
 }
 
-/* 選取中:邊框加左側標記,不動版面寬度 */
+/* 清單最後一列下方不畫線,免得像被截斷 */
+.item:last-child {
+  border-bottom: 0;
+}
+
+/* 選取中:淡底色掃視時看得到,左側色條指出是哪一列;兩者都不動列高與文字位置 */
 .selected {
-  border-color: var(--color-row-selected-border);
+  background: var(--color-row-selected-bg);
   box-shadow: inset var(--space-1) 0 0 var(--color-row-selected-border);
 }
 

@@ -71,7 +71,7 @@
      ------------------------------------------------------------------------- */
   --palette-accent: #c4542e;        /* 主要行動:彈窗的確定鈕 */
   --palette-on-accent: #ffffff;     /* accent 當底色時上面的文字 */
-  --palette-accent-hover: #a8462585; /* 需自行調整 */
+  --palette-accent-hover: #a84625; /* 需自行調整 */
 
   --palette-selected-bg: #dce1e9;      /* 選取列的淡底,黑字可讀 */
   --palette-selected-border: #8b9bb2;  /* 選取列的左側粗邊或外框 */
@@ -158,6 +158,7 @@
   /* ---- 清單項目 ---- */
   --color-row-bg: var(--palette-panel);
   --color-row-border: var(--palette-line);
+  --color-row-selected-bg: var(--palette-selected-bg);
   --color-row-selected-border: var(--palette-accent);
   --color-row-meta: var(--palette-ink-soft);
   --color-row-done-text: var(--palette-ink-soft);
