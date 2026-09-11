@@ -55,6 +55,10 @@
   white-space: nowrap;
 }
 
+.overdue {
+  color: var(--color-danger);
+}
+
 .priority {
   white-space: nowrap;
 }

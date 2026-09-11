@@ -1,0 +1,40 @@
+/* 撐滿整欄,今天的日期才壓得到底部 */
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.views {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.view {
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.view:hover {
+  background: var(--color-bg);
+}
+
+.current {
+  border-color: var(--color-accent);
+  background: var(--color-bg);
+  font-weight: 600;
+}
+
+.today {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}

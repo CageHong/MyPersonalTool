@@ -2,13 +2,13 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
+import CategoryColumn from './CategoryColumn'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
 import styles from './ThreeColumnLayout.module.css'
+import { todayIso } from '@/lib/date'
+import { filterTasks, parseView, type ViewId } from '@/lib/views'
 import type { NewTask, Task, TaskPatch } from '@/lib/tasks'
-
-// 分類欄這一輪還是佔位;view 參數之後才做
-const VIEW_PLACEHOLDERS = ['今天', '未來 7 天', '全部未完成', '已完成']
 
 // API 的錯誤一律是 { error: { code, message, fields? } }
 async function readErrorMessage(response: Response): Promise<string> {
@@ -57,8 +57,14 @@ export default function ThreeColumnLayout() {
   // 寫入 + 重抓的空窗期,用來擋連點
   const [mutating, setMutating] = useState(false)
 
+  const today = todayIso()
+  const view = parseView(searchParams.get('view'))
+  // 篩選在前端做,GET /api/tasks 照舊拿全部
+  const visibleTasks = filterTasks(tasks, view, today)
+
   const selectedId = parseTaskId(searchParams.get('task'))
-  const selectedTask = tasks.find((task) => task.id === selectedId)
+  // 從看得到的那些裡面找:選取的任務被檢視濾掉時,下面的 effect 會清掉 task 參數
+  const selectedTask = visibleTasks.find((task) => task.id === selectedId)
 
   // 選取狀態只存在網址裡,不放元件 state;複製既有參數,之後加的 view 才不會被洗掉
   const replaceParams = useCallback(
@@ -73,6 +79,11 @@ export default function ThreeColumnLayout() {
 
   const handleSelect = useCallback(
     (id: number) => replaceParams((params) => params.set('task', String(id))),
+    [replaceParams],
+  )
+
+  const handleSelectView = useCallback(
+    (next: ViewId) => replaceParams((params) => params.set('view', next)),
     [replaceParams],
   )
 
@@ -97,7 +108,7 @@ export default function ThreeColumnLayout() {
     })()
   }, [refetch])
 
-  // 網址指到不存在的任務(例如剛被刪掉,或手打的 id)就把參數清掉,右欄回空狀態。
+  // 網址指到看不到的任務(被刪掉、手打的 id、被檢視濾掉)就把參數清掉,右欄回空狀態。
   // 要等 loading 結束才判斷,否則首次載入時 tasks 還是空的,合法的 ?task= 會被誤刪。
   useEffect(() => {
     if (loading || selectedId === null || selectedTask !== undefined) {
@@ -177,17 +188,12 @@ export default function ThreeColumnLayout() {
   return (
     <div className={styles.layout}>
       <section className={`${styles.column} ${styles.categories}`}>
-        <h2 className={styles.columnTitle}>分類</h2>
-        <div className={styles.placeholder}>
-          {VIEW_PLACEHOLDERS.map((view) => (
-            <span key={view}>{view}</span>
-          ))}
-        </div>
+        <CategoryColumn view={view} onSelect={handleSelectView} today={today} />
       </section>
 
       <section className={`${styles.column} ${styles.tasks}`}>
         <TaskList
-          tasks={tasks}
+          tasks={visibleTasks}
           loading={loading}
           error={error}
           mutating={mutating}

@@ -1,13 +1,11 @@
 import { useState } from 'react'
-import { addMonths, monthDays, parseIso, todayIso } from '@/lib/date'
+import { addMonths, monthDays, parseIso, todayIso, WEEKDAY_LABELS } from '@/lib/date'
 import styles from './MonthCalendar.module.css'
 
 type Props = {
   value: string | null
   onSelect: (iso: string) => void
 }
-
-const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
 
 function monthOf(iso: string) {
   const { year, month } = parseIso(iso)

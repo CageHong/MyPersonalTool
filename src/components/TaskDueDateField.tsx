@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import DueDateDialog from './DueDateDialog'
+import { formatRelativeDate, isOverdue } from '@/lib/date'
 import type { Task } from '@/lib/tasks'
 import styles from './TaskDueDateField.module.css'
 
@@ -19,14 +20,18 @@ export default function TaskDueDateField({ id, labelId, task, onSave, disabled }
       <button
         id={id}
         type="button"
-        className={styles.trigger}
+        className={
+          task.dueDate !== null && isOverdue(task.dueDate)
+            ? `${styles.trigger} ${styles.overdue}`
+            : styles.trigger
+        }
         onClick={() => setOpen(true)}
         disabled={disabled}
         // 讀出來是「截止日 2026-09-20」
         aria-labelledby={`${labelId} ${id}`}
       >
-        {/* dueDate 是日曆日,原樣顯示 */}
-        {task.dueDate ?? '無'}
+        {/* 相對描述;要看真正的日曆就開彈窗 */}
+        {task.dueDate === null ? '無' : formatRelativeDate(task.dueDate)}
       </button>
 
       {/* 只在開啟時掛載:關閉即卸載,草稿跟著消失 */}

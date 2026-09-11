@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react'
+import { formatRelativeDate, isOverdue } from '@/lib/date'
 import { priorityLevel, type Task } from '@/lib/tasks'
 import styles from './TaskItem.module.css'
 
@@ -73,8 +74,16 @@ export default function TaskItem({
           <span className={`${styles.priority} ${styles[level.tone]}`}>{level.label}</span>
         )}
 
-        {/* dueDate 是日曆日,原樣顯示,不轉時間戳也不做時區換算 */}
-        {task.dueDate !== null && <span className={styles.dueDate}>{task.dueDate}</span>}
+        {/* dueDate 是日曆日,顯示成相對描述;逾期上警示色 */}
+        {task.dueDate !== null && (
+          <span
+            className={
+              isOverdue(task.dueDate) ? `${styles.dueDate} ${styles.overdue}` : styles.dueDate
+            }
+          >
+            {formatRelativeDate(task.dueDate)}
+          </span>
+        )}
 
         <button
           type="button"
