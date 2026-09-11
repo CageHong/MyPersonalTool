@@ -17,7 +17,7 @@
 
 .nav {
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-calendar-nav-border);
   border-radius: var(--radius);
   background: transparent;
   color: var(--color-text);
@@ -33,7 +33,7 @@
 
 .weekday {
   padding: var(--space-1) 0;
-  color: var(--color-text-muted);
+  color: var(--color-calendar-weekday);
   font-size: 0.75rem;
   text-align: center;
 }
@@ -49,19 +49,19 @@
 }
 
 .day:hover {
-  background: var(--color-surface);
+  background: var(--color-calendar-hover-bg);
 }
 
 /* 今天用外框標;和「選中」可以同時成立,兩個都看得出來 */
 .today {
-  border-color: var(--color-accent);
+  border-color: var(--color-calendar-today-border);
 }
 
 .selected {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
+  background: var(--color-calendar-selected-bg);
+  color: var(--color-calendar-selected-text);
 }
 
 .selected:hover {
-  background: var(--color-accent);
+  background: var(--color-calendar-selected-bg);
 }

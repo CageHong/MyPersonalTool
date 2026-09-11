@@ -11,7 +11,7 @@
 }
 
 .fieldLabel {
-  color: var(--color-text-muted);
+  color: var(--color-field-label);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -19,5 +19,5 @@
 }
 
 .empty {
-  color: var(--color-text-muted);
+  color: var(--color-text-subtle);
 }

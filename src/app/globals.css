@@ -1,31 +1,192 @@
+/* ===========================================================================
+   :root — design tokens
+
+   兩層:
+     第一層 --palette-*  色票。只有顏色本身,不帶用途。
+     第二層 --color-*    語意。每個用途一個變數,值一律指向色票。
+
+   規則:元件的 .module.css 只能引用第二層,不得引用 --palette-*,
+   也不得寫死顏色、間距、圓角、字型、字級、字重。需要新的值先加進這裡。
+   =========================================================================== */
+
 :root {
-  --color-bg: #ffffff;
-  --color-surface: #f9fafb;
-  --color-text: #171717;
-  --color-text-muted: #6b7280;
-  --color-border: #e5e7eb;
-  --color-accent: #2563eb;
-  /* accent 當底色時,上面的文字 */
-  --color-on-accent: #ffffff;
-  --color-danger: #dc2626;
+  /* -------------------------------------------------------------------------
+     1. 字型
+     系統既有字型,不載入字型檔。Helvetica Neue 只在 macOS 有,
+     Windows 會落到 Arial、Android 落到 Roboto,畫面會略有差異。
+     ------------------------------------------------------------------------- */
+  --font-sans: Inter, "Helvetica Neue", Helvetica, Arial,
+  "PingFang TC", "Microsoft JhengHei", sans-serif;
+
+  --font-serif: "Source Serif 4", Georgia, "Times New Roman",
+    "Songti TC", "PMingLiU", serif;
+
+  /* -------------------------------------------------------------------------
+     2. 字級
+     手挑整數。元件只能從這四級挑,不要自己填數字。
+     目前四個值對應到畫面上真實存在的用途,沒有用途的級數不先加。
+     ------------------------------------------------------------------------- */
+  --text-xs: 12px;    /* 欄位標籤、月曆星期列、分類欄底部日期 */
+  --text-sm: 14px;    /* 任務列的日期與優先級標記 */
+  --text-base: 16px;  /* 任務標題(清單)、內文、輸入框 */
+  --text-lg: 20px;    /* 右欄的任務標題 */
+
+  /* 字重 */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* =========================================================================
+     第一層:色票
+     只改名稱,值與上一版完全相同。元件不引用這一層。
+     ========================================================================= */
+
+  /* -------------------------------------------------------------------------
+     3. 背景
+     米白為底。灰階全部重新取值,帶暖調——原本的 Tailwind 灰偏藍,
+     放在暖底色上會顯髒。
+
+     B 題未決:三欄要同色靠分隔線區分,還是中欄用 --palette-panel(較亮)、
+     左右欄用 --palette-base。下面的值兩種都支援,差別只在語意層指向哪一個。
+     ------------------------------------------------------------------------- */
+  --palette-base: #9f9f0b;          /* 頁面底色;左右欄 */
+  --palette-panel: #b43226;         /* 較亮的一階;若中欄要區分就用這個 */
+  --palette-panel-hover: #433cc0;   /* 任務列 hover、檢視 hover */
+
+  /* -------------------------------------------------------------------------
+     4. 文字與框線
+     ------------------------------------------------------------------------- */
+  --palette-ink: #1a1a18;           /* 主要文字 */
+  --palette-ink-soft: #6e6a62;      /* 次要文字:日期、欄位標籤 */
+  --palette-ink-subtle: #9b968c;    /* 第四階:已完成任務、佔位文字 */
+  --palette-line: #d9d8cf;
+
+  /* -------------------------------------------------------------------------
+     5. 行動色與選取色
+     兩者刻意分開。橘色是「主要行動」(確定、送出),藍灰是「目前選中的東西」。
+     若兩者同色,中欄掃視時分不出哪列是選中的、哪個是要按的。
+
+     A 題未決:選取狀態的形式。下面三組同時給出,用哪組由語意層決定,
+     沒用到的之後刪掉。
+     ------------------------------------------------------------------------- */
+  --palette-accent: #c4542e;        /* 主要行動:彈窗的確定鈕 */
+  --palette-on-accent: #ffffff;     /* accent 當底色時上面的文字 */
+  --palette-accent-hover: #a8462585; /* 需自行調整 */
+
+  --palette-selected-bg: #dce1e9;      /* 選取列的淡底,黑字可讀 */
+  --palette-selected-border: #8b9bb2;  /* 選取列的左側粗邊或外框 */
+  --palette-selected-strong: #8b9bb2;  /* 若選取要用實底,搭配白字 */
+
+  --palette-secondary: #7c534e;     /* 棕。目前無指定用途 */
+  --palette-highlight: #f0bfd8;     /* 粉。對比不足,只能當大面積底色 */
+
+  /* -------------------------------------------------------------------------
+     6. 語意色
+     這些不是裝飾,是狀態的編碼,不要和上面的行動色混用。
+     注意:amber 與 --palette-accent(橘)色相接近,
+     若實際使用時分不出來,把 amber 往黃調或把 accent 加深。
+     ------------------------------------------------------------------------- */
+  --palette-green: #4a6b4f;
+  --palette-amber: #a8701f;
+  --palette-red: #a8362b;
+  --palette-danger: #a8362b;        /* 逾期、驗證失敗 */
+
   /* modal 背後那層 */
-  --color-backdrop: rgb(23 23 23 / 40%);
+  --palette-shade: rgb(26 26 24 / 40%);
 
-  /* priority 的三級;顏色是文字標籤之外的輔助,不是唯一區分方式 */
-  --color-priority-low: #047857;
-  --color-priority-medium: #b45309;
-  --color-priority-high: #b91c1c;
-
+  /* -------------------------------------------------------------------------
+     7. 間距
+     維持原值,元件全部已經在用。
+     ------------------------------------------------------------------------- */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 16px;
   --space-4: 24px;
   --space-5: 32px;
 
-  --radius: 6px;
+  /* -------------------------------------------------------------------------
+     8. 圓角
+     原本只有一級,對話框和小標籤共用 6px,兩者大小差太多會不成比例。
+     --radius 的值與名稱不變,元件不必改;另外兩級是新增的。
+     ------------------------------------------------------------------------- */
+  --radius-sm: 4px;   /* 優先級標記這類小元素 */
+  --radius: 6px;      /* 輸入框、按鈕 */
+  --radius-lg: 10px;  /* 日期彈窗 */
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", sans-serif;
+  /* =========================================================================
+     第二層:語意
+     元件只能引用這一層。每個用途一個變數,值指向上面的色票。
+     ========================================================================= */
+
+  /* ---- 版面 ---- */
+  --color-page-bg: var(--palette-base);
+  --color-column-aside: var(--palette-panel);   /* 左欄、右欄 */
+  --color-column-main: var(--palette-base);     /* 中欄 */
+  --color-divider: var(--palette-line);         /* 欄與欄之間 */
+  --color-dialog-bg: var(--palette-base);
+  --color-dialog-border: var(--palette-line);
+  --color-dialog-section-line: var(--palette-line);
+  --color-backdrop: var(--palette-shade);
+
+  /* ---- 文字 ---- */
+  --color-text: var(--palette-ink);
+  --color-text-muted: var(--palette-ink-soft);
+  --color-text-subtle: var(--palette-ink-soft);  /* 第四階,之後調淡;色票已備 --palette-ink-subtle */
+
+  /* ---- 可輸入欄位 ---- */
+  --color-field-bg: var(--palette-base);
+  --color-field-text: var(--palette-ink);
+  --color-field-border: var(--palette-line);
+  --color-field-border-focus: var(--palette-accent);
+  --color-field-border-invalid: var(--palette-danger);
+  --color-field-label: var(--palette-ink-soft);
+  --color-field-placeholder: var(--palette-ink-soft);
+  --color-field-selected-bg: var(--palette-panel);
+  --color-field-selected-border: var(--palette-accent);
+  --color-field-disabled-bg: var(--palette-panel);
+  --color-field-disabled-text: var(--palette-ink-soft);
+
+  /* 原生控制項(checkbox / radio)的 accent-color */
+  --color-control-accent: var(--palette-accent);
+
+  /* ---- 清單項目 ---- */
+  --color-row-bg: var(--palette-panel);
+  --color-row-border: var(--palette-line);
+  --color-row-selected-border: var(--palette-accent);
+  --color-row-meta: var(--palette-ink-soft);
+  --color-row-done-text: var(--palette-ink-soft);
+  --color-row-action-border: var(--palette-line);
+
+  /* ---- 左欄檢視 ---- */
+  --color-nav-text: var(--palette-ink);
+  --color-nav-muted: var(--palette-ink-soft);
+  --color-nav-hover-bg: var(--palette-base);
+  --color-nav-selected-bg: var(--palette-base);
+  --color-nav-selected-border: var(--palette-accent);
+
+  /* ---- 動作 ---- */
+  --color-action-bg: var(--palette-accent);
+  --color-action-text: var(--palette-on-accent);
+  --color-action-disabled-bg: var(--palette-panel);
+  --color-action-disabled-text: var(--palette-ink-soft);
+  --color-destructive-text: var(--palette-danger);
+
+  /* ---- 狀態 ---- */
+  --color-overdue: var(--palette-danger);
+  --color-error-text: var(--palette-danger);
+  --color-priority-low: var(--palette-green);
+  --color-priority-medium: var(--palette-amber);
+  --color-priority-high: var(--palette-red);
+
+  /* ---- 月曆 ---- */
+  --color-calendar-hover-bg: var(--palette-panel);
+  --color-calendar-today-bg: var(--palette-panel);
+  --color-calendar-today-border: var(--palette-accent);
+  --color-calendar-selected-bg: var(--palette-accent);
+  --color-calendar-selected-text: var(--palette-on-accent);
+  --color-calendar-focus-border: var(--palette-accent);
+  --color-calendar-weekday: var(--palette-ink-soft);
+  --color-calendar-nav-border: var(--palette-line);
 }
 
 * {
@@ -47,7 +208,7 @@ body {
 body {
   min-height: 100%;
   color: var(--color-text);
-  background: var(--color-bg);
+  background: var(--color-page-bg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

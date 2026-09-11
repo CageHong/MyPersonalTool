@@ -13,9 +13,9 @@
 
 /* 載入中與空狀態共用:次要文字 */
 .status {
-  color: var(--color-text-muted);
+  color: var(--color-text-subtle);
 }
 
 .error {
-  color: var(--color-danger);
+  color: var(--color-error-text);
 }

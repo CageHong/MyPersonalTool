@@ -14,17 +14,19 @@
    有第二個地方用到同一個值再抽成變數 */
 .categories {
   flex: 0 0 15rem;
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
+  background: var(--color-column-aside);
+  border-right: 1px solid var(--color-divider);
 }
 
 .tasks {
   flex: 1;
   /* 沒有這行的話,flex 子項不會縮到內容寬度以下 */
   min-width: 0;
-  border-right: 1px solid var(--color-border);
+  background: var(--color-column-main);
+  border-right: 1px solid var(--color-divider);
 }
 
 .detail {
   flex: 0 0 20rem;
+  background: var(--color-column-aside);
 }

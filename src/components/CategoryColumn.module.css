@@ -16,25 +16,25 @@
   border: 1px solid transparent;
   border-radius: var(--radius);
   background: transparent;
-  color: var(--color-text);
+  color: var(--color-nav-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .view:hover {
-  background: var(--color-bg);
+  background: var(--color-nav-hover-bg);
 }
 
 .current {
-  border-color: var(--color-accent);
-  background: var(--color-bg);
+  border-color: var(--color-nav-selected-border);
+  background: var(--color-nav-selected-bg);
   font-weight: 600;
 }
 
 .today {
   margin-top: auto;
   padding-top: var(--space-3);
-  color: var(--color-text-muted);
+  color: var(--color-text-subtle);
   font-size: 0.75rem;
 }
