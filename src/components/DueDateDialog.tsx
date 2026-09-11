@@ -1,0 +1,81 @@
+import { useEffect, useRef, useState } from 'react'
+import MonthCalendar from './MonthCalendar'
+import { addDays, nextWeekday, onOrNextWeekday, todayIso } from '@/lib/date'
+import type { DueDateDraft } from '@/lib/tasks'
+import styles from './DueDateDialog.module.css'
+
+type Props = {
+  dueDate: string | null
+  onConfirm: (dueDate: string | null) => void
+  onClose: () => void
+}
+
+export default function DueDateDialog({ dueDate, onConfirm, onClose }: Props) {
+  const ref = useRef<HTMLDialogElement>(null)
+  // 這個彈窗之後還要放時間與重複規則,草稿一開始就是物件,到時候往裡面加 key
+  const [draft, setDraft] = useState<DueDateDraft>({ dueDate })
+
+  // showModal() 才有 Esc 關閉、焦點鎖在彈窗內、背景 inert、關閉後焦點回到觸發按鈕
+  useEffect(() => {
+    ref.current?.showModal()
+  }, [])
+
+  const today = todayIso()
+  const shortcuts = [
+    { label: '今天', value: today },
+    { label: '明天', value: addDays(today, 1) },
+    // 最近的週六;今天就是週六的話就是今天
+    { label: '本週末', value: onOrNextWeekday(today, 6) },
+    // 下一個週一
+    { label: '下週', value: nextWeekday(today, 1) },
+  ]
+
+  return (
+    <dialog
+      ref={ref}
+      className={styles.dialog}
+      onClose={onClose}
+      // dialog 自己沒有內距,點到它本身就是點到 backdrop
+      onClick={(event) => {
+        if (event.target === ref.current) {
+          onClose()
+        }
+      }}
+    >
+      <div className={styles.content}>
+        <div className={styles.shortcuts}>
+          {shortcuts.map((shortcut) => (
+            <button
+              key={shortcut.label}
+              type="button"
+              className={styles.shortcut}
+              // 快捷鍵只改草稿,一樣要按確定才送出
+              onClick={() => setDraft((current) => ({ ...current, dueDate: shortcut.value }))}
+            >
+              {shortcut.label}
+            </button>
+          ))}
+        </div>
+
+        <MonthCalendar
+          value={draft.dueDate}
+          onSelect={(iso) => setDraft((current) => ({ ...current, dueDate: iso }))}
+        />
+
+        <div className={styles.footer}>
+          {/* 清除 = 設成 null 並送出 */}
+          <button type="button" className={styles.clear} onClick={() => onConfirm(null)}>
+            清除
+          </button>
+          <button
+            type="button"
+            className={styles.confirm}
+            onClick={() => onConfirm(draft.dueDate)}
+          >
+            確定
+          </button>
+        </div>
+      </div>
+    </dialog>
+  )
+}

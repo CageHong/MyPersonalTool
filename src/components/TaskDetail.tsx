@@ -1,10 +1,11 @@
+import TaskDueDateField from './TaskDueDateField'
 import TaskNotesField from './TaskNotesField'
 import TaskPriorityField from './TaskPriorityField'
 import TaskTitleField from './TaskTitleField'
 import type { Task, TaskPatch } from '@/lib/tasks'
 import styles from './TaskDetail.module.css'
 
-// 標題、描述、優先級可編輯;截止日還是唯讀
+// 四個欄位都可編輯;各自儲存,各自送一次 PATCH
 type Props = {
   task: Task | undefined
   mutating: boolean
@@ -47,9 +48,19 @@ export default function TaskDetail({ task, mutating, onUpdate }: Props) {
       </div>
 
       <div className={styles.field}>
-        <span className={styles.fieldLabel}>截止日</span>
-        {/* dueDate 是日曆日,原樣顯示,不轉時間戳 */}
-        <p className={task.dueDate === null ? styles.blank : undefined}>{task.dueDate ?? '—'}</p>
+        {/* 觸發的是按鈕不是 input,htmlFor 掛不上,用 aria-labelledby 指過去 */}
+        <span className={styles.fieldLabel} id="task-due-date-label">
+          截止日
+        </span>
+        {/* key 換掉 = 換任務就重新掛載,彈窗與草稿不會留到下一筆 */}
+        <TaskDueDateField
+          key={task.id}
+          id="task-due-date"
+          labelId="task-due-date-label"
+          task={task}
+          onSave={(dueDate) => onUpdate(task.id, { dueDate })}
+          disabled={mutating}
+        />
       </div>
 
       <div className={styles.field}>

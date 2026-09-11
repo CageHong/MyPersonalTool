@@ -42,4 +42,10 @@ export type TaskPatch = {
   title?: string
   notes?: string | null
   priority?: number
+  dueDate?: string | null
+}
+
+// 截止日彈窗的草稿。之後要加 dueTime 與重複規則,所以是物件不是單一字串
+export type DueDateDraft = {
+  dueDate: string | null
 }
