@@ -36,3 +36,9 @@ export const PRIORITY_OPTIONS: { value: number; label: string }[] = [
     level === undefined ? [] : [{ value: Number(value), label: level.label }],
   ),
 ]
+
+// 右欄每個欄位各自送一次 PATCH,body 只含那個欄位
+export type TaskPatch = {
+  title?: string
+  notes?: string | null
+}

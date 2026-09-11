@@ -1,12 +1,16 @@
-import { priorityLevel, type Task } from '@/lib/tasks'
+import TaskNotesField from './TaskNotesField'
+import TaskTitleField from './TaskTitleField'
+import { priorityLevel, type Task, type TaskPatch } from '@/lib/tasks'
 import styles from './TaskDetail.module.css'
 
-// 這一步只做唯讀顯示;編輯與 PATCH 是下一步
+// 標題與描述可編輯;截止日與優先級還是唯讀
 type Props = {
   task: Task | undefined
+  mutating: boolean
+  onUpdate: (id: number, patch: TaskPatch) => Promise<boolean>
 }
 
-export default function TaskDetail({ task }: Props) {
+export default function TaskDetail({ task, mutating, onUpdate }: Props) {
   if (task === undefined) {
     return <p className={styles.empty}>未選取任務</p>
   }
@@ -15,12 +19,32 @@ export default function TaskDetail({ task }: Props) {
 
   return (
     <article className={styles.detail}>
-      <h2 className={styles.title}>{task.title}</h2>
+      <div className={styles.field}>
+        <label className={styles.fieldLabel} htmlFor="task-title">
+          標題
+        </label>
+        {/* key 換掉 = 換任務就重新掛載,編輯到一半的值不會殘留到下一筆 */}
+        <TaskTitleField
+          key={task.id}
+          id="task-title"
+          task={task}
+          onSave={(title) => onUpdate(task.id, { title })}
+          disabled={mutating}
+        />
+      </div>
 
       <div className={styles.field}>
-        <span className={styles.fieldLabel}>描述</span>
-        {/* 純文字,不做 Markdown 渲染;換行照原樣(CSS 的 white-space) */}
-        <p className={task.notes === null ? styles.blank : styles.notes}>{task.notes ?? '—'}</p>
+        <label className={styles.fieldLabel} htmlFor="task-notes">
+          描述
+        </label>
+        {/* 純文字,不做 Markdown 渲染 */}
+        <TaskNotesField
+          key={task.id}
+          id="task-notes"
+          task={task}
+          onSave={(notes) => onUpdate(task.id, { notes })}
+          disabled={mutating}
+        />
       </div>
 
       <div className={styles.field}>

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
 import styles from './ThreeColumnLayout.module.css'
-import type { NewTask, Task } from '@/lib/tasks'
+import type { NewTask, Task, TaskPatch } from '@/lib/tasks'
 
 // 分類欄這一輪還是佔位;view 參數之後才做
 const VIEW_PLACEHOLDERS = ['今天', '未來 7 天', '全部未完成', '已完成']
@@ -155,6 +155,19 @@ export default function ThreeColumnLayout() {
     [mutate],
   )
 
+  // 右欄的欄位各自送一次 PATCH,body 只含那個欄位
+  const handleUpdate = useCallback(
+    (id: number, patch: TaskPatch) =>
+      mutate(() =>
+        fetch(`/api/tasks/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        }),
+      ),
+    [mutate],
+  )
+
   // 硬刪除,沒有 undo;刪掉的若是選取中那筆,由上面的 effect 清掉網址參數
   const handleDelete = useCallback(
     (id: number) => mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' })),
@@ -187,7 +200,7 @@ export default function ThreeColumnLayout() {
       </section>
 
       <section className={`${styles.column} ${styles.detail}`}>
-        <TaskDetail task={selectedTask} />
+        <TaskDetail task={selectedTask} mutating={mutating} onUpdate={handleUpdate} />
       </section>
     </div>
   )
