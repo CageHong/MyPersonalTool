@@ -127,6 +127,9 @@
   --color-dialog-border: var(--palette-line);
   --color-dialog-section-line: var(--palette-line);
   --color-backdrop: var(--palette-shade);
+  /* 捲軸:軌道透明,免得深色欄底上多出一條帶子蓋掉分隔線 */
+  --color-scrollbar-thumb: var(--palette-line);
+  --color-scrollbar-track: transparent;
 
   /* ---- 文字 ---- */
   --color-text: var(--palette-ink);
@@ -155,7 +158,6 @@
   --color-row-selected-border: var(--palette-accent);
   --color-row-meta: var(--palette-ink-soft);
   --color-row-done-text: var(--palette-ink-soft);
-  --color-row-action-border: var(--palette-line);
 
   /* ---- 左欄檢視 ---- */
   --color-nav-text: var(--palette-ink);
@@ -166,6 +168,9 @@
 
   /* ---- 動作 ---- */
   --color-action-bg: var(--palette-accent);
+  --color-action-border: var(--palette-accent);
+  /* 按鈕的框線;和欄位的框線分開命名,兩者之後可以各自調 */
+  --color-button-border: var(--palette-line);
   --color-action-text: var(--palette-on-accent);
   --color-action-disabled-bg: var(--palette-panel);
   --color-action-disabled-text: var(--palette-ink-soft);
@@ -186,7 +191,6 @@
   --color-calendar-selected-text: var(--palette-on-accent);
   --color-calendar-focus-border: var(--palette-accent);
   --color-calendar-weekday: var(--palette-ink-soft);
-  --color-calendar-nav-border: var(--palette-line);
 }
 
 * {

@@ -8,6 +8,10 @@
 .column {
   padding: var(--space-3);
   overflow-y: auto;
+  /* 先留好捲軸的位置,出現或消失時內容不會左右跳動 */
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
 }
 
 /* 左右欄的固定寬度是這個版面的值,不是共用 token;
