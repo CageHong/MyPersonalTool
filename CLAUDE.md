@@ -26,6 +26,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - `src/server/` — 業務邏輯(純函式)
 - `src/db/` — Drizzle schema 與連線
 - `src/components/` — UI 元件
+- `src/lib/` — 前後端共用的純函式與型別(不碰資料庫與檔案系統)
 - `drizzle/` — migration 檔(進版控)
 - `data/` — SQLite 檔(不進版控)
 
