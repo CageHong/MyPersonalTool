@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { PRIORITY_OPTIONS, type NewTask } from './TaskList'
+import { PRIORITY_OPTIONS, type NewTask } from '@/lib/tasks'
 import styles from './NewTaskForm.module.css'
 
 type Props = {

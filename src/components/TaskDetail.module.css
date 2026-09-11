@@ -1,0 +1,50 @@
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.title {
+  font-size: 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* 描述保留使用者打的換行,但長行照樣換行 */
+.notes {
+  white-space: pre-wrap;
+}
+
+/* 沒有值的欄位不隱藏,用淡色佔位撐住版面 */
+.blank {
+  color: var(--color-text-muted);
+}
+
+.empty {
+  color: var(--color-text-muted);
+}
+
+/* class 名對應 PRIORITY_LEVELS 的 tone */
+.low {
+  color: var(--color-priority-low);
+}
+
+.medium {
+  color: var(--color-priority-medium);
+}
+
+.high {
+  color: var(--color-priority-high);
+}

@@ -7,13 +7,20 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   background: var(--color-surface);
+  cursor: pointer;
 }
 
-.label {
+/* 選取中:邊框加左側標記,不動版面寬度 */
+.selected {
+  border-color: var(--color-accent);
+  box-shadow: inset var(--space-1) 0 0 var(--color-accent);
+}
+
+/* 左側:勾選框與標題 */
+.main {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  cursor: pointer;
 }
 
 .checkbox {
@@ -23,6 +30,17 @@
 
 .checkbox:disabled {
   cursor: not-allowed;
+}
+
+/* 標題是按鈕(鍵盤要走得到),外觀維持純文字 */
+.title {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 /* 右側:優先級、截止日、刪除 */
