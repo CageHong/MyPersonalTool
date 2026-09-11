@@ -1,0 +1,43 @@
+.group {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* 一顆一格,選中的那格才有底色與實心邊框 */
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.option:has(.radio:checked) {
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+}
+
+.option:has(.radio:disabled) {
+  cursor: not-allowed;
+}
+
+.radio {
+  accent-color: var(--color-accent);
+  cursor: inherit;
+}
+
+/* class 名對應 PRIORITY_LEVELS 的 tone;色碼一律走 :root 變數 */
+.low {
+  color: var(--color-priority-low);
+}
+
+.medium {
+  color: var(--color-priority-medium);
+}
+
+.high {
+  color: var(--color-priority-high);
+}

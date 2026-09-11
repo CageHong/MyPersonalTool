@@ -41,4 +41,5 @@ export const PRIORITY_OPTIONS: { value: number; label: string }[] = [
 export type TaskPatch = {
   title?: string
   notes?: string | null
+  priority?: number
 }

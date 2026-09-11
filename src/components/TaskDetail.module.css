@@ -26,16 +26,3 @@
 .empty {
   color: var(--color-text-muted);
 }
-
-/* class 名對應 PRIORITY_LEVELS 的 tone */
-.low {
-  color: var(--color-priority-low);
-}
-
-.medium {
-  color: var(--color-priority-medium);
-}
-
-.high {
-  color: var(--color-priority-high);
-}

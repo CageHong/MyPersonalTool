@@ -1,9 +1,10 @@
 import TaskNotesField from './TaskNotesField'
+import TaskPriorityField from './TaskPriorityField'
 import TaskTitleField from './TaskTitleField'
-import { priorityLevel, type Task, type TaskPatch } from '@/lib/tasks'
+import type { Task, TaskPatch } from '@/lib/tasks'
 import styles from './TaskDetail.module.css'
 
-// 標題與描述可編輯;截止日與優先級還是唯讀
+// 標題、描述、優先級可編輯;截止日還是唯讀
 type Props = {
   task: Task | undefined
   mutating: boolean
@@ -14,8 +15,6 @@ export default function TaskDetail({ task, mutating, onUpdate }: Props) {
   if (task === undefined) {
     return <p className={styles.empty}>未選取任務</p>
   }
-
-  const level = priorityLevel(task.priority)
 
   return (
     <article className={styles.detail}>
@@ -54,10 +53,16 @@ export default function TaskDetail({ task, mutating, onUpdate }: Props) {
       </div>
 
       <div className={styles.field}>
-        <span className={styles.fieldLabel}>優先級</span>
-        <p className={level === undefined ? styles.blank : styles[level.tone]}>
-          {level?.label ?? '無'}
-        </p>
+        {/* 一個 label 掛不到四顆 radio,改用 aria-labelledby 指過去 */}
+        <span className={styles.fieldLabel} id="task-priority-label">
+          優先級
+        </span>
+        <TaskPriorityField
+          labelId="task-priority-label"
+          task={task}
+          onSave={(priority) => onUpdate(task.id, { priority })}
+          disabled={mutating}
+        />
       </div>
     </article>
   )
