@@ -1,0 +1,46 @@
+.layout {
+  display: flex;
+  /* 版面自己吃滿視窗高度,捲動交給各欄;頁面本身不捲 */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.column {
+  padding: var(--space-3);
+  overflow-y: auto;
+}
+
+/* 左右欄的固定寬度是這個版面的值,不是共用 token;
+   有第二個地方用到同一個值再抽成變數 */
+.categories {
+  flex: 0 0 15rem;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+}
+
+.tasks {
+  flex: 1;
+  /* 沒有這行的話,flex 子項不會縮到內容寬度以下 */
+  min-width: 0;
+  border-right: 1px solid var(--color-border);
+}
+
+.detail {
+  flex: 0 0 20rem;
+}
+
+.columnTitle {
+  margin-bottom: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}

@@ -1,11 +1,5 @@
-import TaskList from '@/components/TaskList'
-import styles from './page.module.css'
+import ThreeColumnLayout from '@/components/ThreeColumnLayout'
 
 export default function Home() {
-  return (
-    <main className={styles.main}>
-      <h1>tasks</h1>
-      <TaskList />
-    </main>
-  )
+  return <ThreeColumnLayout />
 }
