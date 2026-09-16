@@ -49,14 +49,14 @@
      B 題未決:三欄要同色靠分隔線區分,還是中欄用 --palette-panel(較亮)、
      左右欄用 --palette-base。下面的值兩種都支援,差別只在語意層指向哪一個。
      ------------------------------------------------------------------------- */
-  --palette-base: #9f9f0b;          /* 頁面底色;左右欄 */
-  --palette-panel: #b43226;         /* 較亮的一階;若中欄要區分就用這個 */
+  --palette-base: #ebe6e6;          /* 頁面底色;左右欄 */
+  --palette-panel: #d6cece;         /* 較亮的一階;若中欄要區分就用這個 */
   --palette-panel-hover: #433cc0;   /* 任務列 hover、檢視 hover */
 
   /* -------------------------------------------------------------------------
      4. 文字與框線
      ------------------------------------------------------------------------- */
-  --palette-ink: #1a1a18;           /* 主要文字 */
+  --palette-ink: #050500;           /* 主要文字 */
   --palette-ink-soft: #6e6a62;      /* 次要文字:日期、欄位標籤 */
   --palette-ink-subtle: #9b968c;    /* 第四階:已完成任務、佔位文字 */
   --palette-line: #d9d8cf;
@@ -69,13 +69,13 @@
      A 題未決:選取狀態的形式。下面三組同時給出,用哪組由語意層決定,
      沒用到的之後刪掉。
      ------------------------------------------------------------------------- */
-  --palette-accent: #c4542e;        /* 主要行動:彈窗的確定鈕 */
+  --palette-accent: #d44b29;        /* 主要行動:彈窗的確定鈕 */
   --palette-on-accent: #ffffff;     /* accent 當底色時上面的文字 */
   --palette-accent-hover: #a84625; /* 需自行調整 */
 
-  --palette-selected-bg: #dce1e9;      /* 選取列的淡底,黑字可讀 */
-  --palette-selected-border: #8b9bb2;  /* 選取列的左側粗邊或外框 */
-  --palette-selected-strong: #8b9bb2;  /* 若選取要用實底,搭配白字 */
+  --palette-selected-bg: #e6dddd;      /* 選取列的淡底,黑字可讀 */
+  --palette-selected-border: #0c3061;  /* 選取列的左側粗邊或外框 */
+  --palette-selected-strong: #1f5095;  /* 若選取要用實底,搭配白字 */
 
   --palette-secondary: #7c534e;     /* 棕。目前無指定用途 */
   --palette-highlight: #f0bfd8;     /* 粉。對比不足,只能當大面積底色 */
