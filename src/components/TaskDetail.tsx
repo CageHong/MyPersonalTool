@@ -10,15 +10,29 @@ type Props = {
   task: Task | undefined
   mutating: boolean
   onUpdate: (id: number, patch: TaskPatch) => Promise<boolean>
+  onDelete: (id: number) => Promise<boolean>
 }
 
-export default function TaskDetail({ task, mutating, onUpdate }: Props) {
+export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props) {
   if (task === undefined) {
     return <p className={styles.empty}>未選取任務</p>
   }
 
   return (
     <article className={styles.detail}>
+      <div className={styles.header}>
+        {/* 目前直接刪,沒有二次確認;要加確認或改軟刪除時只動這裡 */}
+        <button
+          type="button"
+          className={styles.delete}
+          onClick={() => void onDelete(task.id)}
+          disabled={mutating}
+          aria-label={`刪除「${task.title}」`}
+        >
+          刪除
+        </button>
+      </div>
+
       <div className={styles.field}>
         <label className={styles.fieldLabel} htmlFor="task-title">
           標題

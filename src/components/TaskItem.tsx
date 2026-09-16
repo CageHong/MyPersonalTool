@@ -8,7 +8,6 @@ type Props = {
   selected: boolean
   onSelect: (id: number) => void
   onToggle: (task: Task) => Promise<boolean>
-  onDelete: (id: number) => Promise<boolean>
   disabled: boolean
 }
 
@@ -17,7 +16,6 @@ export default function TaskItem({
   selected,
   onSelect,
   onToggle,
-  onDelete,
   disabled,
 }: Props) {
   const completed = task.completedAt !== null
@@ -31,15 +29,9 @@ export default function TaskItem({
     void onToggle(task)
   }
 
-  // 勾完成與刪除有自己的意思,不順便把這一列選起來
+  // 勾完成有自己的意思,不順便把這一列選起來
   function stopSelect(event: MouseEvent) {
     event.stopPropagation()
-  }
-
-  // 目前直接刪,沒有二次確認;要加確認或改軟刪除時只動這個函式
-  function handleDelete(event: MouseEvent) {
-    stopSelect(event)
-    void onDelete(task.id)
   }
 
   const classNames = [styles.item]
@@ -84,16 +76,6 @@ export default function TaskItem({
             {formatRelativeDate(task.dueDate)}
           </span>
         )}
-
-        <button
-          type="button"
-          className={styles.delete}
-          onClick={handleDelete}
-          disabled={disabled}
-          aria-label={`刪除「${task.title}」`}
-        >
-          刪除
-        </button>
       </div>
     </li>
   )

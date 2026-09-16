@@ -13,7 +13,6 @@ type Props = {
   onSelect: (id: number) => void
   onCreate: (input: NewTask) => Promise<boolean>
   onToggle: (task: Task) => Promise<boolean>
-  onDelete: (id: number) => Promise<boolean>
 }
 
 export default function TaskList({
@@ -25,7 +24,6 @@ export default function TaskList({
   onSelect,
   onCreate,
   onToggle,
-  onDelete,
 }: Props) {
   return (
     <div className={styles.container}>
@@ -52,7 +50,6 @@ export default function TaskList({
               selected={task.id === selectedId}
               onSelect={onSelect}
               onToggle={onToggle}
-              onDelete={onDelete}
               disabled={mutating}
             />
           ))}

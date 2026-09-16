@@ -164,6 +164,10 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、checklist、重複任務、習慣。
 
+## 待處理事項
+
+- `task.parentTaskId` 的外鍵沒有指定 `onDelete`,且連線開啟 `foreign_keys = ON`,刪除有子任務的父任務會失敗(500)。做 checklist 或子任務時必須先決定刪除行為。
+
 ## 紀律
 
 1. **業務邏輯一律寫在 `src/server/` 的純函式。** route handler 只做三件事:解析請求、呼叫 `src/server/` 的函式、回傳 JSON。不要在 route handler 裡寫任何邏輯或直接碰資料庫。理由:之後這個 API 要搬到獨立伺服器常駐。

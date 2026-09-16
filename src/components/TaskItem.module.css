@@ -54,7 +54,7 @@
   text-overflow: ellipsis;
 }
 
-/* 右側:優先級、截止日、刪除 */
+/* 右側:優先級、截止日 */
 .meta {
   display: flex;
   align-items: center;
@@ -89,22 +89,6 @@
 
 .high {
   color: var(--color-priority-high);
-}
-
-.delete {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-button-border);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--color-destructive-text);
-  font-family: inherit;
-  font-size: inherit;
-  cursor: pointer;
-}
-
-.delete:disabled {
-  color: var(--color-action-disabled-text);
-  cursor: not-allowed;
 }
 
 /* 已完成:淡化加刪除線區分,但列仍留在清單裡 */

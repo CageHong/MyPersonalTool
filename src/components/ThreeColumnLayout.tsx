@@ -110,6 +110,7 @@ export default function ThreeColumnLayout() {
 
   // 網址指到看不到的任務(被刪掉、手打的 id、被檢視濾掉)就把參數清掉,右欄回空狀態。
   // 要等 loading 結束才判斷,否則首次載入時 tasks 還是空的,合法的 ?task= 會被誤刪。
+  // 從右欄刪除時由 handleDelete 在成功後直接清,不靠這個 effect;兩邊都清也是同一個結果。
   useEffect(() => {
     if (loading || selectedId === null || selectedTask !== undefined) {
       return
@@ -179,10 +180,17 @@ export default function ThreeColumnLayout() {
     [mutate],
   )
 
-  // 硬刪除,沒有 undo;刪掉的若是選取中那筆,由上面的 effect 清掉網址參數
+  // 硬刪除,沒有 undo。刪除鈕在右欄,刪的一定是選取中那筆:成功後清掉 task、保留 view;
+  // 失敗時 mutate 已經 setError,任務與選取都不動
   const handleDelete = useCallback(
-    (id: number) => mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' })),
-    [mutate],
+    async (id: number) => {
+      const ok = await mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' }))
+      if (ok) {
+        replaceParams((params) => params.delete('task'))
+      }
+      return ok
+    },
+    [mutate, replaceParams],
   )
 
   return (
@@ -201,12 +209,16 @@ export default function ThreeColumnLayout() {
           onSelect={handleSelect}
           onCreate={handleCreate}
           onToggle={handleToggle}
-          onDelete={handleDelete}
         />
       </section>
 
       <section className={`${styles.column} ${styles.detail}`}>
-        <TaskDetail task={selectedTask} mutating={mutating} onUpdate={handleUpdate} />
+        <TaskDetail
+          task={selectedTask}
+          mutating={mutating}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+        />
       </section>
     </div>
   )
