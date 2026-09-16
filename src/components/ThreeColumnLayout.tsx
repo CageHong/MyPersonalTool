@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import CategoryColumn from './CategoryColumn'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
@@ -56,6 +56,12 @@ export default function ThreeColumnLayout() {
   const [error, setError] = useState<string | null>(null)
   // 寫入 + 重抓的空窗期,用來擋連點
   const [mutating, setMutating] = useState(false)
+
+  // 刪除成功後焦點要移到中欄。存「被刪的任務 id」而不是布林值:
+  // 確認彈窗在請求進行中可以取消,使用者可能先選了別的任務,布林值會停在 true,
+  // 之後任何一次 selectedTask 變成 undefined 都會誤移焦點。不影響畫面,所以用 ref 不用 state
+  const tasksColumnRef = useRef<HTMLElement>(null)
+  const focusAfterDeleteIdRef = useRef<number | null>(null)
 
   const today = todayIso()
   const view = parseView(searchParams.get('view'))
@@ -117,6 +123,21 @@ export default function ThreeColumnLayout() {
     }
     replaceParams((params) => params.delete('task'))
   }, [loading, replaceParams, selectedId, selectedTask])
+
+  // 被刪的任務從 tasks 消失 = 重抓已經套用到畫面。這次渲染裡右欄已換成空狀態,
+  // ConfirmDialog 連同 <dialog> 一起卸載,彈窗外的 inert 已解除,focus() 才有效。
+  // 不在 handleDelete 的 await 之後直接 focus:那時重抓的渲染不一定已經套用。
+  // 右欄仍有選取(請求中取消彈窗、改選別的任務)就不搶焦點;兩種情況都清掉旗標
+  useEffect(() => {
+    const deletedId = focusAfterDeleteIdRef.current
+    if (deletedId === null || tasks.some((task) => task.id === deletedId)) {
+      return
+    }
+    focusAfterDeleteIdRef.current = null
+    if (selectedTask === undefined) {
+      tasksColumnRef.current?.focus()
+    }
+  }, [tasks, selectedTask])
 
   // 寫入成功後整份重抓,不拿回應的物件更新 state,也不做樂觀更新
   const mutate = useCallback(
@@ -181,12 +202,16 @@ export default function ThreeColumnLayout() {
   )
 
   // 硬刪除,沒有 undo。刪除鈕在右欄,刪的一定是選取中那筆:成功後清掉 task、保留 view;
-  // 失敗時 mutate 已經 setError,任務與選取都不動
+  // 失敗時 mutate 已經 setError,任務、選取與焦點都不動
   const handleDelete = useCallback(
     async (id: number) => {
+      // 送出前就設好:重抓的渲染可能比 await 回來更早套用,effect 要在那時看得到旗標
+      focusAfterDeleteIdRef.current = id
       const ok = await mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' }))
       if (ok) {
         replaceParams((params) => params.delete('task'))
+      } else {
+        focusAfterDeleteIdRef.current = null
       }
       return ok
     },
@@ -199,7 +224,13 @@ export default function ThreeColumnLayout() {
         <CategoryColumn view={view} onSelect={handleSelectView} today={today} />
       </section>
 
-      <section className={`${styles.column} ${styles.tasks}`}>
+      {/* tabIndex={-1}:不進 Tab 順序,只讓程式在刪除後把焦點放過來 */}
+      <section
+        ref={tasksColumnRef}
+        tabIndex={-1}
+        aria-label="任務清單"
+        className={`${styles.column} ${styles.tasks}`}
+      >
         <TaskList
           tasks={visibleTasks}
           loading={loading}

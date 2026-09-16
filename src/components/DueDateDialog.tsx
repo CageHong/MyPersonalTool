@@ -15,9 +15,20 @@ export default function DueDateDialog({ dueDate, onConfirm, onClose }: Props) {
   // 這個彈窗之後還要放時間與重複規則,草稿一開始就是物件,到時候往裡面加 key
   const [draft, setDraft] = useState<DueDateDraft>({ dueDate })
 
-  // showModal() 才有 Esc 關閉、焦點鎖在彈窗內、背景 inert、關閉後焦點回到觸發按鈕
+  // showModal() 才有 Esc 關閉、焦點鎖在彈窗內、背景 inert、關閉後焦點回到觸發按鈕。
+  // 開發模式下 effect 會跑兩次,先確認還沒開啟。
+  // 焦點明確放在 <dialog> 本身,按一次 Tab 才進到第一個按鈕。不用 React 的 autoFocus:
+  // 它在掛載時就 focus(),那時 dialog 還沒 showModal() 不可聚焦,
+  // 接著 showModal() 又會自己把焦點給第一個可聚焦的子元素
   useEffect(() => {
-    ref.current?.showModal()
+    const dialog = ref.current
+    if (dialog === null) {
+      return
+    }
+    if (!dialog.open) {
+      dialog.showModal()
+    }
+    dialog.focus()
   }, [])
 
   const today = todayIso()
@@ -33,6 +44,7 @@ export default function DueDateDialog({ dueDate, onConfirm, onClose }: Props) {
   return (
     <dialog
       ref={ref}
+      tabIndex={-1}
       className={styles.dialog}
       onClose={onClose}
       // dialog 自己沒有內距,點到它本身就是點到 backdrop
