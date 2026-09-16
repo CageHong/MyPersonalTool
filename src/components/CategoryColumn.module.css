@@ -25,12 +25,15 @@
   cursor: pointer;
 }
 
-.view:hover {
+/* 和任務列同一套:hover 只換底色,選取中的不吃 hover */
+.view:not(.current):hover {
   background: var(--color-nav-hover-bg);
 }
 
+/* 選取 = 底色 + 左側色條 + 字重。和任務列一致用色條不用外框;
+   .view 的透明 border 保留,選取時尺寸不變。檢視名稱短,加粗不影響排版 */
 .current {
-  border-color: var(--color-nav-selected-border);
+  box-shadow: inset var(--space-1) 0 0 var(--color-nav-selected-border);
   background: var(--color-nav-selected-bg);
   font-weight: var(--weight-semibold);
 }

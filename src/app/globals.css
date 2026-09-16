@@ -169,6 +169,9 @@
   --color-row-bg: var(--palette-panel);
   --color-row-border: var(--palette-line);
   --color-row-selected-bg: var(--palette-selected-bg);
+  /* hover 只換底色;在 base 上 1.25,和 selected-bg 差 1.16。
+     比選取底色深,選取列靠左側色條認出 */
+  --color-row-hover-bg: var(--palette-panel);
   --color-row-selected-border: var(--palette-accent);
   --color-row-meta: var(--palette-ink-soft);
   --color-row-done-text: var(--palette-ink-soft);
@@ -176,7 +179,8 @@
   /* ---- 左欄檢視 ---- */
   --color-nav-text: var(--palette-ink);
   --color-nav-muted: var(--palette-ink-soft);
-  --color-nav-hover-bg: var(--palette-base);
+  /* 左欄底是 panel:hover 1.16、選取 1.25;兩者只差 1.08,選取另靠色條與字重區分 */
+  --color-nav-hover-bg: var(--palette-selected-bg);
   --color-nav-selected-bg: var(--palette-base);
   --color-nav-selected-border: var(--palette-accent);
 

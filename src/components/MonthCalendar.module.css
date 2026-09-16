@@ -48,20 +48,19 @@
   cursor: pointer;
 }
 
-.day:hover {
+/* hover 只換底色;選中的格子不吃 hover,維持選中樣式 */
+.day:not(.selected):hover {
   background: var(--color-calendar-hover-bg);
 }
 
-/* 今天用外框標;和「選中」可以同時成立,兩個都看得出來 */
+/* 今天用外框加粗體。今天同時被選中時,accent 外框和 accent 實底同色會融在一起,
+   靠粗體認出今天;不用底色,免得和 hover 撞色 */
 .today {
   border-color: var(--color-calendar-today-border);
+  font-weight: var(--weight-semibold);
 }
 
 .selected {
   background: var(--color-calendar-selected-bg);
   color: var(--color-calendar-selected-text);
-}
-
-.selected:hover {
-  background: var(--color-calendar-selected-bg);
 }

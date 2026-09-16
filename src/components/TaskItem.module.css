@@ -15,6 +15,12 @@
   border-bottom: 0;
 }
 
+/* hover 只換底色。排除 .selected:直接寫 .item:hover 的優先度 (0,2,0) 高於 .selected,
+   會蓋掉選取底色;用 :not() 讓選取列根本不吃 hover,不靠宣告順序 */
+.item:not(.selected):hover {
+  background: var(--color-row-hover-bg);
+}
+
 /* 選取中:淡底色掃視時看得到,左側色條指出是哪一列;兩者都不動列高與文字位置 */
 .selected {
   background: var(--color-row-selected-bg);
