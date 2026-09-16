@@ -14,22 +14,25 @@
      1. 字型
      系統既有字型,不載入字型檔。Helvetica Neue 只在 macOS 有,
      Windows 會落到 Arial、Android 落到 Roboto,畫面會略有差異。
+     不列 Inter、Source Serif 4 這類需要載入的字型:它們只在本機剛好有安裝時
+     生效,同一份程式碼會因機器不同而顯示不同字型。決定載入字型檔時再加回。
      ------------------------------------------------------------------------- */
-  --font-sans: Inter, "Helvetica Neue", Helvetica, Arial,
-  "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-sans: "Helvetica Neue", Helvetica, Arial,
+    "PingFang TC", "Microsoft JhengHei", sans-serif;
 
-  --font-serif: "Source Serif 4", Georgia, "Times New Roman",
-    "Songti TC", "PMingLiU", serif;
+  --font-serif: Georgia, "Times New Roman",
+    "Songti TC", PMingLiU, serif;
 
   /* -------------------------------------------------------------------------
      2. 字級
-     手挑整數。元件只能從這四級挑,不要自己填數字。
+     手挑整數 px(以 rem 表示)。元件只能從這四級挑,不要自己填數字。
      目前四個值對應到畫面上真實存在的用途,沒有用途的級數不先加。
+     字級用 rem 以跟隨使用者字級設定;間距與圓角維持 px。
      ------------------------------------------------------------------------- */
-  --text-xs: 12px;    /* 欄位標籤、月曆星期列、分類欄底部日期 */
-  --text-sm: 14px;    /* 任務列的日期與優先級標記 */
-  --text-base: 16px;  /* 任務標題(清單)、內文、輸入框 */
-  --text-lg: 20px;    /* 右欄的任務標題 */
+  --text-xs: 0.75rem;   /* 12px 欄位標籤、月曆星期列、分類欄底部日期 */
+  --text-sm: 0.875rem;  /* 14px 任務列的日期與優先級標記 */
+  --text-base: 1rem;    /* 16px 任務標題(清單)、內文、輸入框 */
+  --text-lg: 1.25rem;   /* 20px 右欄的任務標題 */
 
   /* 字重 */
   --weight-normal: 400;

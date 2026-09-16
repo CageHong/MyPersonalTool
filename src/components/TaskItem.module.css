@@ -57,6 +57,7 @@
 
 .dueDate {
   color: var(--color-row-meta);
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 
@@ -65,6 +66,7 @@
 }
 
 .priority {
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 

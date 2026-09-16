@@ -6,7 +6,7 @@
   background: var(--color-field-bg);
   color: var(--color-field-text);
   font-family: inherit;
-  font-size: 1.25rem;
+  font-size: var(--text-lg);
 }
 
 .input:disabled {
