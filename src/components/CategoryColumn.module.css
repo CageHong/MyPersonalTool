@@ -19,6 +19,9 @@
   color: var(--color-nav-text);
   font: inherit;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 

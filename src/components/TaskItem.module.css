@@ -26,6 +26,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* 沒有這行的話,這一區不會縮到標題全長以下,標題永遠截不到 */
+  min-width: 0;
 }
 
 .checkbox {
@@ -46,6 +48,10 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  /* 單行截斷;overflow 不是 visible,本身不需要 min-width: 0 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 右側:優先級、截止日、刪除 */
@@ -53,6 +59,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  /* 空間不夠時只截標題,這一組維持完整 */
+  flex-shrink: 0;
 }
 
 .dueDate {
