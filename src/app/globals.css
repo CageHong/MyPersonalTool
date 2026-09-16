@@ -116,6 +116,13 @@
   --radius: 6px;      /* 輸入框、按鈕 */
   --radius-lg: 10px;  /* 日期彈窗 */
 
+  /* -------------------------------------------------------------------------
+     9. 焦點外框
+     全頁同一種寬度與間隙;顏色在語意層的 --color-focus-ring。
+     ------------------------------------------------------------------------- */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
   /* =========================================================================
      第二層:語意
      元件只能引用這一層。每個用途一個變數,值指向上面的色票。
@@ -198,6 +205,12 @@
   --color-calendar-selected-text: var(--palette-on-accent);
   --color-calendar-focus-border: var(--palette-accent);
   --color-calendar-weekday: var(--palette-ink-soft);
+
+  /* ---- 焦點 ----
+     全頁同一個顏色。不用 accent:橘色已代表主要行動與選取,
+     而且在 panel 底上對比只有 2.81,不到非文字元素要求的 3:1。
+     selected-strong 在 base、panel、選取列底上都 ≥ 5:1。 */
+  --color-focus-ring: var(--palette-selected-strong);
 }
 
 * {
@@ -228,4 +241,11 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* 用 :focus-visible 不用 :focus:滑鼠點按鈕不出框,鍵盤操作才出框。
+   元件不要寫 outline: none,也不要各自覆寫焦點顏色。 */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }

@@ -23,10 +23,6 @@
   color: var(--color-field-placeholder);
 }
 
-.input:focus-visible {
-  outline: 2px solid var(--color-field-border-focus);
-}
-
 .input:disabled {
   background: var(--color-field-disabled-bg);
   color: var(--color-field-disabled-text);
