@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import ConfirmDialog from './ConfirmDialog'
 import TaskDueDateField from './TaskDueDateField'
 import TaskNotesField from './TaskNotesField'
 import TaskPriorityField from './TaskPriorityField'
@@ -14,6 +16,9 @@ type Props = {
 }
 
 export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props) {
+  // 存「正在確認刪除哪一筆」而不是布林值:換任務自動失效,刪除成功或失敗後都清成 null
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
+
   if (task === undefined) {
     return <p className={styles.empty}>未選取任務</p>
   }
@@ -21,17 +26,30 @@ export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props
   return (
     <article className={styles.detail}>
       <div className={styles.header}>
-        {/* 目前直接刪,沒有二次確認;要加確認或改軟刪除時只動這裡 */}
+        {/* 目前是硬刪除,所以需要確認;改成軟刪除後可拿掉確認,改成復原提示 */}
         <button
           type="button"
           className={styles.delete}
-          onClick={() => void onDelete(task.id)}
+          onClick={() => setConfirmingId(task.id)}
           disabled={mutating}
           aria-label={`刪除「${task.title}」`}
         >
           刪除
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmingId === task.id}
+        title="刪除任務?"
+        description={`「${task.title}」刪除後無法復原。`}
+        confirmLabel="刪除"
+        // 失敗時 handleDelete 已經 setError,任務與選取不動;成功或失敗都關閉彈窗
+        onConfirm={async () => {
+          await onDelete(task.id)
+          setConfirmingId(null)
+        }}
+        onCancel={() => setConfirmingId(null)}
+      />
 
       <div className={styles.field}>
         <label className={styles.fieldLabel} htmlFor="task-title">

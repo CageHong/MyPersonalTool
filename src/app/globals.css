@@ -73,7 +73,7 @@
      沒用到的之後刪掉。
      ------------------------------------------------------------------------- */
   --palette-accent: #d44b29;        /* 主要行動:彈窗的確定鈕 */
-  --palette-on-accent: #ffffff;     /* accent 當底色時上面的文字 */
+  --palette-on-accent: #ffffff;     /* accent 當底色時上面的文字;也用在 danger 底色上 */
   --palette-accent-hover: #a84625; /* 需自行調整 */
 
   --palette-selected-bg: #e6dddd;      /* 選取列的淡底,黑字可讀 */
@@ -189,6 +189,10 @@
   --color-action-disabled-bg: var(--palette-panel);
   --color-action-disabled-text: var(--palette-ink-soft);
   --color-destructive-text: var(--palette-danger);
+  /* 破壞性動作的實底按鈕(確認刪除) */
+  --color-destructive-bg: var(--palette-danger);
+  --color-destructive-border: var(--palette-danger);
+  --color-destructive-on-bg: var(--palette-on-accent);  /* 白字,在 danger 底上約 6.5:1 */
 
   /* ---- 狀態 ---- */
   --color-overdue: var(--palette-danger);
