@@ -1,5 +1,25 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import {
+  closestCenter,
+  DndContext,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type UniqueIdentifier,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import ChecklistItemRow from './ChecklistItemRow'
+import {
+  checklistAnnouncements,
+  GuardedKeyboardSensor,
+  GuardedPointerSensor,
+  screenReaderInstructions,
+} from './checklistSortable'
 import NewChecklistItemForm from './NewChecklistItemForm'
 import TaskListSkeleton from './TaskListSkeleton'
 import type { ChecklistItem, ChecklistItemPatch } from '@/lib/checklist'
@@ -39,6 +59,9 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
   // 寫入排隊:每個動作等前一個(含重抓)結束才開始,所以不必停用任何控制項。
   // 例:編輯中直接點刪除鈕,失焦觸發的儲存先排進去,刪除排在它後面,兩個都會執行
   const queueRef = useRef<Promise<unknown>>(Promise.resolve())
+  // 佇列裡還沒完成的動作數(含執行中的那個)。拖曳感應器在按下的當下讀它:
+  // 大於 0 就不啟動,不需要 state,也不會觸發重新渲染
+  const pendingWritesRef = useRef(0)
 
   // 刪除後的焦點,清單空了都落到新增列:
   // - 刪除鈕(prefer: 'next'):遞補上來那一項;刪的是最後一項就退到前一項。
@@ -56,8 +79,15 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
   // 再按 Backspace(或連點刪除鈕)不能對同一項排第二個 DELETE,否則第二個會回 404
   const deletingIdsRef = useRef(new Set<number>())
 
+  // 放下(或取消)後焦點留在被拖曳項目的把手上
+  const handleRefs = useRef(new Map<number, HTMLButtonElement>())
+  const focusHandleIdRef = useRef<number | null>(null)
+
   const enqueue = useCallback(<T,>(job: () => Promise<T>): Promise<T> => {
-    const next = queueRef.current.then(job)
+    pendingWritesRef.current += 1
+    const next = queueRef.current.then(job).finally(() => {
+      pendingWritesRef.current -= 1
+    })
     // 佇列本身不能因為某個動作失敗就斷掉
     queueRef.current = next.catch(() => undefined)
     return next
@@ -173,6 +203,67 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
     void deleteItem(item, 'previous', true)
   }
 
+  // 寫入排隊中(含初次載入)不能開始拖曳:放下後的樂觀順序會被先完成的寫入的重抓蓋掉,
+  // 後送的 PUT 也可能因陣列不吻合被拒
+  const isBlocked = useCallback(() => pendingWritesRef.current > 0, [])
+  const sensors = useSensors(
+    // 移動 5px 才算拖曳,單純點一下把手不會啟動
+    useSensor(GuardedPointerSensor, { isBlocked, activationConstraint: { distance: 5 } }),
+    useSensor(GuardedKeyboardSensor, { isBlocked, coordinateGetter: sortableKeyboardCoordinates }),
+  )
+  // 拖曳期間 items 不會變(樂觀更新在放下之後),朗讀文字直接用這次渲染的 items
+  const announcements = useMemo(() => checklistAnnouncements(items), [items])
+
+  function focusHandleAfterDrop(id: UniqueIdentifier) {
+    focusHandleIdRef.current = Number(id)
+    // DOM 節點不會因為換位置而卸載(key = id);等這次拖曳的渲染結束再聚焦
+    requestAnimationFrame(() => {
+      const target = focusHandleIdRef.current
+      focusHandleIdRef.current = null
+      if (target !== null) {
+        handleRefs.current.get(target)?.focus()
+      }
+    })
+  }
+
+  // 位置沒變就不做事。有變就先直接改 items(樂觀更新,全 app 唯一的樂觀更新),
+  // 等回應的話放手時項目會先彈回原位。PUT 排進佇列,成功或失敗都重抓:
+  // 成功 = 照常;失敗 = 還原成伺服器的順序
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    focusHandleAfterDrop(active.id)
+    if (over === null || active.id === over.id) {
+      return
+    }
+    const from = items.findIndex((item) => item.id === active.id)
+    const to = items.findIndex((item) => item.id === over.id)
+    if (from === -1 || to === -1) {
+      return
+    }
+    const next = arrayMove(items, from, to)
+    setItems(next)
+
+    void enqueue(async () => {
+      try {
+        const response = await fetch(`/api/tasks/${taskId}/checklist-items/order`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemIds: next.map((item) => item.id) }),
+        })
+        const failure = response.ok ? null : await readApiError(response)
+        const refetchFailure = await fetchItems()
+        if (failure !== null) {
+          onError(messageFor(failure, 'task'))
+        } else {
+          onError(refetchFailure === null ? null : messageFor(refetchFailure, 'task'))
+        }
+      } catch {
+        onError(generalMessage('NETWORK'))
+        // 連線恢復的話還原成伺服器的順序;還是失敗就留著,下一次寫入的重抓會更正
+        await fetchItems().catch(() => undefined)
+      }
+    })
+  }
+
   // 列數變少時裁掉陣列尾巴,不留已經卸載的元素;宣告在焦點 effect 之前,先執行
   useEffect(() => {
     inputRefs.current.length = items.length
@@ -217,23 +308,45 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
       )}
 
       {items.length > 0 && (
-        <ul className={styles.list} aria-labelledby={labelId}>
-          {items.map((item, index) => (
-            <ChecklistItemRow
-              key={item.id}
-              item={item}
-              onToggle={(current) => patchItem(current.id, { done: current.completedAt === null })}
-              onRename={(current, title) => patchItem(current.id, { title })}
-              onDelete={handleDelete}
-              onDeleteByKeyboard={handleDeleteByKeyboard}
-              // 行內箭頭函式每次 render 都是新的,React 會重新呼叫,索引跟著當次順序
-              inputRef={(element) => {
-                inputRefs.current[index] = element
-              }}
-              errorId={`${errorIdPrefix}-item-${item.id}`}
-            />
-          ))}
-        </ul>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          accessibility={{ announcements, screenReaderInstructions }}
+          onDragEnd={handleDragEnd}
+          onDragCancel={({ active }) => focusHandleAfterDrop(active.id)}
+        >
+          <SortableContext
+            items={items.map((item) => item.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul className={styles.list} aria-labelledby={labelId}>
+              {items.map((item, index) => (
+                <ChecklistItemRow
+                  key={item.id}
+                  item={item}
+                  onToggle={(current) => patchItem(current.id, { done: current.completedAt === null })}
+                  onRename={(current, title) => patchItem(current.id, { title })}
+                  onDelete={handleDelete}
+                  onDeleteByKeyboard={handleDeleteByKeyboard}
+                  // 行內箭頭函式每次 render 都是新的,React 會重新呼叫,索引跟著當次順序
+                  inputRef={(element) => {
+                    inputRefs.current[index] = element
+                  }}
+                  // ChecklistItemRow 把它和 dnd-kit 的 activator ref 合成一個 callback ref,
+                  // 卸載時會收到 null
+                  handleRef={(element) => {
+                    if (element === null) {
+                      handleRefs.current.delete(item.id)
+                    } else {
+                      handleRefs.current.set(item.id, element)
+                    }
+                  }}
+                  errorId={`${errorIdPrefix}-item-${item.id}`}
+                />
+              ))}
+            </ul>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* 載入失敗時不給新增:不知道這個任務還在不在 */}

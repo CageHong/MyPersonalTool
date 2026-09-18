@@ -1,6 +1,9 @@
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useState, type Ref } from 'react'
 import Checkbox from './Checkbox'
 import CrossIcon from './CrossIcon'
+import GripIcon from './GripIcon'
 import { fieldMessage, type ApiError } from '@/lib/errors'
 import type { ChecklistItem } from '@/lib/checklist'
 import { useDraft } from '@/lib/useDraft'
@@ -17,6 +20,8 @@ type Props = {
   onDeleteByKeyboard: (item: ChecklistItem) => void
   // 刪除後要把焦點放到遞補上來那一項的輸入框
   inputRef: Ref<HTMLInputElement>
+  // 放下後要把焦點留在這一項的把手上
+  handleRef: (element: HTMLButtonElement | null) => void
   errorId: string
 }
 
@@ -27,9 +32,21 @@ export default function ChecklistItemRow({
   onDelete,
   onDeleteByKeyboard,
   inputRef,
+  handleRef,
   errorId,
 }: Props) {
   const [fieldError, setFieldError] = useState<string | null>(null)
+  // 只有把手能啟動拖曳:listeners、attributes 與 activator ref 都只掛在把手上,
+  // li 只負責跟著移動
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id, attributes: { roleDescription: '可拖曳排序的項目' } })
   const done = item.completedAt !== null
 
   // 內容沒變(含只差前後空白)或改成空白都不送請求;回傳 null 讓 useDraft 放掉草稿,
@@ -57,8 +74,26 @@ export default function ChecklistItemRow({
   }
 
   return (
-    <li className={styles.row}>
+    <li
+      ref={setNodeRef}
+      className={isDragging ? `${styles.row} ${styles.dragging}` : styles.row}
+      // 位移由 dnd-kit 逐格算出,只能寫在 inline style;用 Translate 不用 Transform,列高不同時不會被縮放
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+    >
       <div className={styles.line}>
+        <button
+          type="button"
+          ref={(element) => {
+            setActivatorNodeRef(element)
+            handleRef(element)
+          }}
+          className={styles.handle}
+          {...attributes}
+          {...listeners}
+          aria-label={`拖曳排序:${item.title}`}
+        >
+          <GripIcon />
+        </button>
         <Checkbox
           checked={done}
           onChange={() => void onToggle(item)}

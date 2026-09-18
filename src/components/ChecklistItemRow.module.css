@@ -38,6 +38,32 @@
   border-color: var(--color-field-border-invalid);
 }
 
+/* 拖曳把手;和刪除鈕同樣平時隱藏(見下方 .delete 的說明) */
+.handle {
+  display: flex;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-checklist-handle);
+  cursor: grab;
+  opacity: 0;
+  /* PointerSensor 的觸發元素必須關掉瀏覽器的觸控手勢,否則觸控裝置會把拖曳當成捲動 */
+  touch-action: none;
+}
+
+/* 拖曳中的那一列:浮在其他列之上,底色標示正在移動的是哪一項 */
+.dragging {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius-sm);
+  background: var(--color-checklist-dragging-bg);
+}
+
+.dragging .handle {
+  cursor: grabbing;
+}
+
 /* 平時隱藏,該列 hover 或列內有焦點時才出現。用 opacity 不用 visibility:
    visibility: hidden 的元素不能聚焦,Tab 會跳過它 */
 .delete {
@@ -52,7 +78,10 @@
 }
 
 .row:hover .delete,
-.row:focus-within .delete {
+.row:focus-within .delete,
+.row:hover .handle,
+.row:focus-within .handle,
+.dragging .handle {
   opacity: 1;
 }
 

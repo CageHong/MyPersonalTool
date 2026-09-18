@@ -177,6 +177,9 @@
   /* 刪除鈕平時淡,hover 才轉成破壞性動作的紅 */
   --color-checklist-delete: var(--palette-stone-deep);
   --color-checklist-delete-hover: var(--palette-red-deep);
+  /* 拖曳把手平時淡;拖曳中的那一列用較深一階的底色標示 */
+  --color-checklist-handle: var(--palette-stone-deep);
+  --color-checklist-dragging-bg: var(--palette-beige);
 
   /* ---- 清單項目 ---- */
   --color-row-border: var(--palette-tan);
