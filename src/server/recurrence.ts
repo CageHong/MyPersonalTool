@@ -3,9 +3,12 @@ import { db } from '../db'
 import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem } from '../db/schema'
 import { addDaysUtc, expandRule, firstOccurrence, FREQS, type Freq, type RecurrenceSpec } from '../lib/recurrence'
 import { NotFoundError, ValidationError } from './errors'
-import { DATE_PATTERN, PRIORITY_VALUES } from './validation'
+import { isCalendarDate, PRIORITY_VALUES } from './validation'
 
 export type RecurrenceRule = typeof taskRecurrenceRule.$inferSelect
+
+// API 回傳的規則:欄位加上範本 checklist 的標題(依 position、id)
+export type RecurrenceRuleDetail = RecurrenceRule & { checklist: string[] }
 
 // 所有用到「今天」的函式都由參數接收 today(YYYY-MM-DD),不在這裡讀時鐘;
 // 絕對時刻(createdAt、updatedAt、endedAt)照其他模組的慣例用 now()
@@ -55,7 +58,7 @@ function collectSpecErrors(spec: Partial<RuleSpecInput>): Record<string, string>
   } else if (weekdays !== null) {
     fields.weekdays = 'invalid_value'
   }
-  if (typeof spec.startDate !== 'string' || !DATE_PATTERN.test(spec.startDate)) {
+  if (!isCalendarDate(spec.startDate)) {
     fields.startDate = 'invalid_format'
   }
   return fields
@@ -83,8 +86,8 @@ function selectRule(executor: typeof db | Tx, ruleId: number): RecurrenceRule {
   return found
 }
 
-function selectTemplateTitles(tx: Tx, ruleId: number): string[] {
-  return tx
+function selectTemplateTitles(executor: typeof db | Tx, ruleId: number): string[] {
+  return executor
     .select({ title: taskRecurrenceRuleChecklistItem.title })
     .from(taskRecurrenceRuleChecklistItem)
     .where(eq(taskRecurrenceRuleChecklistItem.ruleId, ruleId))
@@ -92,6 +95,10 @@ function selectTemplateTitles(tx: Tx, ruleId: number): string[] {
     .orderBy(asc(taskRecurrenceRuleChecklistItem.position), asc(taskRecurrenceRuleChecklistItem.id))
     .all()
     .map((item) => item.title)
+}
+
+function selectRuleDetail(executor: typeof db | Tx, ruleId: number): RecurrenceRuleDetail {
+  return { ...selectRule(executor, ruleId), checklist: selectTemplateTitles(executor, ruleId) }
 }
 
 function insertTemplate(tx: Tx, ruleId: number, titles: string[]): void {
@@ -177,7 +184,11 @@ function fillRule(tx: Tx, rule: RecurrenceRule, today: string): void {
 
 // 把既有任務變成重複規則的第一個實例。任務的 title、notes、priority 與 checklist 標題成為範本;
 // dueTime、scheduledAt、durationMinutes 不進範本(規則還沒有時間欄位)
-export function createRuleFromTask(taskId: number, spec: RuleSpecInput, today: string): RecurrenceRule {
+export function createRuleFromTask(
+  taskId: number,
+  spec: RuleSpecInput,
+  today: string,
+): RecurrenceRuleDetail {
   const fields = collectSpecErrors(spec)
   if (Object.keys(fields).length > 0) {
     throw new ValidationError(fields)
@@ -241,7 +252,7 @@ export function createRuleFromTask(taskId: number, spec: RuleSpecInput, today: s
       .run()
 
     fillRule(tx, rule, today)
-    return selectRule(tx, rule.id)
+    return selectRuleDetail(tx, rule.id)
   })
 }
 
@@ -257,7 +268,11 @@ export function fillInstances(today: string): void {
   }
 }
 
-export function updateRule(ruleId: number, changes: UpdateRuleChanges, today: string): RecurrenceRule {
+export function updateRule(
+  ruleId: number,
+  changes: UpdateRuleChanges,
+  today: string,
+): RecurrenceRuleDetail {
   const fields: Record<string, string> = {}
   if (changes.title !== undefined && (typeof changes.title !== 'string' || changes.title.trim() === '')) {
     fields.title = 'required'
@@ -319,7 +334,7 @@ export function updateRule(ruleId: number, changes: UpdateRuleChanges, today: st
 
     // 沒有實際變化就不重生實例(上面的補齊照常保留)
     if (!ruleChanged && !templateChanged) {
-      return selectRule(tx, ruleId)
+      return selectRuleDetail(tx, ruleId)
     }
 
     tx.update(taskRecurrenceRule)
@@ -341,16 +356,16 @@ export function updateRule(ruleId: number, changes: UpdateRuleChanges, today: st
       .run()
     fillRule(tx, selectRule(tx, ruleId), today)
 
-    return selectRule(tx, ruleId)
+    return selectRuleDetail(tx, ruleId)
   })
 }
 
 // 冪等:已停止的規則原樣回傳,不寫入
-export function stopRule(ruleId: number, today: string): RecurrenceRule {
+export function stopRule(ruleId: number, today: string): RecurrenceRuleDetail {
   return db.transaction((tx) => {
     const existing = selectRule(tx, ruleId)
     if (existing.endedAt !== null) {
-      return existing
+      return selectRuleDetail(tx, ruleId)
     }
 
     // 同 updateRule:先把落後的那段用現在的規則補出來
@@ -363,6 +378,11 @@ export function stopRule(ruleId: number, today: string): RecurrenceRule {
       .run()
     deleteFutureIncomplete(tx, ruleId, today)
 
-    return selectRule(tx, ruleId)
+    return selectRuleDetail(tx, ruleId)
   })
+}
+
+// 已停止的規則照樣回傳(endedAt 有值)
+export function getRule(ruleId: number): RecurrenceRuleDetail {
+  return selectRuleDetail(db, ruleId)
 }

@@ -125,3 +125,4 @@
 | 規則加時間欄位(dueTime、scheduledAt、duration 的對應),實例從規則複製 | 做日曆視圖時 |
 | 改規則時,新規則在今天剛好有一次而舊規則沒有,今天不補 | 實際遇到時 |
 | createRuleFromTask 對有 scheduledAt 的任務目前拒絕;改成平移或由規則決定時刻 | 做日曆視圖時 |
+| 前端 PRIORITY_LEVELS / PRIORITY_OPTIONS 與伺服器 PRIORITY_VALUES 共用一份值域(放 src/lib/,伺服器 import) | 值域要改時 |

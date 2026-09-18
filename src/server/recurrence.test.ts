@@ -8,9 +8,11 @@ import { db } from '../db'
 import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem } from '../db/schema'
 import { addDaysUtc } from '../lib/recurrence'
 import { createChecklistItem, updateChecklistItem } from './checklist'
+import { NotFoundError } from './errors'
 import {
   createRuleFromTask,
   fillInstances,
+  getRule,
   stopRule,
   updateRule,
   type RecurrenceRule,
@@ -59,7 +61,7 @@ function insertRule(
   return rule
 }
 
-function getRule(ruleId: number) {
+function ruleRow(ruleId: number) {
   return db.select().from(taskRecurrenceRule).where(eq(taskRecurrenceRule.id, ruleId)).get()!
 }
 
@@ -118,7 +120,7 @@ describe('fillInstances', () => {
     fillInstances(TODAY)
 
     assert.deepEqual(dates(rule.id), range(TODAY, END))
-    assert.equal(getRule(rule.id).generatedThrough, END)
+    assert.equal(ruleRow(rule.id).generatedThrough, END)
 
     fillInstances(TODAY)
 
@@ -167,7 +169,7 @@ describe('fillInstances', () => {
     updateTask(instance.id, { title: 'pay rent (late)' })
     updateChecklistItem(items[0].id, { done: true })
 
-    assert.equal(getRule(rule.id).title, 'pay rent')
+    assert.equal(ruleRow(rule.id).title, 'pay rent')
     assert.deepEqual(templateOf(rule.id), ['log in', 'transfer'])
     assert.ok(checklistOf(instanceOn(rule.id, '2026-09-19')!.id).every((item) => item.completedAt === null))
   })
@@ -235,7 +237,7 @@ describe('updateRule', () => {
     }
     assert.equal(instanceOn(rule.id, '2026-09-20')!.title, 'old')
     assert.deepEqual(templateOf(rule.id), ['new item'])
-    assert.equal(getRule(rule.id).generatedThrough, END)
+    assert.equal(ruleRow(rule.id).generatedThrough, END)
   })
 
   test('fills the lagging watermark with the old rule first', () => {
@@ -269,7 +271,7 @@ describe('stopRule', () => {
   test('keeps completed, today and overdue instances; later fills add nothing; idempotent', () => {
     const { rule, todayItemId, before } = setupRuleWithHistory()
 
-    stopRule(rule.id, TODAY)
+    const first = stopRule(rule.id, TODAY)
 
     assertPastAndCompletedUnchanged(rule.id, before, todayItemId)
     assert.deepEqual(dates(rule.id), [
@@ -279,13 +281,12 @@ describe('stopRule', () => {
       '2026-09-18',
       '2026-09-20',
     ])
-    const stopped = getRule(rule.id)
-    assert.notEqual(stopped.endedAt, null)
+    assert.notEqual(first.endedAt, null)
 
     fillInstances('2026-10-01')
     const second = stopRule(rule.id, TODAY)
 
-    assert.deepEqual(second, stopped)
+    assert.deepEqual(second, first)
     assert.deepEqual(dates(rule.id), [
       '2026-09-15',
       '2026-09-16',
@@ -373,6 +374,50 @@ describe('createRuleFromTask', () => {
     assert.equal(after.dueDate, '2026-09-01')
     assert.equal(after.scheduledAt, 1_790_000_000)
     assert.equal(after.recurrenceRuleId, null)
+  })
+})
+
+describe('getRule', () => {
+  test('returns the rule with template titles in order, also after stopping', () => {
+    const rule = insertRule({ title: 'water plants', freq: 'weekly', weekdays: 1 << 5 }, [
+      'balcony',
+      'kitchen',
+    ])
+    // position 相同時以 id 打破平手
+    db.insert(taskRecurrenceRuleChecklistItem)
+      .values({ ruleId: rule.id, title: 'hall', position: 1, createdAt: 0, updatedAt: 0 })
+      .run()
+
+    assert.deepEqual(getRule(rule.id), { ...ruleRow(rule.id), checklist: ['balcony', 'kitchen', 'hall'] })
+
+    stopRule(rule.id, TODAY)
+
+    assert.notEqual(getRule(rule.id).endedAt, null)
+  })
+
+  test('an unknown id throws NotFoundError', () => {
+    assert.throws(() => getRule(999_999), NotFoundError)
+  })
+})
+
+describe('startDate must be a real calendar date', () => {
+  for (const startDate of ['2026-13-01', '2026-02-30', '2027-02-29']) {
+    test(`rejects ${startDate}`, () => {
+      const { id } = createTask({ title: 'task' })
+
+      assert.throws(
+        () => createRuleFromTask(id, { freq: 'daily', interval: 1, startDate }, TODAY),
+        (error: unknown) => error instanceof ValidationError && error.fields.startDate === 'invalid_format',
+      )
+    })
+  }
+
+  test('accepts 2028-02-29', () => {
+    const { id } = createTask({ title: 'task' })
+
+    const rule = createRuleFromTask(id, { freq: 'yearly', interval: 1, startDate: '2028-02-29' }, TODAY)
+
+    assert.equal(rule.startDate, '2028-02-29')
   })
 })
 

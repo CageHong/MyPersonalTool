@@ -4,7 +4,7 @@ import { task } from '../db/schema'
 import { todayIso } from '../lib/date'
 import { NotFoundError, ValidationError } from './errors'
 import { fillInstances } from './recurrence'
-import { DATE_PATTERN, PRIORITY_VALUES } from './validation'
+import { isCalendarDate, PRIORITY_VALUES } from './validation'
 
 // 錯誤類別搬到 errors.ts;保留從這裡 import 的既有路徑
 export { NotFoundError, ValidationError } from './errors'
@@ -63,7 +63,7 @@ function collectErrors(
   }
 
   if (input.dueDate != null) {
-    if (typeof input.dueDate !== 'string' || !DATE_PATTERN.test(input.dueDate)) {
+    if (!isCalendarDate(input.dueDate)) {
       fields.dueDate = 'invalid_format'
     }
   }
@@ -77,6 +77,13 @@ function collectErrors(
   // null 與 0 同義,寫入前才正規化
   if (input.priority != null && !PRIORITY_VALUES.includes(input.priority)) {
     fields.priority = 'invalid_value'
+  }
+
+  // 重複實例的歸屬只由 src/server/recurrence.ts 設定;明確拒絕,不默默忽略
+  for (const key of ['recurrenceRuleId', 'occurrenceDate'] as const) {
+    if (Object.hasOwn(input, key)) {
+      fields[key] = 'not_allowed'
+    }
   }
 
   return fields

@@ -57,6 +57,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 
 - 絕對瞬間一律存 **Unix 秒數整數**(`createdAt`、`completedAt`、`scheduledAt`)。
 - `dueDate` 是**日曆日**,存文字 `YYYY-MM-DD`,不要轉成時間戳(理由見 `docs/decisions.md` §2)。
+- `dueDate`、`startDate` 必須是真實存在的日曆日(`isCalendarDate`,在 `src/server/validation.ts`);`2026-02-30` 這種形狀合法但不存在的日期回 `invalid_format`。
 - `dueTime` 與 `dueDate` 分開,因為「9/10 到期」和「9/10 15:00 到期」語意不同。
 - `durationMinutes` 是長度不是時刻,存分鐘數。
 - 完成狀態用 `completedAt` 判斷,**不要**加布林欄位(理由見 `docs/decisions.md` §2)。
@@ -135,14 +136,18 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 | 方法 | 路徑 | 說明 |
 |---|---|---|
 | GET | `/api/tasks` | 列出全部;查詢前先補齊重複實例,所以不是 safe,但冪等(水位線 + 唯一鍵) |
-| POST | `/api/tasks` | 建立 |
-| PATCH | `/api/tasks/:id` | 部分更新 `{ title?, notes?, dueDate?, dueTime?, scheduledAt?, durationMinutes?, priority?, parentTaskId?, done? }`;不收 `completedAt` |
+| POST | `/api/tasks` | 建立;不可設定 `recurrenceRuleId`、`occurrenceDate`(收到回 `VALIDATION_FAILED`,值為 `not_allowed`) |
+| PATCH | `/api/tasks/:id` | 部分更新 `{ title?, notes?, dueDate?, dueTime?, scheduledAt?, durationMinutes?, priority?, parentTaskId?, done? }`;不收 `completedAt`;不可設定 `recurrenceRuleId`、`occurrenceDate`(`not_allowed`) |
 | DELETE | `/api/tasks/:id` | 刪除 |
 | GET | `/api/tasks/:id/checklist-items` | 列出該任務的 checklist 項目(依 position) |
 | POST | `/api/tasks/:id/checklist-items` | 新增項目,放在最後 |
 | PUT | `/api/tasks/:id/checklist-items/order` | 重新排序,body `{ itemIds }` 必須恰好是該任務的全部項目 |
 | PATCH | `/api/checklist-items/:itemId` | 部分更新 `{ title?, done? }` |
 | DELETE | `/api/checklist-items/:itemId` | 刪除 |
+| POST | `/api/tasks/:id/recurrence` | 把任務變成重複規則的第一個實例,body `{ freq, interval, weekdays?, startDate }`;成功 201,回傳規則 |
+| GET | `/api/recurrence-rules/:ruleId` | 規則欄位加 `checklist: string[]`(範本標題);已停止的規則照樣回傳 |
+| PATCH | `/api/recurrence-rules/:ruleId` | 部分更新規則參數與範本 `{ freq?, interval?, weekdays?, startDate?, title?, notes?, priority?, checklist? }`;已停止的規則回 400 |
+| POST | `/api/recurrence-rules/:ruleId/stop` | 停止重複,冪等,沒有 body |
 
 用 PATCH 不用 PUT:勾完成只改 `completedAt` 一個欄位,不是整個資源替換。
 

@@ -28,6 +28,7 @@ export function handleError(label: string, error: unknown, notFoundMessage: stri
 const INVALID_ID_MESSAGES = {
   id: 'Invalid task id',
   itemId: 'Invalid checklist item id',
+  ruleId: 'Invalid recurrence rule id',
 } as const
 
 // 網址參數轉成 src/server/ 函式簽章要求的 number;純解析,不是業務驗證。

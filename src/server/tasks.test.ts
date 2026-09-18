@@ -6,7 +6,14 @@ import { eq, sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { db } from '../db'
 import { task } from '../db/schema'
-import { createTask, NotFoundError, updateTask, ValidationError, type UpdateTaskPatch } from './tasks'
+import {
+  createTask,
+  NotFoundError,
+  updateTask,
+  ValidationError,
+  type CreateTaskInput,
+  type UpdateTaskPatch,
+} from './tasks'
 
 before(() => {
   // 保險:萬一 test/setup 沒先載入,不在真的資料庫上跑 migration 與寫入
@@ -176,5 +183,45 @@ describe('updateTask validation', () => {
       () => updateTask(id, { done: 'yes' } as unknown as UpdateTaskPatch),
       (error) => error instanceof ValidationError && error.fields.done === 'invalid_value',
     )
+  })
+
+  test('rejects recurrenceRuleId without writing', () => {
+    const { id } = createTask({ title: 'task' })
+
+    assertNoWrite(() =>
+      assert.throws(
+        () => updateTask(id, { recurrenceRuleId: 1 } as UpdateTaskPatch),
+        (error) => error instanceof ValidationError && error.fields.recurrenceRuleId === 'not_allowed',
+      ),
+    )
+  })
+})
+
+describe('createTask validation', () => {
+  test('rejects occurrenceDate', () => {
+    assert.throws(
+      () => createTask({ title: 'task', occurrenceDate: '2026-09-18' } as CreateTaskInput),
+      (error) => error instanceof ValidationError && error.fields.occurrenceDate === 'not_allowed',
+    )
+  })
+})
+
+describe('dueDate must be a real calendar date', () => {
+  for (const dueDate of ['2026-13-01', '2026-02-30', '2027-02-29']) {
+    test(`rejects ${dueDate} on create and update`, () => {
+      const { id } = createTask({ title: 'task' })
+      const rejected = (error: unknown) =>
+        error instanceof ValidationError && error.fields.dueDate === 'invalid_format'
+
+      assert.throws(() => createTask({ title: 'task', dueDate }), rejected)
+      assert.throws(() => updateTask(id, { dueDate }), rejected)
+    })
+  }
+
+  test('accepts 2028-02-29', () => {
+    const created = createTask({ title: 'task', dueDate: '2028-02-29' })
+
+    assert.equal(created.dueDate, '2028-02-29')
+    assert.equal(updateTask(created.id, { dueDate: '2028-02-29' }).dueDate, '2028-02-29')
   })
 })
