@@ -44,44 +44,43 @@
      米白為底。灰階全部重新取值,帶暖調——原本的 Tailwind 灰偏藍,
      放在暖底色上會顯髒。
 
-     B 題未決:三欄要同色靠分隔線區分,還是中欄用 --palette-panel(較亮)、
-     左右欄用 --palette-base。下面的值兩種都支援,差別只在語意層指向哪一個。
+     B 題未決:三欄要同色靠分隔線區分,還是中欄用 --palette-beige(較亮)、
+     左右欄用 --palette-cream。下面的值兩種都支援,差別只在語意層指向哪一個。
      ------------------------------------------------------------------------- */
-  --palette-base: #f5f2ea;          /* 頁面底色;左右欄 */
-  --palette-panel: #eae3d7;         /* 較亮的一階;若中欄要區分就用這個 */
+  --palette-cream: #f5f2ea;         /* 頁面底色;左右欄 */
+  --palette-beige: #eae3d7;         /* 較亮的一階;若中欄要區分就用這個 */
 
   /* -------------------------------------------------------------------------
      4. 文字與框線
      ------------------------------------------------------------------------- */
-  --palette-ink: #231f1a;           /* 主要文字 */
-  --palette-ink-soft: #5f5649;      /* 次要文字:日期、欄位標籤 */
-  --palette-stone: #7d7468;         /* 比 ink-soft 淡一階 */
-  --palette-line: #b6a791;
+  --palette-charcoal: #231f1a;      /* 主要文字 */
+  --palette-stone-deep: #5f5649;    /* 次要文字:日期、欄位標籤 */
+  --palette-stone: #7d7468;         /* 比 stone-deep 淡一階 */
+  --palette-tan: #b6a791;
 
   /* -------------------------------------------------------------------------
      5. 行動色與選取色
      兩者刻意分開。橘色是「主要行動」(確定、送出),藍灰是「目前選中的東西」。
      若兩者同色,中欄掃視時分不出哪列是選中的、哪個是要按的。
      ------------------------------------------------------------------------- */
-  --palette-accent: #ab452b;        /* 主要行動:彈窗的確定鈕 */
-  --palette-on-accent: #ffffff;     /* accent 當底色時上面的文字;也用在 danger 底色上 */
+  --palette-rust: #ab452b;          /* 主要行動:彈窗的確定鈕 */
+  --palette-white: #ffffff;         /* rust 當底色時上面的文字;也用在 red-deep 底色上 */
 
   --palette-rose-gray: #e2cfc6;     /* 選取列的淡底,黑字可讀 */
-  --palette-blue: #1e5194;          /* 焦點外框 */
 
   /* -------------------------------------------------------------------------
      6. 語意色
      這些不是裝飾,是狀態的編碼,不要和上面的行動色混用。
-     注意:amber 與 --palette-accent(橘)色相接近,
-     若實際使用時分不出來,把 amber 往黃調或把 accent 加深。
+     注意:amber 與 --palette-rust(橘)色相接近,
+     若實際使用時分不出來,把 amber 往黃調或把 rust 加深。
      ------------------------------------------------------------------------- */
   --palette-green: #207926;
   --palette-amber: #9e6105;
   --palette-red: #a92330;
-  --palette-danger: #912b32;        /* 逾期、驗證失敗 */
+  --palette-red-deep: #912b32;      /* 逾期、驗證失敗 */
 
   /* modal 背後那層 */
-  --palette-shade: rgb(35 31 26 / 45%);
+  --palette-charcoal-45: rgb(35 31 26 / 45%);
 
   /* -------------------------------------------------------------------------
      7. 間距
@@ -133,99 +132,98 @@
      ========================================================================= */
 
   /* ---- 版面 ---- */
-  --color-page-bg: var(--palette-base);
-  --color-column-aside: var(--palette-panel);   /* 左欄、右欄 */
-  --color-column-main: var(--palette-base);     /* 中欄 */
-  --color-divider: var(--palette-line);         /* 欄與欄之間 */
-  --color-dialog-bg: var(--palette-base);
-  --color-dialog-border: var(--palette-line);
-  --color-dialog-section-line: var(--palette-line);
+  --color-page-bg: var(--palette-cream);
+  --color-column-aside: var(--palette-beige);   /* 左欄、右欄 */
+  --color-column-main: var(--palette-cream);     /* 中欄 */
+  --color-divider: var(--palette-tan);         /* 欄與欄之間 */
+  --color-dialog-bg: var(--palette-cream);
+  --color-dialog-border: var(--palette-tan);
+  --color-dialog-section-line: var(--palette-tan);
   /* 下拉選單;不借用 dialog 的名字,兩者之後可能各自調 */
-  --color-menu-bg: var(--palette-base);
-  --color-menu-border: var(--palette-line);
-  --color-backdrop: var(--palette-shade);
+  --color-menu-bg: var(--palette-cream);
+  --color-menu-border: var(--palette-tan);
+  --color-backdrop: var(--palette-charcoal-45);
   /* 捲軸:軌道透明,免得深色欄底上多出一條帶子蓋掉分隔線 */
-  --color-scrollbar-thumb: var(--palette-line);
+  --color-scrollbar-thumb: var(--palette-tan);
   --color-scrollbar-track: transparent;
 
   /* ---- 文字 ---- */
-  --color-text: var(--palette-ink);
-  --color-text-muted: var(--palette-ink-soft);
-  --color-text-subtle: var(--palette-ink-soft);  /* 第四階,之後調淡 */
+  --color-text: var(--palette-charcoal);
+  --color-text-muted: var(--palette-stone-deep);
+  --color-text-subtle: var(--palette-stone-deep);  /* 第四階,之後調淡 */
 
   /* ---- 可輸入欄位 ---- */
-  --color-field-bg: var(--palette-base);
-  --color-field-text: var(--palette-ink);
-  --color-field-border: var(--palette-line);
-  --color-field-border-invalid: var(--palette-danger);
-  --color-field-label: var(--palette-ink-soft);
-  --color-field-placeholder: var(--palette-ink-soft);
-  --color-field-selected-bg: var(--palette-panel);
-  --color-field-selected-border: var(--palette-accent);
-  --color-field-disabled-bg: var(--palette-panel);
-  --color-field-disabled-text: var(--palette-ink-soft);
+  --color-field-bg: var(--palette-cream);
+  --color-field-text: var(--palette-charcoal);
+  --color-field-border: var(--palette-tan);
+  --color-field-border-invalid: var(--palette-red-deep);
+  --color-field-label: var(--palette-stone-deep);
+  --color-field-placeholder: var(--palette-stone-deep);
+  --color-field-selected-bg: var(--palette-beige);
+  --color-field-disabled-bg: var(--palette-beige);
+  --color-field-disabled-text: var(--palette-stone-deep);
 
   /* 骨架橫條。自己一個名字:之後調 hover 顏色時骨架不該跟著變 */
-  --color-skeleton-bg: var(--palette-panel);
+  --color-skeleton-bg: var(--palette-beige);
 
   /* 任務列的自繪勾選框。未勾選的框線跟優先級走(見 --color-priority-*);
-     勾選後不分優先級,一律填 ink-soft 配白勾(7.2:1),和已完成任務的淡化文字一致 */
-  --color-checkbox-checked-bg: var(--palette-ink-soft);
-  --color-checkbox-check: var(--palette-on-accent);
+     勾選後不分優先級,一律填 stone-deep 配白勾(7.2:1),和已完成任務的淡化文字一致 */
+  --color-checkbox-checked-bg: var(--palette-stone-deep);
+  --color-checkbox-check: var(--palette-white);
 
   /* ---- 清單項目 ---- */
-  --color-row-border: var(--palette-line);
+  --color-row-border: var(--palette-tan);
   --color-row-selected-bg: var(--palette-rose-gray);
-  /* hover 只換底色;在 base 上 1.14,選取底色 1.34。
+  /* hover 只換底色;在 cream 上 1.14,選取底色 1.34。
      比選取底色淺,選取列另靠左側色條認出 */
-  --color-row-hover-bg: var(--palette-panel);
-  --color-row-selected-border: var(--palette-accent);
-  --color-row-meta: var(--palette-ink-soft);
-  --color-row-done-text: var(--palette-ink-soft);
+  --color-row-hover-bg: var(--palette-beige);
+  --color-row-selected-border: var(--palette-rust);
+  --color-row-meta: var(--palette-stone-deep);
+  --color-row-done-text: var(--palette-stone-deep);
 
   /* ---- 左欄檢視 ---- */
-  --color-nav-text: var(--palette-ink);
-  /* 左欄底是 panel:hover 1.18、選取 1.14;兩者差 1.34,選取另靠色條與字重區分 */
+  --color-nav-text: var(--palette-charcoal);
+  /* 左欄底是 beige:hover 1.18、選取 1.14;兩者差 1.34,選取另靠色條與字重區分 */
   --color-nav-hover-bg: var(--palette-rose-gray);
-  --color-nav-selected-bg: var(--palette-base);
-  --color-nav-selected-border: var(--palette-accent);
+  --color-nav-selected-bg: var(--palette-cream);
+  --color-nav-selected-border: var(--palette-rust);
 
   /* ---- 動作 ---- */
-  --color-action-bg: var(--palette-accent);
-  --color-action-border: var(--palette-accent);
+  --color-action-bg: var(--palette-rust);
+  --color-action-border: var(--palette-rust);
   /* 按鈕的框線;和欄位的框線分開命名,兩者之後可以各自調 */
-  --color-button-border: var(--palette-line);
-  --color-action-text: var(--palette-on-accent);
-  --color-action-disabled-bg: var(--palette-panel);
-  --color-action-disabled-text: var(--palette-ink-soft);
-  --color-destructive-text: var(--palette-danger);
+  --color-button-border: var(--palette-tan);
+  --color-action-text: var(--palette-white);
+  --color-action-disabled-bg: var(--palette-beige);
+  --color-action-disabled-text: var(--palette-stone-deep);
+  --color-destructive-text: var(--palette-red-deep);
   /* 破壞性動作的實底按鈕(確認刪除) */
-  --color-destructive-bg: var(--palette-danger);
-  --color-destructive-border: var(--palette-danger);
-  --color-destructive-on-bg: var(--palette-on-accent);  /* 白字,在 danger 底上約 8.1:1 */
+  --color-destructive-bg: var(--palette-red-deep);
+  --color-destructive-border: var(--palette-red-deep);
+  --color-destructive-on-bg: var(--palette-white);  /* 白字,在 red-deep 底上約 8.1:1 */
 
   /* ---- 狀態 ---- */
-  --color-overdue: var(--palette-danger);
-  --color-error-text: var(--palette-danger);
+  --color-overdue: var(--palette-red-deep);
+  --color-error-text: var(--palette-red-deep);
   /* 無優先級:空心旗與勾選框框線共用。比有優先級的顏色淡,才分得出來;
-     是清單上的多數,仍要過非文字 3:1(base 4.1、panel 3.6、選取列底 3.1) */
+     是清單上的多數,仍要過非文字 3:1(cream 4.1、beige 3.6、選取列底 3.1) */
   --color-priority-none: var(--palette-stone);
-  /* 低/中/高:base 4.9 / 4.5 / 6.3、panel 4.3 / 4.0 / 5.5、選取列底 3.7 / 3.4 / 4.7 */
+  /* 低/中/高:cream 4.9 / 4.5 / 6.3、beige 4.3 / 4.0 / 5.5、選取列底 3.7 / 3.4 / 4.7 */
   --color-priority-low: var(--palette-green);
   --color-priority-medium: var(--palette-amber);
   --color-priority-high: var(--palette-red);
 
   /* ---- 月曆 ---- */
-  --color-calendar-hover-bg: var(--palette-panel);
-  --color-calendar-today-border: var(--palette-accent);
-  --color-calendar-selected-bg: var(--palette-accent);
-  --color-calendar-selected-text: var(--palette-on-accent);
-  --color-calendar-weekday: var(--palette-ink-soft);
+  --color-calendar-hover-bg: var(--palette-beige);
+  --color-calendar-today-border: var(--palette-rust);
+  --color-calendar-selected-bg: var(--palette-rust);
+  --color-calendar-selected-text: var(--palette-white);
+  --color-calendar-weekday: var(--palette-stone-deep);
 
   /* ---- 焦點 ----
-     全頁同一個顏色。不用 accent:橘色已代表主要行動與選取。
-     --palette-ink-soft 在 base 6.4、panel 5.7、選取列底 4.8。 */
-  --color-focus-ring: var(--palette-ink-soft);
+     全頁同一個顏色。不用 rust:橘色已代表主要行動與選取。
+     --palette-stone-deep 在 cream 6.4、beige 5.7、選取列底 4.8。 */
+  --color-focus-ring: var(--palette-stone-deep);
 }
 
 * {
