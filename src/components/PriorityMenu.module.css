@@ -19,22 +19,11 @@
   font: inherit;
   white-space: nowrap;
   cursor: pointer;
-  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
-  transition-property: opacity, cursor;
-  transition-duration: 0s;
-  transition-behavior: allow-discrete;
 }
 
 /* 觸發鈕上的「無」:和 DueDateMenu 的空值一樣淡色 */
 .empty {
   color: var(--color-text-muted);
-}
-
-.trigger:disabled {
-  /* 旗子自己上色,換 color 沒有作用;一律調淡 */
-  opacity: var(--disabled-opacity);
-  cursor: not-allowed;
-  transition-delay: var(--disabled-delay);
 }
 
 .menu {

@@ -109,15 +109,14 @@
 
   /* -------------------------------------------------------------------------
      10. 停用延遲
-     寫入進行中控制項會被 disabled,多半幾十毫秒就解除;停用樣式立刻套上會一閃而過。
-     停用外觀延後這麼久才出現,解除時立即恢復。阻擋行為本身不延遲。
+     擋住操作的狀態(disabled、readOnly)多半幾十毫秒就解除;外觀立刻套上會一閃而過。
+     這類外觀一律延後這麼久才出現,解除時立即恢復。阻擋行為本身不延遲。
+     寫入一般走佇列、不停用控制項,目前適用的只有 ConfirmDialog 的確認鈕。
      寫法:元件的基本規則設 transition-duration 0s(延遲 0s,回到啟用時立即恢復),
      停用規則設 transition-delay: var(--disabled-delay)。cursor 是離散屬性,
      要 transition-behavior: allow-discrete 才會跟著延後。
      ------------------------------------------------------------------------- */
   --disabled-delay: 250ms;
-  /* 自己畫的控制項(勾選框、旗標觸發鈕)停用時一律調淡,不換色:換色會蓋掉優先級顏色 */
-  --disabled-opacity: 0.5;
 
   /* -------------------------------------------------------------------------
      11. 控制項尺寸
@@ -160,8 +159,6 @@
   --color-field-label: var(--palette-stone-deep);
   --color-field-placeholder: var(--palette-stone-deep);
   --color-field-selected-bg: var(--palette-beige);
-  --color-field-disabled-bg: var(--palette-beige);
-  --color-field-disabled-text: var(--palette-stone-deep);
 
   /* 骨架橫條。自己一個名字:之後調 hover 顏色時骨架不該跟著變 */
   --color-skeleton-bg: var(--palette-beige);

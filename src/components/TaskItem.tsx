@@ -1,4 +1,4 @@
-import type { MouseEvent, Ref } from 'react'
+import type { MouseEvent } from 'react'
 import Checkbox from './Checkbox'
 import { formatRelativeDate, isOverdue } from '@/lib/date'
 import { priorityLevel, type Task } from '@/lib/tasks'
@@ -10,19 +10,9 @@ type Props = {
   selected: boolean
   onSelect: (id: number) => void
   onToggle: (task: Task) => Promise<ApiError | null>
-  disabled: boolean
-  // 刪除後要把焦點放到遞補上來那一列的標題;取名 titleRef 講明指的是標題按鈕不是整列
-  titleRef?: Ref<HTMLButtonElement>
 }
 
-export default function TaskItem({
-  task,
-  selected,
-  onSelect,
-  onToggle,
-  disabled,
-  titleRef,
-}: Props) {
+export default function TaskItem({ task, selected, onSelect, onToggle }: Props) {
   const completed = task.completedAt !== null
   const level = priorityLevel(task.priority)
 
@@ -48,8 +38,14 @@ export default function TaskItem({
   }
 
   return (
-    // 整列可點選;標題另外是按鈕,鍵盤才走得到
-    <li className={classNames.join(' ')} onClick={handleSelect} aria-current={selected}>
+    // 整列可點選;標題另外是按鈕,鍵盤才走得到。
+    // data-task-id / data-task-control:任務離開視圖時,ThreeColumnLayout 靠這兩個找焦點的來源與遞補的落點
+    <li
+      className={classNames.join(' ')}
+      onClick={handleSelect}
+      aria-current={selected}
+      data-task-id={task.id}
+    >
       <div className={styles.main}>
         {/* 任務列的優先級只靠顏色:未勾選時的框線色。文字標籤在右欄與新增列,
             螢幕閱讀器靠 aria-label。勾選後不分優先級一律同色 */}
@@ -58,14 +54,19 @@ export default function TaskItem({
           checked={completed}
           onChange={handleToggle}
           onClick={stopSelect}
-          disabled={disabled}
+          data-task-control="checkbox"
           aria-label={
             level === undefined
               ? `完成「${task.title}」`
               : `完成「${task.title}」,優先級${level.label}`
           }
         />
-        <button ref={titleRef} type="button" className={styles.title} onClick={handleSelect}>
+        <button
+          type="button"
+          className={styles.title}
+          onClick={handleSelect}
+          data-task-control="row"
+        >
           {task.title}
         </button>
       </div>

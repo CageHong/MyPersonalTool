@@ -12,7 +12,6 @@ import styles from './TaskDetail.module.css'
 // 四個欄位都可編輯;各自儲存,各自送一次 PATCH。checklist 自己打自己的 API
 type Props = {
   task: Task | undefined
-  mutating: boolean
   onUpdate: (id: number, patch: TaskPatch) => Promise<ApiError | null>
   onDelete: (id: number) => Promise<ApiError | null>
   // checklist 的泛用錯誤顯示在中欄新增列下方,和任務的錯誤同一個位置
@@ -21,7 +20,6 @@ type Props = {
 
 export default function TaskDetail({
   task,
-  mutating,
   onUpdate,
   onDelete,
   onChecklistError,
@@ -84,7 +82,8 @@ export default function TaskDetail({
   }
 
   return (
-    <article className={styles.detail}>
+    // data-task-id:任務離開視圖時,ThreeColumnLayout 靠它認出焦點原本在右欄的哪個任務
+    <article className={styles.detail} data-task-id={task.id}>
       <ConfirmDialog
         open={confirmingId === task.id}
         title="刪除任務?"
@@ -107,7 +106,6 @@ export default function TaskDetail({
           id="task-title"
           task={task}
           onSave={(title) => saveField('title', { title })}
-          disabled={mutating}
           errorId={errorId('title')}
           invalid={fieldErrors.title !== undefined}
           onClearError={() => clearFieldError('title')}
@@ -124,7 +122,6 @@ export default function TaskDetail({
           id="task-notes"
           task={task}
           onSave={(notes) => saveField('notes', { notes })}
-          disabled={mutating}
           errorId={errorId('notes')}
           invalid={fieldErrors.notes !== undefined}
           onClearError={() => clearFieldError('notes')}
@@ -150,7 +147,6 @@ export default function TaskDetail({
         <DueDateMenu
           value={task.dueDate}
           onSelect={(dueDate) => void saveField('dueDate', { dueDate })}
-          disabled={mutating}
           showEmpty
         />
         {fieldError('dueDate')}
@@ -161,7 +157,6 @@ export default function TaskDetail({
         <PriorityMenu
           value={task.priority}
           onSelect={(priority) => void saveField('priority', { priority })}
-          disabled={mutating}
           showValue
         />
         {fieldError('priority')}
@@ -175,7 +170,6 @@ export default function TaskDetail({
           type="button"
           className={styles.delete}
           onClick={() => setConfirmingId(task.id)}
-          disabled={mutating}
           aria-label={`刪除「${task.title}」`}
         >
           刪除

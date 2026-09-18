@@ -9,12 +9,11 @@ type Props = {
   value: string | null
   // 月曆彈窗按確定才呼叫;選好按確定才存是截止日的儲存時機
   onSelect: (dueDate: string | null) => void
-  disabled: boolean
   // 右欄要讀得出目前狀態,空值顯示淡色「無」;新增列空值是預設,只放圖示
   showEmpty: boolean
 }
 
-export default function DueDateMenu({ value, onSelect, disabled, showEmpty }: Props) {
+export default function DueDateMenu({ value, onSelect, showEmpty }: Props) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
@@ -34,7 +33,6 @@ export default function DueDateMenu({ value, onSelect, disabled, showEmpty }: Pr
         type="button"
         className={classNames.join(' ')}
         onClick={() => setOpen(true)}
-        disabled={disabled}
         aria-label={`截止日:${label}`}
       >
         <CalendarIcon />
@@ -47,7 +45,7 @@ export default function DueDateMenu({ value, onSelect, disabled, showEmpty }: Pr
         <DueDateDialog
           dueDate={value}
           // 對話框已經 close(),背景不再 inert,觸發鈕才聚焦得到。先移焦點再存:
-          // 存檔會讓右欄進入 mutating,之後觸發鈕可能被停用(C3b-2c 處理)
+          // 儲存時記錄的焦點位置才會是觸發鈕,任務因此離開視圖時才找得到遞補列
           onClose={(result) => {
             setOpen(false)
             triggerRef.current?.focus()

@@ -7,7 +7,6 @@ type Props = {
   id: string
   task: Task
   onSave: (notes: string | null) => Promise<ApiError | null>
-  disabled: boolean
   // 目前沒有描述的驗證規則,結構仍和標題一致,之後加規則不必再改形狀
   errorId: string
   invalid: boolean
@@ -18,7 +17,6 @@ export default function TaskNotesField({
   id,
   task,
   onSave,
-  disabled,
   errorId,
   invalid,
   onClearError,
@@ -38,7 +36,6 @@ export default function TaskNotesField({
         onClearError()
       }}
       onBlur={draft.onBlur}
-      disabled={disabled}
       aria-invalid={invalid || undefined}
       aria-describedby={invalid ? errorId : undefined}
     />

@@ -7,12 +7,11 @@ import styles from './PriorityMenu.module.css'
 type Props = {
   value: number
   onSelect: (priority: number) => void
-  disabled: boolean
   // 右欄要讀得出目前狀態,觸發鈕顯示「旗 + 值」;新增列空值是預設,只放旗子
   showValue: boolean
 }
 
-export default function PriorityMenu({ value, onSelect, disabled, showValue }: Props) {
+export default function PriorityMenu({ value, onSelect, showValue }: Props) {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -62,7 +61,6 @@ export default function PriorityMenu({ value, onSelect, disabled, showValue }: P
         type="button"
         className={styles.trigger}
         onClick={() => setOpen((current) => !current)}
-        disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`優先級:${label}`}

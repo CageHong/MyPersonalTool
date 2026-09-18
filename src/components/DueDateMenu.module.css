@@ -13,10 +13,6 @@
   font: inherit;
   white-space: nowrap;
   cursor: pointer;
-  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
-  transition-property: opacity, cursor;
-  transition-duration: 0s;
-  transition-behavior: allow-discrete;
 }
 
 /* 空值:圖示與「無」都用淡色 */
@@ -26,11 +22,4 @@
 
 .overdue {
   color: var(--color-overdue);
-}
-
-/* 和 PriorityMenu 一致:停用時調淡,不換色,逾期的紅色不會被蓋掉 */
-.trigger:disabled {
-  opacity: var(--disabled-opacity);
-  cursor: not-allowed;
-  transition-delay: var(--disabled-delay);
 }

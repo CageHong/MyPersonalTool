@@ -8,19 +8,9 @@
   font-family: inherit;
   font-size: var(--text-base);
   resize: vertical;
-  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
-  transition-property: color, cursor;
-  transition-duration: 0s;
-  transition-behavior: allow-discrete;
 }
 
 /* 目前描述沒有驗證規則,樣式先備好,和標題一致 */
 .invalid {
   border-color: var(--color-field-border-invalid);
-}
-
-.textarea:disabled {
-  color: var(--color-field-disabled-text);
-  cursor: not-allowed;
-  transition-delay: var(--disabled-delay);
 }

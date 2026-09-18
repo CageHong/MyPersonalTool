@@ -13,10 +13,6 @@
   background: transparent;
   color: var(--color-priority-none);
   cursor: pointer;
-  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
-  transition-property: opacity, cursor;
-  transition-duration: 0s;
-  transition-behavior: allow-discrete;
 }
 
 .checkbox:checked {
@@ -32,12 +28,6 @@
   border: solid var(--color-checkbox-check);
   border-width: 0 2px 2px 0;
   transform: translateY(-10%) rotate(45deg);
-}
-
-.checkbox:disabled {
-  opacity: var(--disabled-opacity);
-  cursor: not-allowed;
-  transition-delay: var(--disabled-delay);
 }
 
 /* 勾選框的 tone:class 名對應 PRIORITY_LEVELS 的 tone,色碼一律走 :root 變數。

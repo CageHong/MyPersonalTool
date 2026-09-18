@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import CategoryColumn from './CategoryColumn'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
@@ -25,6 +26,59 @@ function parseTaskId(raw: string | null): number | null {
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
+// 寫入時焦點所在的任務。control:焦點在中欄勾選框、中欄的列(勾選框以外),或右欄(含確認彈窗)
+type FocusSnapshot = { id: number; index: number; control: 'checkbox' | 'row' | 'detail' }
+
+// 中欄目前畫出來的列,依畫面順序;DOM 就是「目前視圖的清單」,不必另外重算篩選
+function taskRows(column: HTMLElement): HTMLElement[] {
+  return Array.from(column.querySelectorAll<HTMLElement>('li[data-task-id]'))
+}
+
+// 任務列(li)與右欄(article)都標了 data-task-id;焦點不在任何任務底下就不記
+function captureFocus(column: HTMLElement | null): FocusSnapshot | null {
+  const active = document.activeElement
+  if (column === null || !(active instanceof HTMLElement)) {
+    return null
+  }
+  const owner = active.closest<HTMLElement>('[data-task-id]')
+  if (owner === null) {
+    return null
+  }
+  const id = Number(owner.dataset.taskId)
+  const index = taskRows(column).findIndex((row) => row.dataset.taskId === String(id))
+  if (index === -1) {
+    return null
+  }
+  let control: FocusSnapshot['control'] = 'detail'
+  if (column.contains(active)) {
+    control = active.closest('[data-task-control="checkbox"]') === null ? 'row' : 'checkbox'
+  }
+  return { id, index, control }
+}
+
+// 任務從目前視圖消失(刪除、勾完成、改欄位被篩掉)時,焦點移到遞補上來的那一列:
+// 下一列,沒有就上一列;清單空了落中欄容器。原本在勾選框就落到遞補列的勾選框,鍵盤可以連續勾。
+// 只在焦點已經掉到 body 時才動:排隊期間使用者把焦點移到別處的話不搶(同 TaskChecklist)。
+// 記索引不記「下一筆的 id」:同一個索引就是消失後遞補到同一個位置的那一筆
+function restoreFocus(column: HTMLElement, snapshot: FocusSnapshot) {
+  const rows = taskRows(column)
+  if (rows.some((row) => row.dataset.taskId === String(snapshot.id))) {
+    return
+  }
+  const active = document.activeElement
+  if (active !== null && active !== document.body) {
+    return
+  }
+  if (rows.length === 0) {
+    column.focus()
+    return
+  }
+  const row = rows[Math.min(snapshot.index, rows.length - 1)]
+  const control = snapshot.control === 'checkbox' ? 'checkbox' : 'row'
+  const target = row.querySelector<HTMLElement>(`[data-task-control="${control}"]`)
+  ;(target ?? column).focus()
+}
+
 export default function ThreeColumnLayout() {
   const router = useRouter()
   const pathname = usePathname()
@@ -33,16 +87,12 @@ export default function ThreeColumnLayout() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // 寫入 + 重抓的空窗期,用來擋連點
-  const [mutating, setMutating] = useState(false)
-
-  // 刪除成功後焦點要移到遞補上來的那一列。存「被刪的任務」而不是布林值:
-  // 確認彈窗在請求進行中可以取消,使用者可能先選了別的任務,布林值會停在 true,
-  // 之後任何一次 selectedTask 變成 undefined 都會誤移焦點。不影響畫面,所以用 ref 不用 state。
-  // 記索引不記「下一筆的 id」:之後加排序或篩選時,同一個索引仍然對應刪除後的同一個位置
+  // 寫入排隊:每個動作等前一個(含重抓)結束才開始,所以不必停用任何控制項。
+  // 有焦點的元素被停用時瀏覽器會把焦點移到 body;停用也會吞掉寫入期間的點擊。
+  // 例:標題編輯中直接點中欄勾選框,失焦觸發的儲存先排進去,勾選排在它後面,兩個都會執行
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve())
+  // 任務消失後要把焦點放回來的容器(清單空了的落點);tabIndex={-1} 見下方
   const tasksColumnRef = useRef<HTMLElement>(null)
-  const rowTitleRefs = useRef<(HTMLButtonElement | null)[]>([])
-  const focusAfterDeleteRef = useRef<{ id: number; index: number } | null>(null)
 
   const today = todayIso()
   const view = parseView(searchParams.get('view'))
@@ -74,13 +124,16 @@ export default function ThreeColumnLayout() {
     [replaceParams],
   )
 
-  // 回傳 null 代表成功;失敗的形狀和寫入共用同一個 ApiError
+  // 回傳 null 代表成功;失敗的形狀和寫入共用同一個 ApiError。
+  // flushSync:回傳時新清單已經 commit 到 DOM,呼叫端接著就能依畫面上的列移焦點。
+  // 這時右欄若已換成空狀態,確認彈窗連同 <dialog> 一起卸載、背景 inert 已解除,focus() 才有效
   const refetch = useCallback(async (): Promise<ApiError | null> => {
     const response = await fetch('/api/tasks')
     if (!response.ok) {
       return await readApiError(response)
     }
-    setTasks((await response.json()) as Task[])
+    const next = (await response.json()) as Task[]
+    flushSync(() => setTasks(next))
     return null
   }, [])
 
@@ -108,63 +161,43 @@ export default function ThreeColumnLayout() {
     replaceParams((params) => params.delete('task'))
   }, [loading, replaceParams, selectedId, selectedTask])
 
-  // 列數變少時裁掉陣列尾巴,不留已經卸載的元素。陣列是這一層的 ref,裁切也放這一層:
-  // 在 TaskList 裡改會動到 prop,react-hooks/immutability 不允許
-  useEffect(() => {
-    rowTitleRefs.current.length = visibleTasks.length
-  }, [visibleTasks])
-
-  // 被刪的任務從 tasks 消失 = 重抓已經套用到畫面。這次渲染裡右欄已換成空狀態,
-  // ConfirmDialog 連同 <dialog> 一起卸載,彈窗外的 inert 已解除,focus() 才有效。
-  // 不在 handleDelete 的 await 之後直接 focus:那時重抓的渲染不一定已經套用。
-  // 右欄仍有選取(請求中取消彈窗、改選別的任務)就不搶焦點;兩種情況都清掉旗標。
-  //
-  // rowTitleRefs 讀得到新清單,是因為 callback ref 在 commit 階段就接好了,早於所有 effect。
-  // 尾巴的殘留由上面那個 effect 裁掉,它宣告在前面所以先執行;搬動順序前先確認這兩件事還成立
-  useEffect(() => {
-    const pending = focusAfterDeleteRef.current
-    if (pending === null || tasks.some((task) => task.id === pending.id)) {
-      return
-    }
-    focusAfterDeleteRef.current = null
-    if (selectedTask !== undefined) {
-      return
-    }
-
-    // 刪的是最後一筆就退到前一筆;清單空了或元素不在就退到中欄容器
-    const rows = visibleTasks.length
-    const target = rows === 0 ? null : rowTitleRefs.current[Math.min(pending.index, rows - 1)]
-    if (target != null && target.isConnected) {
-      target.focus()
-    } else {
-      tasksColumnRef.current?.focus()
-    }
-  }, [tasks, selectedTask, visibleTasks])
+  const enqueue = useCallback(<T,>(job: () => Promise<T>): Promise<T> => {
+    const next = queueRef.current.then(job)
+    // 佇列本身不能因為某個動作失敗就斷掉
+    queueRef.current = next.catch(() => undefined)
+    return next
+  }, [])
 
   // 寫入成功後整份重抓,不拿回應的物件更新 state,也不做樂觀更新。
   // 回傳 null 代表成功;欄位錯誤原樣回傳給呼叫端,不進中欄的錯誤區
   const mutate = useCallback(
-    async (request: () => Promise<Response>): Promise<ApiError | null> => {
-      setMutating(true)
-      try {
-        const response = await request()
-        if (!response.ok) {
-          const failure = await readApiError(response)
-          setError(toGeneralMessage(failure))
-          return failure
-        }
+    (request: () => Promise<Response>): Promise<ApiError | null> => {
+      // 在呼叫當下(事件處理中)同步記錄焦點,不等 job 開始才讀:
+      // 例如確認刪除時確認鈕進入 pending 而 disabled,那次提交早於 job,焦點已經掉到 body
+      const focus = captureFocus(tasksColumnRef.current)
+      return enqueue(async () => {
+        try {
+          const response = await request()
+          if (!response.ok) {
+            const failure = await readApiError(response)
+            setError(toGeneralMessage(failure))
+            return failure
+          }
 
-        const refetchFailure = await refetch()
-        setError(refetchFailure === null ? null : toGeneralMessage(refetchFailure))
-        return refetchFailure
-      } catch {
-        setError(generalMessage('NETWORK'))
-        return NETWORK_ERROR
-      } finally {
-        setMutating(false)
-      }
+          const refetchFailure = await refetch()
+          setError(refetchFailure === null ? null : toGeneralMessage(refetchFailure))
+          // 失敗時任務與焦點都不動
+          if (refetchFailure === null && focus !== null && tasksColumnRef.current !== null) {
+            restoreFocus(tasksColumnRef.current, focus)
+          }
+          return refetchFailure
+        } catch {
+          setError(generalMessage('NETWORK'))
+          return NETWORK_ERROR
+        }
+      })
     },
-    [refetch],
+    [enqueue, refetch],
   )
 
   const handleCreate = useCallback(
@@ -207,24 +240,16 @@ export default function ThreeColumnLayout() {
   )
 
   // 硬刪除,沒有 undo。刪除鈕在右欄,刪的一定是選取中那筆:成功後清掉 task、保留 view;
-  // 失敗時 mutate 已經 setError,任務、選取與焦點都不動
+  // 失敗時 mutate 已經 setError,任務與選取都不動。焦點由 mutate 統一處理(離開視圖的規則)
   const handleDelete = useCallback(
     async (id: number) => {
-      // 送出前就設好:重抓的渲染可能比 await 回來更早套用,effect 要在那時看得到旗標。
-      // 索引是刪除前的畫面順序,刪除後同一個索引就是遞補上來的那一筆
-      focusAfterDeleteRef.current = {
-        id,
-        index: visibleTasks.findIndex((task) => task.id === id),
-      }
       const failure = await mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' }))
       if (failure === null) {
         replaceParams((params) => params.delete('task'))
-      } else {
-        focusAfterDeleteRef.current = null
       }
       return failure
     },
-    [mutate, replaceParams, visibleTasks],
+    [mutate, replaceParams],
   )
 
   return (
@@ -233,7 +258,7 @@ export default function ThreeColumnLayout() {
         <CategoryColumn view={view} onSelect={handleSelectView} today={today} />
       </section>
 
-      {/* tabIndex={-1}:不進 Tab 順序,只讓程式在刪除後把焦點放過來 */}
+      {/* tabIndex={-1}:不進 Tab 順序,只讓程式在任務消失、清單空了時把焦點放過來 */}
       <section
         ref={tasksColumnRef}
         tabIndex={-1}
@@ -246,12 +271,10 @@ export default function ThreeColumnLayout() {
           view={view}
           loading={loading}
           error={error}
-          mutating={mutating}
           selectedId={selectedId}
           onSelect={handleSelect}
           onCreate={handleCreate}
           onToggle={handleToggle}
-          titleRefs={rowTitleRefs}
         />
       </section>
 
@@ -261,7 +284,6 @@ export default function ThreeColumnLayout() {
         <TaskDetail
           key={selectedTask?.id ?? 'empty'}
           task={selectedTask}
-          mutating={mutating}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑

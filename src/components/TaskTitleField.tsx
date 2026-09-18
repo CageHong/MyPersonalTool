@@ -7,7 +7,6 @@ type Props = {
   id: string
   task: Task
   onSave: (title: string) => Promise<ApiError | null>
-  disabled: boolean
   // 錯誤訊息畫在 TaskDetail 的欄位下方,這裡只負責標示輸入框與指過去
   errorId: string
   invalid: boolean
@@ -18,7 +17,6 @@ export default function TaskTitleField({
   id,
   task,
   onSave,
-  disabled,
   errorId,
   invalid,
   onClearError,
@@ -38,7 +36,6 @@ export default function TaskTitleField({
         onClearError()
       }}
       onBlur={draft.onBlur}
-      disabled={disabled}
       // 沒有錯誤時這兩個屬性不輸出,不要指向不存在的元素
       aria-invalid={invalid || undefined}
       aria-describedby={invalid ? errorId : undefined}
