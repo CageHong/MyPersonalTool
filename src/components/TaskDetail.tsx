@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
 import DueDateMenu from './DueDateMenu'
 import PriorityMenu from './PriorityMenu'
@@ -34,6 +34,8 @@ export default function TaskDetail({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   // 訊息元素的 id 不寫死,同一頁出現兩個右欄也不會撞
   const errorIdPrefix = useId()
+  // 刪除確認取消(或刪除失敗)後焦點回到刪除鈕
+  const deleteButtonRef = useRef<HTMLButtonElement>(null)
 
   if (task === undefined) {
     return <p className={styles.empty}>未選取任務</p>
@@ -94,6 +96,7 @@ export default function TaskDetail({
           setConfirmingId(null)
         }}
         onCancel={() => setConfirmingId(null)}
+        triggerRef={deleteButtonRef}
       />
 
       <div className={styles.field}>
@@ -168,6 +171,7 @@ export default function TaskDetail({
       <div className={styles.footer}>
         {/* 目前是硬刪除,所以需要確認;改成軟刪除後可拿掉確認,改成復原提示 */}
         <button
+          ref={deleteButtonRef}
           type="button"
           className={styles.delete}
           onClick={() => setConfirmingId(task.id)}

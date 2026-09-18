@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import CalendarIcon from './CalendarIcon'
 import DueDateDialog from './DueDateDialog'
 import { formatRelativeDate, isOverdue } from '@/lib/date'
@@ -16,6 +16,7 @@ type Props = {
 
 export default function DueDateMenu({ value, onSelect, disabled, showEmpty }: Props) {
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   const classNames = [styles.trigger]
   if (value === null) {
@@ -29,6 +30,7 @@ export default function DueDateMenu({ value, onSelect, disabled, showEmpty }: Pr
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         className={classNames.join(' ')}
         onClick={() => setOpen(true)}
@@ -44,10 +46,15 @@ export default function DueDateMenu({ value, onSelect, disabled, showEmpty }: Pr
       {open && (
         <DueDateDialog
           dueDate={value}
-          onClose={() => setOpen(false)}
-          onConfirm={(dueDate) => {
+          // 對話框已經 close(),背景不再 inert,觸發鈕才聚焦得到。先移焦點再存:
+          // 存檔會讓右欄進入 mutating,之後觸發鈕可能被停用(C3b-2c 處理)
+          onClose={(result) => {
             setOpen(false)
-            onSelect(dueDate)
+            triggerRef.current?.focus()
+            // 內容沒變不送請求(同 checklist 的標題)
+            if (result !== null && result.dueDate !== value) {
+              onSelect(result.dueDate)
+            }
           }}
         />
       )}
