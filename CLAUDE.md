@@ -60,6 +60,12 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - 完成狀態用 `completedAt` 判斷,**不要**加布林欄位(理由見 `docs/decisions.md` §2)。
 - `createdAt` 在 schema 層**沒有**預設值,由 `src/server/` 的建立函式填入 `Math.floor(Date.now() / 1000)`。理由:那是業務規則,不放資料層。
 
+更新規則(`updateTask`):
+
+- 完成狀態收 `done: boolean`,不收 `completedAt`(收到回 `VALIDATION_FAILED`,`fields.completedAt`)。冪等規則同 checklist 項目:未完成時收到 `done: true` → 寫入當下時間;已完成時收到 `done: true` → 保留原值;`done: false` → `null`,已經是 `null` 就不變。
+- 其他欄位新值與現有值相同時視為沒有變化(`title` 比 trim 後的值,`priority` 的 `null` 視為 0)。
+- 整個 patch 都沒有實際變化時不寫入資料庫。task 表沒有 `updatedAt`。
+
 `task_checklist_item` 表(任務底下的待辦項,**不是**任務——沒有截止日、不排程、不出現在任務清單查詢裡):
 
 | 欄位 | 型別 | 可空 | 說明 |
@@ -98,7 +104,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 |---|---|---|
 | GET | `/api/tasks` | 列出全部 |
 | POST | `/api/tasks` | 建立 |
-| PATCH | `/api/tasks/:id` | 部分更新(含勾完成) |
+| PATCH | `/api/tasks/:id` | 部分更新 `{ title?, notes?, dueDate?, dueTime?, scheduledAt?, durationMinutes?, priority?, parentTaskId?, done? }`;不收 `completedAt` |
 | DELETE | `/api/tasks/:id` | 刪除 |
 | GET | `/api/tasks/:id/checklist-items` | 列出該任務的 checklist 項目(依 position) |
 | POST | `/api/tasks/:id/checklist-items` | 新增項目,放在最後 |

@@ -36,7 +36,8 @@ export type CreateTaskInput = {
   parentTaskId?: number | null
 }
 
-// key 不存在 = 不改;值為 null = 設成 null
+// key 不存在 = 不改;值為 null = 設成 null。
+// 完成狀態對外是布林值,存成 completedAt 只在這個檔案裡轉換;完成時間由伺服器寫入,不收 completedAt
 export type UpdateTaskPatch = {
   title?: string
   notes?: string | null
@@ -45,8 +46,8 @@ export type UpdateTaskPatch = {
   scheduledAt?: number | null
   durationMinutes?: number | null
   priority?: number | null
-  completedAt?: number | null
   parentTaskId?: number | null
+  done?: boolean
 }
 
 const DUE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -63,7 +64,6 @@ const UPDATABLE_KEYS = [
   'scheduledAt',
   'durationMinutes',
   'priority',
-  'completedAt',
   'parentTaskId',
 ] as const
 
@@ -150,36 +150,60 @@ export function createTask(input: CreateTaskInput): Task {
 }
 
 export function updateTask(id: number, patch: UpdateTaskPatch): Task {
-  assertValid(patch, false)
+  const fields = collectErrors(patch, false)
+  // 明確拒絕而不是忽略:呼叫端以為自己設了完成時間,其實沒有
+  if ('completedAt' in patch) {
+    fields.completedAt = 'invalid_value'
+  }
+  if (patch.done !== undefined && typeof patch.done !== 'boolean') {
+    fields.done = 'invalid_value'
+  }
+  if (Object.keys(fields).length > 0) {
+    throw new ValidationError(fields)
+  }
 
   // 只挑白名單裡實際出現的 key,外來欄位不會漏進 SQL
-  const updates: Record<string, unknown> = {}
+  const normalized: Record<string, unknown> = {}
   for (const key of UPDATABLE_KEYS) {
     if (key in patch && patch[key] !== undefined) {
-      updates[key] = patch[key]
+      normalized[key] = patch[key]
     }
   }
-  if (typeof updates.title === 'string') {
-    updates.title = updates.title.trim()
+  if (typeof normalized.title === 'string') {
+    normalized.title = normalized.title.trim()
   }
   // 欄位是 NOT NULL DEFAULT 0,null 在這裡正規化成 0
-  if (updates.priority === null) {
-    updates.priority = 0
+  if (normalized.priority === null) {
+    normalized.priority = 0
   }
 
-  if (Object.keys(updates).length === 0) {
-    const [existing] = db.select().from(task).where(eq(task.id, id)).limit(1).all()
+  return db.transaction((tx) => {
+    const [existing] = tx.select().from(task).where(eq(task.id, id)).limit(1).all()
     if (!existing) {
       throw new NotFoundError(id)
     }
-    return existing
-  }
 
-  const [updated] = db.update(task).set(updates).where(eq(task.id, id)).returning().all()
-  if (!updated) {
-    throw new NotFoundError(id)
-  }
-  return updated
+    // 只收集真的會改變的欄位:重複勾完成保留原本的完成時間,整個 patch 沒變就不寫入
+    const updates: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(normalized)) {
+      if (value !== existing[key as keyof Task]) {
+        updates[key] = value
+      }
+    }
+    if (patch.done === true && existing.completedAt === null) {
+      updates.completedAt = Math.floor(Date.now() / 1000)
+    }
+    if (patch.done === false && existing.completedAt !== null) {
+      updates.completedAt = null
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return existing
+    }
+
+    const [updated] = tx.update(task).set(updates).where(eq(task.id, id)).returning().all()
+    return updated
+  })
 }
 
 export function deleteTask(id: number): void {

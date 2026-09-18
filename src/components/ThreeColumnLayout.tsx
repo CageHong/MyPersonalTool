@@ -179,16 +179,15 @@ export default function ThreeColumnLayout() {
     [mutate],
   )
 
-  // 完成狀態只由 completedAt 表示,沒有布林欄位
+  // 完成狀態只由 completedAt 表示,沒有布林欄位;
+  // API 收 done,完成時間由伺服器寫入(重複送完成不會改寫原本的時間)
   const handleToggle = useCallback(
     (task: Task) =>
       mutate(() =>
         fetch(`/api/tasks/${task.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            completedAt: task.completedAt === null ? Math.floor(Date.now() / 1000) : null,
-          }),
+          body: JSON.stringify({ done: task.completedAt === null }),
         }),
       ),
     [mutate],
