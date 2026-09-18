@@ -1,0 +1,160 @@
+/* 外框、backdrop、底部按鈕與 DueDateDialog 同一套外觀 */
+.dialog {
+  padding: 0;
+  border: 1px solid var(--color-dialog-border);
+  border-radius: var(--radius);
+  background: var(--color-dialog-bg);
+  color: var(--color-text);
+}
+
+/* 開啟時由程式聚焦,Tab 不會停在 dialog 本身,外框沒有資訊量 */
+.dialog:focus-visible {
+  outline: none;
+}
+
+.dialog::backdrop {
+  background: var(--color-backdrop);
+}
+
+/* 由上到下:頻率、間隔、星期幾(每週才有)、預覽、底部按鈕 */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.label {
+  color: var(--color-field-label);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.freqs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* legend 放在 flex 容器裡會浮在框線上;沒有框線,讓它自己佔一整列 */
+.freqs .label {
+  width: 100%;
+  margin-bottom: var(--space-1);
+  padding: 0;
+}
+
+.freq {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.interval {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.intervalInput {
+  width: 4rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-field-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-field-text);
+  font: inherit;
+}
+
+.intervalInput[aria-invalid='true'] {
+  border-color: var(--color-field-border-invalid);
+}
+
+.weekdays {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.weekday {
+  width: 2rem;
+  padding: var(--space-1) 0;
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* 選中的星期用主要行動色,和未選的一眼分得出來 */
+.weekday[aria-pressed='true'] {
+  border-color: var(--color-action-border);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-error-text);
+  font-size: var(--text-sm);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-dialog-section-line);
+  font-size: var(--text-sm);
+}
+
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summary {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-dialog-section-line);
+}
+
+.cancel {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.confirm {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-action-border);
+  border-radius: var(--radius);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+  font: inherit;
+  cursor: pointer;
+}

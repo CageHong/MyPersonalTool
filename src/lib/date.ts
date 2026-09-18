@@ -111,6 +111,13 @@ export function formatRelativeDate(iso: string, today: string = todayIso()): str
     : `${date.year}/${date.month}/${date.day}`
 }
 
+// 重複選單的預覽:月/日 + 星期,跨年才補年份
+export function formatShortDate(iso: string, today: string = todayIso()): string {
+  const { year, month, day } = parseIso(iso)
+  const prefix = year === parseIso(today).year ? '' : `${year}/`
+  return `${prefix}${month}/${day} 週${WEEKDAY_LABELS[weekday(iso)]}`
+}
+
 // 分類欄底部的今天
 export function formatLongDate(iso: string): string {
   const { year, month, day } = parseIso(iso)

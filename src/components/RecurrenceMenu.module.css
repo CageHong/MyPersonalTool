@@ -1,0 +1,15 @@
+/* 和 DueDateMenu、PriorityMenu 的觸發鈕同一套外觀;目前值「不重複」是空值,用淡色 */
+.trigger {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}

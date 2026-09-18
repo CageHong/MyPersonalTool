@@ -6,6 +6,9 @@ export type Task = {
   dueDate: string | null
   priority: number
   completedAt: number | null
+  // 重複規則產生的實例才有;有值時右欄顯示規則摘要,不顯示「重複」按鈕
+  recurrenceRuleId: number | null
+  occurrenceDate: string | null
 }
 
 export type NewTask = {

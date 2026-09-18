@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { expandRule, type RecurrenceSpec } from './recurrence'
+import { describeRule, expandRule, upcomingOccurrences, type RecurrenceSpec } from './recurrence'
 
 // 在有日光節約時間的時區跑,DST 那項才有意義。node --test 每個檔案一個 process,不影響其他檔
 process.env.TZ = 'Europe/Berlin'
@@ -89,6 +89,87 @@ describe('expandRule', () => {
       '2026-10-26',
       '2026-10-27',
       '2026-10-28',
+    ])
+  })
+})
+
+describe('describeRule', () => {
+  const cases: [string, RecurrenceSpec, string][] = [
+    ['daily', rule({ freq: 'daily', startDate: '2026-09-18' }), '每天'],
+    ['daily every 3', rule({ freq: 'daily', interval: 3, startDate: '2026-09-18' }), '每 3 天'],
+    [
+      'weekly Mon, Thu (Monday first regardless of bit order)',
+      rule({ freq: 'weekly', weekdays: THURSDAY | MONDAY, startDate: '2026-09-18' }),
+      '每週一、四',
+    ],
+    [
+      'weekly every 2',
+      rule({ freq: 'weekly', interval: 2, weekdays: MONDAY | THURSDAY, startDate: '2026-09-18' }),
+      '每 2 週的週一、四',
+    ],
+    ['weekly Sunday last', rule({ freq: 'weekly', weekdays: (1 << 6) | MONDAY, startDate: '2026-09-18' }), '每週一、日'],
+    ['monthly', rule({ freq: 'monthly', startDate: '2026-09-18' }), '每月 18 日'],
+    ['monthly every 3', rule({ freq: 'monthly', interval: 3, startDate: '2026-09-18' }), '每 3 個月的 18 日'],
+    ['monthly on 31', rule({ freq: 'monthly', startDate: '2026-08-31' }), '每月 31 日（該月沒有 31 日則取月底）'],
+    ['monthly on 29', rule({ freq: 'monthly', startDate: '2026-01-29' }), '每月 29 日（該月沒有 29 日則取月底）'],
+    ['monthly on 28 has no note', rule({ freq: 'monthly', startDate: '2026-01-28' }), '每月 28 日'],
+    ['yearly', rule({ freq: 'yearly', startDate: '2026-09-18' }), '每年 9 月 18 日'],
+    ['yearly every 2', rule({ freq: 'yearly', interval: 2, startDate: '2026-09-18' }), '每 2 年的 9 月 18 日'],
+    ['yearly on Feb 29', rule({ freq: 'yearly', startDate: '2028-02-29' }), '每年 2 月 29 日（非閏年取 2 月 28 日）'],
+  ]
+
+  for (const [name, spec, expected] of cases) {
+    test(name, () => {
+      assert.equal(describeRule(spec), expected)
+    })
+  }
+})
+
+describe('upcomingOccurrences', () => {
+  const TODAY = '2026-09-18'
+
+  test('a Friday anchor set to every Monday starts next Monday', () => {
+    // 2026-09-18 是星期五
+    const weekly = rule({ freq: 'weekly', weekdays: MONDAY, startDate: TODAY })
+
+    assert.deepEqual(upcomingOccurrences(weekly, TODAY, 4), [
+      '2026-09-21',
+      '2026-09-28',
+      '2026-10-05',
+      '2026-10-12',
+    ])
+  })
+
+  test('an anchor 30 days ago does not backfill: [anchor, today, tomorrow, the day after]', () => {
+    const daily = rule({ freq: 'daily', startDate: '2026-08-19' })
+
+    assert.deepEqual(upcomingOccurrences(daily, TODAY, 4), [
+      '2026-08-19',
+      '2026-09-18',
+      '2026-09-19',
+      '2026-09-20',
+    ])
+  })
+
+  test('monthly on the 31st', () => {
+    const monthly = rule({ freq: 'monthly', startDate: '2026-10-31' })
+
+    assert.deepEqual(upcomingOccurrences(monthly, TODAY, 4), [
+      '2026-10-31',
+      '2026-11-30',
+      '2026-12-31',
+      '2027-01-31',
+    ])
+  })
+
+  test('a large interval still finds count dates', () => {
+    const yearly = rule({ freq: 'yearly', interval: 99, startDate: TODAY })
+
+    assert.deepEqual(upcomingOccurrences(yearly, TODAY, 4), [
+      '2026-09-18',
+      '2125-09-18',
+      '2224-09-18',
+      '2323-09-18',
     ])
   })
 })

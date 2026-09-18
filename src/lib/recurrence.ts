@@ -146,3 +146,59 @@ export function firstOccurrence(rule: RecurrenceSpec): string {
   )
   return first
 }
+
+// 前端讀 GET /api/recurrence-rules/:ruleId 用的形狀;前端不從 src/server/ import 型別,在這裡自行宣告,
+// 只列畫面用得到的欄位
+export type RecurrenceRuleView = RecurrenceSpec & {
+  id: number
+  // Unix 秒;null = 仍在重複
+  endedAt: number | null
+}
+
+// 錨點日在 weekdays bitmask 裡的 bit(bit 0 = 星期一);每週的預設就是勾錨點那天
+export function weekdayBit(iso: string): number {
+  return 1 << weekdayIndex(dayNumber(iso))
+}
+
+// bit 0..6 的順序就是一 → 日
+const WEEKDAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
+
+export function describeRule(rule: RecurrenceSpec): string {
+  const every = rule.interval === 1
+  switch (rule.freq) {
+    case 'daily':
+      return every ? '每天' : `每 ${rule.interval} 天`
+    case 'weekly': {
+      const days = WEEKDAY_NAMES.filter((_, index) => ((rule.weekdays ?? 0) & (1 << index)) !== 0)
+      const list = `週${days.join('、')}`
+      return every ? `每${list}` : `每 ${rule.interval} 週的${list}`
+    }
+    case 'monthly': {
+      const { day } = parseIso(rule.startDate)
+      // 29 號以後有些月份沒有,展開時取月底;摘要要說清楚
+      const note = day >= 29 ? `（該月沒有 ${day} 日則取月底）` : ''
+      return (every ? `每月 ${day} 日` : `每 ${rule.interval} 個月的 ${day} 日`) + note
+    }
+    case 'yearly': {
+      const { month, day } = parseIso(rule.startDate)
+      const note = month === 2 && day === 29 ? '（非閏年取 2 月 28 日）' : ''
+      return (every ? `每年 ${month} 月 ${day} 日` : `每 ${rule.interval} 年的 ${month} 月 ${day} 日`) + note
+    }
+  }
+}
+
+// 一定涵蓋得到 count 個日期的天數上限:每個單位取最長的天數
+const DAYS_PER_UNIT: Record<Freq, number> = { daily: 1, weekly: 7, monthly: 31, yearly: 366 }
+
+// 建立規則後實際會存在的前 count 個實例,和伺服器一致:
+// 第一個是 firstOccurrence(原任務),之後從 max(今天, 第一個的隔天) 開始(建立規則不回溯)
+export function upcomingOccurrences(rule: RecurrenceSpec, today: string, count: number): string[] {
+  if (count <= 0) {
+    return []
+  }
+  const first = firstOccurrence(rule)
+  const afterFirst = addDaysUtc(first, 1)
+  const lower = today > afterFirst ? today : afterFirst
+  const upper = addDaysUtc(lower, DAYS_PER_UNIT[rule.freq] * (rule.interval * count + 1))
+  return [first, ...expandRule(rule, lower, upper).slice(0, count - 1)]
+}

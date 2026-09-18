@@ -54,6 +54,11 @@ export function checklistItemMessage(code: GeneralCode): string {
   return code === 'NOT_FOUND' ? '找不到這個項目,可能已被刪除' : generalMessage(code)
 }
 
+// 讀取重複規則時的泛用錯誤。404 是「規則」不見了,不是任務;其餘代碼和任務共用
+export function recurrenceRuleMessage(code: GeneralCode): string {
+  return code === 'NOT_FOUND' ? '找不到這個重複規則' : generalMessage(code)
+}
+
 function toGeneralCode(code: unknown): GeneralCode {
   return typeof code === 'string' && GENERAL_CODES.includes(code)
     ? (code as GeneralCode)

@@ -9,6 +9,7 @@ import TaskList from './TaskList'
 import styles from './ThreeColumnLayout.module.css'
 import { todayIso } from '@/lib/date'
 import { generalMessage, NETWORK_ERROR, readApiError, type ApiError } from '@/lib/errors'
+import type { RecurrenceSpec } from '@/lib/recurrence'
 import { filterTasks, parseView, type ViewId } from '@/lib/views'
 import type { NewTask, Task, TaskPatch } from '@/lib/tasks'
 
@@ -239,6 +240,20 @@ export default function ThreeColumnLayout() {
     [mutate],
   )
 
+  // 把任務變成重複規則的第一個實例。截止日可能因此改變、任務離開目前檢視,
+  // 焦點照 mutate 的離開視圖規則處理
+  const handleCreateRecurrence = useCallback(
+    (id: number, spec: RecurrenceSpec) =>
+      mutate(() =>
+        fetch(`/api/tasks/${id}/recurrence`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(spec),
+        }),
+      ),
+    [mutate],
+  )
+
   // 硬刪除,沒有 undo。刪除鈕在右欄,刪的一定是選取中那筆:成功後清掉 task、保留 view;
   // 失敗時 mutate 已經 setError,任務與選取都不動。焦點由 mutate 統一處理(離開視圖的規則)
   const handleDelete = useCallback(
@@ -286,6 +301,7 @@ export default function ThreeColumnLayout() {
           task={selectedTask}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
+          onCreateRecurrence={handleCreateRecurrence}
           // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
           onChecklistError={setError}
         />

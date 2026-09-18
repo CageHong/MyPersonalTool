@@ -253,6 +253,12 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **checklist 可拖曳排序(依賴 `@dnd-kit/core`、`@dnd-kit/sortable`、`@dnd-kit/utilities`)。** 只有每列左側的把手能啟動拖曳(滑鼠移動 5px 或鍵盤空白鍵/Enter);寫入排隊中不能開始拖曳,由感應器判斷,不用 `disabled`。放下後直接改 `items`(樂觀更新,全 app 唯一的樂觀更新),再排入 `PUT …/order`,完成後照常重抓;失敗時重抓還原。放下後焦點留在把手上。朗讀文字為中文。
 
+**右欄的「重複」列在優先級下方,依任務狀態顯示三種樣子。** 實例(`recurrenceRuleId` 不為 null)顯示唯讀的規則摘要;未完成的一般任務顯示「重複」選單;已完成的一般任務整列不顯示。修改規則與停止重複尚未提供。
+
+**「重複」選單(`RecurrenceMenu` + `RecurrenceDialog`)照 `DueDateMenu` 的做法。** 開啟時才掛載,所有關閉路徑經 `dialog.close()`,close 事件先把焦點移回觸發鈕再送出。錨點是任務的截止日,沒有就是今天,選單內不提供日期欄位。每次開啟的預設:每天、間隔 1、每週的星期幾勾錨點那天。按確定時才驗證(間隔 1–99 的整數、每週至少一天),不停用確定鈕,不合法就留在選單裡把訊息畫在欄位下方。預覽用 `upcomingOccurrences` 顯示接下來 4 個日期,和伺服器實際產生的實例一致(第一個是原任務,之後從今天起,不回溯),下方一行是 `describeRule` 的摘要。送出經 `ThreeColumnLayout` 的寫入佇列(`mutate`),防重複送出用 `pendingRef`,完成後一律重設。成功後任務變成實例、按鈕被摘要取代:任務仍在視圖裡時焦點落到摘要(送出前立 `focusSummaryRef` 旗標,由 `RecurrenceSummary` 掛載後、焦點在 body 時接手);任務離開視圖時照「任務寫入由 `ThreeColumnLayout` 排隊」的遞補規則。
+
+**規則摘要(`RecurrenceSummary`)自己載入 `GET /api/recurrence-rules/:ruleId`。** 顯示 `describeRule`,已停止的規則加註「已停止重複」。競態靠 `TaskDetail` 的 `key={task.id}` 重新掛載,effect 的 cleanup 另外標記過期,舊回應不寫 state。載入失敗的訊息照 checklist 的方式顯示在中欄新增列下方。
+
 之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、重複任務、習慣。(重複任務的資料層已完成,API 與 UI 未做。)
 
 ## 待處理事項

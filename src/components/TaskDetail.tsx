@@ -2,10 +2,14 @@ import { useId, useRef, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
 import DueDateMenu from './DueDateMenu'
 import PriorityMenu from './PriorityMenu'
+import RecurrenceMenu from './RecurrenceMenu'
+import RecurrenceSummary from './RecurrenceSummary'
 import TaskChecklist from './TaskChecklist'
 import TaskNotesField from './TaskNotesField'
 import TaskTitleField from './TaskTitleField'
+import { todayIso } from '@/lib/date'
 import { fieldMessage, type ApiError, type FieldErrors } from '@/lib/errors'
+import type { RecurrenceSpec } from '@/lib/recurrence'
 import type { Task, TaskPatch } from '@/lib/tasks'
 import styles from './TaskDetail.module.css'
 
@@ -14,6 +18,8 @@ type Props = {
   task: Task | undefined
   onUpdate: (id: number, patch: TaskPatch) => Promise<ApiError | null>
   onDelete: (id: number) => Promise<ApiError | null>
+  // POST /api/tasks/:id/recurrence;成功後任務變成實例,右欄改顯示規則摘要
+  onCreateRecurrence: (id: number, spec: RecurrenceSpec) => Promise<ApiError | null>
   // checklist 的泛用錯誤顯示在中欄新增列下方,和任務的錯誤同一個位置
   onChecklistError: (message: string | null) => void
 }
@@ -22,6 +28,7 @@ export default function TaskDetail({
   task,
   onUpdate,
   onDelete,
+  onCreateRecurrence,
   onChecklistError,
 }: Props) {
   // 存「正在確認刪除哪一筆」而不是布林值:換任務自動失效,刪除成功或失敗後都清成 null
@@ -34,6 +41,9 @@ export default function TaskDetail({
   const errorIdPrefix = useId()
   // 刪除確認取消(或刪除失敗)後焦點回到刪除鈕
   const deleteButtonRef = useRef<HTMLButtonElement>(null)
+  // 建立規則後「重複」按鈕會被規則摘要取代,焦點掉到 body。送出前立旗標,
+  // 由 RecurrenceSummary 掛載後(DOM 已提交)接手焦點並清旗標;失敗時這裡清
+  const focusSummaryRef = useRef(false)
 
   if (task === undefined) {
     return <p className={styles.empty}>未選取任務</p>
@@ -161,6 +171,32 @@ export default function TaskDetail({
         />
         {fieldError('priority')}
       </div>
+
+      {/* 實例顯示唯讀摘要;未完成的一般任務才能設定重複;已完成的一般任務整列不顯示 */}
+      {(task.recurrenceRuleId !== null || task.completedAt === null) && (
+        <div className={`${styles.field} ${styles.menuField}`}>
+          <span className={styles.fieldLabel}>重複</span>
+          {task.recurrenceRuleId !== null ? (
+            <RecurrenceSummary
+              ruleId={task.recurrenceRuleId}
+              onError={onChecklistError}
+              focusOnMountRef={focusSummaryRef}
+            />
+          ) : (
+            <RecurrenceMenu
+              anchor={task.dueDate ?? todayIso()}
+              onSubmit={async (spec) => {
+                focusSummaryRef.current = true
+                const failure = await onCreateRecurrence(taskId, spec)
+                if (failure !== null) {
+                  focusSummaryRef.current = false
+                }
+                return failure
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* 刪除放在最底部,和編輯欄位隔開 */}
       <div className={styles.footer}>
