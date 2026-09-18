@@ -108,6 +108,8 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 
 用 PATCH 不用 PUT:勾完成只改 `completedAt` 一個欄位,不是整個資源替換。
 
+新增 route 時,`errorResponse`、`handleError`、`parseId`、`readJsonObject` 從 `src/app/api/_lib/http.ts` import,不要在 route 檔內重寫。
+
 錯誤回應一律用 HTTP 狀態碼 + 結構化 JSON:
 
 ```json

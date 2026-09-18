@@ -3,55 +3,15 @@ import {
   updateChecklistItem,
   type UpdateChecklistItemPatch,
 } from '@/server/checklist'
-import { NotFoundError, ValidationError } from '@/server/tasks'
-
-function errorResponse(
-  status: number,
-  code: string,
-  message: string,
-  fields?: Record<string, string>,
-): Response {
-  return Response.json({ error: { code, message, ...(fields && { fields }) } }, { status })
-}
-
-function handleError(label: string, error: unknown): Response {
-  if (error instanceof ValidationError) {
-    return errorResponse(400, 'VALIDATION_FAILED', 'Validation failed', error.fields)
-  }
-  if (error instanceof NotFoundError) {
-    return errorResponse(404, 'NOT_FOUND', 'Checklist item not found')
-  }
-  console.error(label, error)
-  return errorResponse(500, 'INTERNAL_ERROR', 'Internal server error')
-}
-
-// 網址參數轉成 src/server/ 函式簽章要求的 number;純解析,不是業務驗證
-function parseId(raw: string): number | null {
-  return /^\d+$/.test(raw) ? Number(raw) : null
-}
-
-async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return null
-  }
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    return null
-  }
-  return body as Record<string, unknown>
-}
+import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function PATCH(
   request: Request,
   ctx: RouteContext<'/api/checklist-items/[itemId]'>,
 ): Promise<Response> {
-  const itemId = parseId((await ctx.params).itemId)
-  if (itemId === null) {
-    return errorResponse(400, 'VALIDATION_FAILED', 'Invalid checklist item id', {
-      itemId: 'invalid',
-    })
+  const itemId = parseId((await ctx.params).itemId, 'itemId')
+  if (itemId instanceof Response) {
+    return itemId
   }
 
   const body = await readJsonObject(request)
@@ -64,7 +24,7 @@ export async function PATCH(
   try {
     return Response.json(updateChecklistItem(itemId, body as UpdateChecklistItemPatch))
   } catch (error) {
-    return handleError('[PATCH /api/checklist-items/[itemId]]', error)
+    return handleError('[PATCH /api/checklist-items/[itemId]]', error, 'Checklist item not found')
   }
 }
 
@@ -72,17 +32,15 @@ export async function DELETE(
   _request: Request,
   ctx: RouteContext<'/api/checklist-items/[itemId]'>,
 ): Promise<Response> {
-  const itemId = parseId((await ctx.params).itemId)
-  if (itemId === null) {
-    return errorResponse(400, 'VALIDATION_FAILED', 'Invalid checklist item id', {
-      itemId: 'invalid',
-    })
+  const itemId = parseId((await ctx.params).itemId, 'itemId')
+  if (itemId instanceof Response) {
+    return itemId
   }
 
   try {
     deleteChecklistItem(itemId)
     return new Response(null, { status: 204 })
   } catch (error) {
-    return handleError('[DELETE /api/checklist-items/[itemId]]', error)
+    return handleError('[DELETE /api/checklist-items/[itemId]]', error, 'Checklist item not found')
   }
 }
