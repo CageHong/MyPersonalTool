@@ -12,8 +12,10 @@ type Props = {
 
 export default function DueDateDialog({ dueDate, onConfirm, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
-  // 這個彈窗之後還要放時間與重複規則,草稿一開始就是物件,到時候往裡面加 key
-  const [draft, setDraft] = useState<DueDateDraft>({ dueDate })
+  // 這個彈窗之後還要放時間與重複規則,草稿一開始就是物件,到時候往裡面加 key。
+  // 還沒有截止日時草稿預設今天,月曆一開就停在今天那格;實際值不變,仍然要按確定才寫入。
+  // 兩個呼叫端都是開啟時才掛載,所以初始值每次開啟都會重算
+  const [draft, setDraft] = useState<DueDateDraft>({ dueDate: dueDate ?? todayIso() })
 
   // showModal() 才有 Esc 關閉、焦點鎖在彈窗內、背景 inert、關閉後焦點回到觸發按鈕。
   // 開發模式下 effect 會跑兩次,先確認還沒開啟。

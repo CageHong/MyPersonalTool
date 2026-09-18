@@ -23,7 +23,7 @@
   color: var(--color-field-placeholder);
 }
 
-.input:disabled {
+.input:read-only {
   background: var(--color-field-disabled-bg);
   color: var(--color-field-disabled-text);
 }

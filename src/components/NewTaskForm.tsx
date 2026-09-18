@@ -23,7 +23,8 @@ export default function NewTaskForm({ onCreate, disabled }: Props) {
   // 不是判斷標題合法與否。錯誤訊息仍由 TaskList 顯示。
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (draft.title.trim() === '') {
+    // readOnly 的輸入框按 Enter 一樣會送出表單,這裡擋掉請求進行中的重複送出
+    if (disabled || draft.title.trim() === '') {
       return
     }
 
@@ -41,7 +42,9 @@ export default function NewTaskForm({ onCreate, disabled }: Props) {
         type="text"
         value={draft.title}
         onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-        disabled={disabled}
+        // 送出期間用 readOnly 不用 disabled:被停用的元素不能有焦點,瀏覽器會把焦點移到
+        // body 且不會還回來,送出後就沒辦法直接接著打下一筆。readOnly 一樣改不動內容
+        readOnly={disabled}
         aria-label="標題"
         placeholder="新增任務"
       />
