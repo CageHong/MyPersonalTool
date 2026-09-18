@@ -60,10 +60,27 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - 完成狀態用 `completedAt` 判斷,**不要**加布林欄位(理由見 `docs/decisions.md` §2)。
 - `createdAt` 在 schema 層**沒有**預設值,由 `src/server/` 的建立函式填入 `Math.floor(Date.now() / 1000)`。理由:那是業務規則,不放資料層。
 
+`task_checklist_item` 表(任務底下的待辦項,**不是**任務——沒有截止日、不排程、不出現在任務清單查詢裡):
+
+| 欄位 | 型別 | 可空 | 說明 |
+|---|---|---|---|
+| `id` | integer PK autoincrement | 否 | |
+| `taskId` | integer FK → `task.id`,ON DELETE CASCADE | 否 | 刪除任務時項目一起刪除 |
+| `title` | text | 否 | |
+| `position` | integer | 否 | 同一任務內的順序,小的在前;不保證連號 |
+| `completedAt` | integer (Unix 秒) | 是 | `null` = 未勾 |
+| `createdAt` | integer (Unix 秒) | 否 | |
+| `updatedAt` | integer (Unix 秒) | 否 | |
+
+完成狀態的冪等規則(函式收 `done: boolean`,只在 `src/server/` 轉換):
+
+- 未勾時收到 `done: true` → 寫入當下時間;已勾時收到 `done: true` → 保留原值。
+- `done: false` → `null`;已經是 `null` 就不變。
+- 狀態沒有實際變化時,不更新 `updatedAt`。
+
 之後才做(現在不要提出實作):
 
 - `recurrence` 表:重複規則(每日/每週/每月),`task` 用 `templateId` 指回。
-- `checklist_item` 表:任務底下的待辦項,**不是**任務——沒有截止日、不排程、不出現在任務清單查詢裡。
 - 子任務 UI:用既有的 `parentTaskId`。
 
 
@@ -83,6 +100,11 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 | POST | `/api/tasks` | 建立 |
 | PATCH | `/api/tasks/:id` | 部分更新(含勾完成) |
 | DELETE | `/api/tasks/:id` | 刪除 |
+| GET | `/api/tasks/:id/checklist-items` | 列出該任務的 checklist 項目(依 position) |
+| POST | `/api/tasks/:id/checklist-items` | 新增項目,放在最後 |
+| PUT | `/api/tasks/:id/checklist-items/order` | 重新排序,body `{ itemIds }` 必須恰好是該任務的全部項目 |
+| PATCH | `/api/checklist-items/:itemId` | 部分更新 `{ title?, done? }` |
+| DELETE | `/api/checklist-items/:itemId` | 刪除 |
 
 用 PATCH 不用 PUT:勾完成只改 `completedAt` 一個欄位,不是整個資源替換。
 
