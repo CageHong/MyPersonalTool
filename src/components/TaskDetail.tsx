@@ -2,21 +2,30 @@ import { useId, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
 import DueDateMenu from './DueDateMenu'
 import PriorityMenu from './PriorityMenu'
+import TaskChecklist from './TaskChecklist'
 import TaskNotesField from './TaskNotesField'
 import TaskTitleField from './TaskTitleField'
 import { fieldMessage, type ApiError, type FieldErrors } from '@/lib/errors'
 import type { Task, TaskPatch } from '@/lib/tasks'
 import styles from './TaskDetail.module.css'
 
-// 四個欄位都可編輯;各自儲存,各自送一次 PATCH
+// 四個欄位都可編輯;各自儲存,各自送一次 PATCH。checklist 自己打自己的 API
 type Props = {
   task: Task | undefined
   mutating: boolean
   onUpdate: (id: number, patch: TaskPatch) => Promise<ApiError | null>
   onDelete: (id: number) => Promise<ApiError | null>
+  // checklist 的泛用錯誤顯示在中欄新增列下方,和任務的錯誤同一個位置
+  onChecklistError: (message: string | null) => void
 }
 
-export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props) {
+export default function TaskDetail({
+  task,
+  mutating,
+  onUpdate,
+  onDelete,
+  onChecklistError,
+}: Props) {
   // 存「正在確認刪除哪一筆」而不是布林值:換任務自動失效,刪除成功或失敗後都清成 null
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   // 欄位錯誤集中放這一層:訊息畫在欄位下方的 .field 裡,四個欄位共用同一套。
@@ -118,6 +127,17 @@ export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props
           onClearError={() => clearFieldError('notes')}
         />
         {fieldError('notes')}
+      </div>
+
+      <div className={styles.field}>
+        <span className={styles.fieldLabel} id={`${errorIdPrefix}-checklist-label`}>
+          檢查項目
+        </span>
+        <TaskChecklist
+          taskId={task.id}
+          onError={onChecklistError}
+          labelId={`${errorIdPrefix}-checklist-label`}
+        />
       </div>
 
       {/* 兩個觸發鈕的字級比輸入框小一階;觸發鈕是 font: inherit,跟著這層走。

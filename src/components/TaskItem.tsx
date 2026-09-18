@@ -1,4 +1,5 @@
 import type { MouseEvent, Ref } from 'react'
+import Checkbox from './Checkbox'
 import { formatRelativeDate, isOverdue } from '@/lib/date'
 import { priorityLevel, type Task } from '@/lib/tasks'
 import type { ApiError } from '@/lib/errors'
@@ -52,11 +53,8 @@ export default function TaskItem({
       <div className={styles.main}>
         {/* 任務列的優先級只靠顏色:未勾選時的框線色。文字標籤在右欄與新增列,
             螢幕閱讀器靠 aria-label。勾選後不分優先級一律同色 */}
-        <input
-          type="checkbox"
-          className={
-            level === undefined ? styles.checkbox : `${styles.checkbox} ${styles[level.tone]}`
-          }
+        <Checkbox
+          tone={level?.tone}
           checked={completed}
           onChange={handleToggle}
           onClick={stopSelect}

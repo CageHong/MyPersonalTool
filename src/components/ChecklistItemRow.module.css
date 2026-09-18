@@ -1,0 +1,66 @@
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* 看起來像一行文字,聚焦時才像輸入框;框線預留透明,聚焦時尺寸不變 */
+.input {
+  flex: 1;
+  /* 沒有這行的話,flex 子項不會縮到內容寬度以下 */
+  min-width: 0;
+  padding: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+}
+
+.input:focus {
+  border-color: var(--color-field-border);
+  background: var(--color-field-bg);
+}
+
+/* 已勾項目留在原位,淡化加刪除線 */
+.done {
+  color: var(--color-checklist-done-text);
+  text-decoration: line-through;
+}
+
+.invalid {
+  border-color: var(--color-field-border-invalid);
+}
+
+/* 平時隱藏,該列 hover 或列內有焦點時才出現。用 opacity 不用 visibility:
+   visibility: hidden 的元素不能聚焦,Tab 會跳過它 */
+.delete {
+  display: flex;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-checklist-delete);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.row:hover .delete,
+.row:focus-within .delete {
+  opacity: 1;
+}
+
+.delete:hover {
+  color: var(--color-checklist-delete-hover);
+}
+
+.error {
+  color: var(--color-error-text);
+  font-size: var(--text-sm);
+}

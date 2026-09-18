@@ -48,6 +48,12 @@ export function generalMessage(code: GeneralCode): string {
   return GENERAL_MESSAGES[code] ?? '操作失敗,請再試一次'
 }
 
+// 修改或刪除 checklist 項目時的泛用錯誤。API 的 404 不分資源,
+// 由前端依動作決定是「項目」不見了;其餘代碼和任務共用同一套訊息
+export function checklistItemMessage(code: GeneralCode): string {
+  return code === 'NOT_FOUND' ? '找不到這個項目,可能已被刪除' : generalMessage(code)
+}
+
 function toGeneralCode(code: unknown): GeneralCode {
   return typeof code === 'string' && GENERAL_CODES.includes(code)
     ? (code as GeneralCode)

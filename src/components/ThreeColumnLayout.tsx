@@ -265,6 +265,8 @@ export default function ThreeColumnLayout() {
           mutating={mutating}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
+          // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
+          onChecklistError={setError}
         />
       </section>
     </div>

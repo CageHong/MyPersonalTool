@@ -102,3 +102,5 @@
 | Google Calendar 單向推送(Task → GCal) | task manager 功能穩定後 |
 | 色盲使用者無法區分任務列的優先級顏色(純顏色,無形狀差異) | 個人工具,刻意接受;這套元件若進共用設計系統再處理 |
 | ValidationError、NotFoundError 從 tasks.ts 移到 src/server/errors.ts，NotFoundError 帶資源類型 | 有第二個工具的 server 模組時 |
+| 任務側寫入期間 disabled 控制項，可能造成焦點掉到 body；評估改成寫入排隊 | C3b |
+| 觸控裝置沒有 hover，checklist 的刪除鈕不會出現 | 手機開始使用時 |

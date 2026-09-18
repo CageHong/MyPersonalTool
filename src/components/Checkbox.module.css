@@ -1,0 +1,62 @@
+/* 自繪勾選框;任務列與 checklist 共用。優先級的 tone 由呼叫端決定,checklist 不帶 tone */
+.checkbox {
+  /* 自繪但仍是原生 checkbox:空白鍵、Tab、焦點都照舊,焦點框走全域 :focus-visible */
+  appearance: none;
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  /* 框線色 = color;優先級的 tone class 只改 color */
+  border: 2px solid currentColor;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-priority-none);
+  cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: opacity, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
+}
+
+.checkbox:checked {
+  border-color: var(--color-checkbox-checked-bg);
+  background: var(--color-checkbox-checked-bg);
+}
+
+/* 勾號:只畫右、下兩邊再轉 45 度。用邊框不用圖片,顏色才吃得到變數 */
+.checkbox:checked::before {
+  content: '';
+  width: 30%;
+  height: 60%;
+  border: solid var(--color-checkbox-check);
+  border-width: 0 2px 2px 0;
+  transform: translateY(-10%) rotate(45deg);
+}
+
+.checkbox:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
+}
+
+/* 勾選框的 tone:class 名對應 PRIORITY_LEVELS 的 tone,色碼一律走 :root 變數。
+   有優先級時框線加同色淡填底;無優先級沒有 tone class,只有框線。
+   勾選後由 .checkbox:checked 蓋掉框線與填底,已完成任務不留優先級顏色 */
+.low {
+  color: var(--color-priority-low);
+}
+
+.medium {
+  color: var(--color-priority-medium);
+}
+
+.high {
+  color: var(--color-priority-high);
+}
+
+.low,
+.medium,
+.high {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}

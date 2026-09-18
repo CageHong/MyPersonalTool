@@ -171,6 +171,13 @@
   --color-checkbox-checked-bg: var(--palette-stone-deep);
   --color-checkbox-check: var(--palette-white);
 
+  /* ---- checklist ---- */
+  /* 已勾項目留在原位,文字淡化加刪除線;和已完成任務同色,名字分開以便各自調 */
+  --color-checklist-done-text: var(--palette-stone-deep);
+  /* 刪除鈕平時淡,hover 才轉成破壞性動作的紅 */
+  --color-checklist-delete: var(--palette-stone-deep);
+  --color-checklist-delete-hover: var(--palette-red-deep);
+
   /* ---- 清單項目 ---- */
   --color-row-border: var(--palette-tan);
   --color-row-selected-bg: var(--palette-rose-gray);
