@@ -50,14 +50,22 @@ export default function TaskItem({
     // 整列可點選;標題另外是按鈕,鍵盤才走得到
     <li className={classNames.join(' ')} onClick={handleSelect} aria-current={selected}>
       <div className={styles.main}>
+        {/* 任務列的優先級只靠顏色:未勾選時的框線色。文字標籤在右欄與新增列,
+            螢幕閱讀器靠 aria-label。勾選後不分優先級一律同色 */}
         <input
           type="checkbox"
-          className={styles.checkbox}
+          className={
+            level === undefined ? styles.checkbox : `${styles.checkbox} ${styles[level.tone]}`
+          }
           checked={completed}
           onChange={handleToggle}
           onClick={stopSelect}
           disabled={disabled}
-          aria-label={`完成「${task.title}」`}
+          aria-label={
+            level === undefined
+              ? `完成「${task.title}」`
+              : `完成「${task.title}」,優先級${level.label}`
+          }
         />
         <button ref={titleRef} type="button" className={styles.title} onClick={handleSelect}>
           {task.title}
@@ -65,11 +73,6 @@ export default function TaskItem({
       </div>
 
       <div className={styles.meta}>
-        {/* 顏色只是輔助,文字標籤才是區分方式 */}
-        {level !== undefined && (
-          <span className={`${styles.priority} ${styles[level.tone]}`}>{level.label}</span>
-        )}
-
         {/* dueDate 是日曆日,顯示成相對描述;逾期上警示色 */}
         {task.dueDate !== null && (
           <span

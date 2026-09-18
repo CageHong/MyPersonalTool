@@ -1,16 +1,18 @@
-import { Flag } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import FlagIcon from './FlagIcon'
 import { PRIORITY_OPTIONS, priorityLevel } from '@/lib/tasks'
 import styles from './PriorityMenu.module.css'
 
-// 只吃數字,不認得 task
+// 只吃數字,不認得 task;新增列與右欄共用
 type Props = {
   value: number
   onSelect: (priority: number) => void
   disabled: boolean
+  // 右欄要讀得出目前狀態,觸發鈕顯示「旗 + 值」;新增列空值是預設,只放旗子
+  showValue: boolean
 }
 
-export default function PriorityMenu({ value, onSelect, disabled }: Props) {
+export default function PriorityMenu({ value, onSelect, disabled, showValue }: Props) {
   const [open, setOpen] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -33,8 +35,11 @@ export default function PriorityMenu({ value, onSelect, disabled }: Props) {
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [open])
 
+  // 選到目前的值不呼叫 onSelect:右欄是點選即存,沒變化就不該送 PATCH
   function handleSelect(priority: number) {
-    onSelect(priority)
+    if (priority !== value) {
+      onSelect(priority)
+    }
     setOpen(false)
     triggerRef.current?.focus()
   }
@@ -48,43 +53,39 @@ export default function PriorityMenu({ value, onSelect, disabled }: Props) {
   }
 
   const level = priorityLevel(value)
-  const triggerClass =
-    level === undefined ? styles.trigger : `${styles.trigger} ${styles[level.tone]}`
+  const label = level?.label ?? '無'
 
   return (
     <div className={styles.wrapper} ref={wrapperRef} onKeyDown={handleKeyDown}>
       <button
         ref={triggerRef}
         type="button"
-        className={triggerClass}
+        className={styles.trigger}
         onClick={() => setOpen((current) => !current)}
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`優先級:${level?.label ?? '無'}`}
+        aria-label={`優先級:${label}`}
       >
-        <Flag size={16} aria-hidden />
+        <FlagIcon priority={value} />
+        {showValue && <span className={level === undefined ? styles.empty : undefined}>{label}</span>}
       </button>
 
       {open && (
         <div className={styles.menu} role="menu">
-          {PRIORITY_OPTIONS.map((option) => {
-            const tone = priorityLevel(option.value)?.tone
-            const className = tone === undefined ? styles.option : `${styles.option} ${styles[tone]}`
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                className={className}
-                role="menuitemradio"
-                aria-checked={option.value === value}
-                onClick={() => handleSelect(option.value)}
-              >
-                {option.label}
-              </button>
-            )
-          })}
+          {PRIORITY_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={styles.option}
+              role="menuitemradio"
+              aria-checked={option.value === value}
+              onClick={() => handleSelect(option.value)}
+            >
+              <FlagIcon priority={option.value} />
+              {option.label}
+            </button>
+          ))}
         </div>
       )}
     </div>

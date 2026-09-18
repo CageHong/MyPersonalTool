@@ -1,0 +1,37 @@
+.icon {
+  flex-shrink: 0;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  stroke: var(--color-priority-none);
+}
+
+/* 旗桿永遠不填色;旗面只有低/中/高才填 */
+.pole,
+.flag {
+  fill: none;
+}
+
+/* class 名對應 PRIORITY_LEVELS 的 tone;無優先級不加 class,用 .icon 的預設。色碼一律走 :root 變數 */
+.low {
+  stroke: var(--color-priority-low);
+}
+
+.low .flag {
+  fill: var(--color-priority-low);
+}
+
+.medium {
+  stroke: var(--color-priority-medium);
+}
+
+.medium .flag {
+  fill: var(--color-priority-medium);
+}
+
+.high {
+  stroke: var(--color-priority-high);
+}
+
+.high .flag {
+  fill: var(--color-priority-high);
+}

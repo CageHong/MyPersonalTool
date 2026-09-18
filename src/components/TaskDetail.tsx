@@ -1,8 +1,8 @@
 import { useId, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
-import TaskDueDateField from './TaskDueDateField'
+import DueDateMenu from './DueDateMenu'
+import PriorityMenu from './PriorityMenu'
 import TaskNotesField from './TaskNotesField'
-import TaskPriorityField from './TaskPriorityField'
 import TaskTitleField from './TaskTitleField'
 import { fieldMessage, type ApiError, type FieldErrors } from '@/lib/errors'
 import type { Task, TaskPatch } from '@/lib/tasks'
@@ -74,19 +74,6 @@ export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props
 
   return (
     <article className={styles.detail}>
-      <div className={styles.header}>
-        {/* 目前是硬刪除,所以需要確認;改成軟刪除後可拿掉確認,改成復原提示 */}
-        <button
-          type="button"
-          className={styles.delete}
-          onClick={() => setConfirmingId(task.id)}
-          disabled={mutating}
-          aria-label={`刪除「${task.title}」`}
-        >
-          刪除
-        </button>
-      </div>
-
       <ConfirmDialog
         open={confirmingId === task.id}
         title="刪除任務?"
@@ -133,33 +120,42 @@ export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props
         {fieldError('notes')}
       </div>
 
-      <div className={styles.field}>
-        {/* 觸發的是按鈕不是 input,htmlFor 掛不上,用 aria-labelledby 指過去 */}
-        <span className={styles.fieldLabel} id="task-due-date-label">
-          截止日
-        </span>
-        <TaskDueDateField
-          id="task-due-date"
-          labelId="task-due-date-label"
-          task={task}
-          onSave={(dueDate) => saveField('dueDate', { dueDate })}
+      {/* 兩個觸發鈕的字級比輸入框小一階;觸發鈕是 font: inherit,跟著這層走。
+          標籤只是視覺用,觸發鈕自己的 aria-label 已經帶欄位名與目前值 */}
+      <div className={`${styles.field} ${styles.menuField}`}>
+        <span className={styles.fieldLabel}>截止日</span>
+        <DueDateMenu
+          value={task.dueDate}
+          onSelect={(dueDate) => void saveField('dueDate', { dueDate })}
           disabled={mutating}
+          showEmpty
         />
         {fieldError('dueDate')}
       </div>
 
-      <div className={styles.field}>
-        {/* 一個 label 掛不到四顆 radio,改用 aria-labelledby 指過去 */}
-        <span className={styles.fieldLabel} id="task-priority-label">
-          優先級
-        </span>
-        <TaskPriorityField
-          labelId="task-priority-label"
-          task={task}
-          onSave={(priority) => saveField('priority', { priority })}
+      <div className={`${styles.field} ${styles.menuField}`}>
+        <span className={styles.fieldLabel}>優先級</span>
+        <PriorityMenu
+          value={task.priority}
+          onSelect={(priority) => void saveField('priority', { priority })}
           disabled={mutating}
+          showValue
         />
         {fieldError('priority')}
+      </div>
+
+      {/* 刪除放在最底部,和編輯欄位隔開 */}
+      <div className={styles.footer}>
+        {/* 目前是硬刪除,所以需要確認;改成軟刪除後可拿掉確認,改成復原提示 */}
+        <button
+          type="button"
+          className={styles.delete}
+          onClick={() => setConfirmingId(task.id)}
+          disabled={mutating}
+          aria-label={`刪除「${task.title}」`}
+        >
+          刪除
+        </button>
       </div>
     </article>
   )

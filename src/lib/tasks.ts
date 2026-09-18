@@ -17,7 +17,7 @@ export type NewTask = {
 export type PriorityLevel = { label: string; tone: 'low' | 'medium' | 'high' }
 
 // priority 的整數值 → 標籤與樣式 token,同一張表;
-// tone 對應 TaskItem.module.css 的 class 名,色碼在 globals.css 的 :root。
+// tone 對應 TaskItem.module.css(勾選框)與 FlagIcon.module.css 的 class 名,色碼在 globals.css 的 :root。
 const PRIORITY_LEVELS: Record<number, PriorityLevel | undefined> = {
   1: { label: '低', tone: 'low' },
   3: { label: '中', tone: 'medium' },

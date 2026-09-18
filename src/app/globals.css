@@ -36,7 +36,7 @@
 
   /* =========================================================================
      第一層:色票
-     只改名稱,值與上一版完全相同。元件不引用這一層。
+     元件不引用這一層。
      ========================================================================= */
 
   /* -------------------------------------------------------------------------
@@ -55,6 +55,7 @@
      ------------------------------------------------------------------------- */
   --palette-ink: #231f1a;           /* 主要文字 */
   --palette-ink-soft: #5f5649;      /* 次要文字:日期、欄位標籤 */
+  --palette-stone: #7d7468;         /* 比 ink-soft 淡一階 */
   --palette-line: #b6a791;
 
   /* -------------------------------------------------------------------------
@@ -74,9 +75,9 @@
      注意:amber 與 --palette-accent(橘)色相接近,
      若實際使用時分不出來,把 amber 往黃調或把 accent 加深。
      ------------------------------------------------------------------------- */
-  --palette-green: #2c5a2a;
-  --palette-amber: #7a510b;
-  --palette-red: #912b32;
+  --palette-green: #207926;
+  --palette-amber: #9e6105;
+  --palette-red: #a92330;
   --palette-danger: #912b32;        /* 逾期、驗證失敗 */
 
   /* modal 背後那層 */
@@ -116,6 +117,15 @@
      要 transition-behavior: allow-discrete 才會跟著延後。
      ------------------------------------------------------------------------- */
   --disabled-delay: 250ms;
+  /* 自己畫的控制項(勾選框、旗標觸發鈕)停用時一律調淡,不換色:換色會蓋掉優先級顏色 */
+  --disabled-opacity: 0.5;
+
+  /* -------------------------------------------------------------------------
+     11. 控制項尺寸
+     圖示與自繪勾選框。用 rem,跟著使用者字級設定一起放大。
+     ------------------------------------------------------------------------- */
+  --icon-size: 1rem;
+  --checkbox-size: 1rem;
 
   /* =========================================================================
      第二層:語意
@@ -155,17 +165,19 @@
   --color-field-disabled-bg: var(--palette-panel);
   --color-field-disabled-text: var(--palette-ink-soft);
 
-  /* 原生控制項(checkbox / radio)的 accent-color */
-  --color-control-accent: var(--palette-accent);
-
   /* 骨架橫條。自己一個名字:之後調 hover 顏色時骨架不該跟著變 */
   --color-skeleton-bg: var(--palette-panel);
+
+  /* 任務列的自繪勾選框。未勾選的框線跟優先級走(見 --color-priority-*);
+     勾選後不分優先級,一律填 ink-soft 配白勾(7.2:1),和已完成任務的淡化文字一致 */
+  --color-checkbox-checked-bg: var(--palette-ink-soft);
+  --color-checkbox-check: var(--palette-on-accent);
 
   /* ---- 清單項目 ---- */
   --color-row-border: var(--palette-line);
   --color-row-selected-bg: var(--palette-rose-gray);
-  /* hover 只換底色;在 base 上 1.25,和 selected-bg 差 1.16。
-     比選取底色深,選取列靠左側色條認出 */
+  /* hover 只換底色;在 base 上 1.14,選取底色 1.34。
+     比選取底色淺,選取列另靠左側色條認出 */
   --color-row-hover-bg: var(--palette-panel);
   --color-row-selected-border: var(--palette-accent);
   --color-row-meta: var(--palette-ink-soft);
@@ -173,7 +185,7 @@
 
   /* ---- 左欄檢視 ---- */
   --color-nav-text: var(--palette-ink);
-  /* 左欄底是 panel:hover 1.16、選取 1.25;兩者只差 1.08,選取另靠色條與字重區分 */
+  /* 左欄底是 panel:hover 1.18、選取 1.14;兩者差 1.34,選取另靠色條與字重區分 */
   --color-nav-hover-bg: var(--palette-rose-gray);
   --color-nav-selected-bg: var(--palette-base);
   --color-nav-selected-border: var(--palette-accent);
@@ -190,11 +202,15 @@
   /* 破壞性動作的實底按鈕(確認刪除) */
   --color-destructive-bg: var(--palette-danger);
   --color-destructive-border: var(--palette-danger);
-  --color-destructive-on-bg: var(--palette-on-accent);  /* 白字,在 danger 底上約 6.5:1 */
+  --color-destructive-on-bg: var(--palette-on-accent);  /* 白字,在 danger 底上約 8.1:1 */
 
   /* ---- 狀態 ---- */
   --color-overdue: var(--palette-danger);
   --color-error-text: var(--palette-danger);
+  /* 無優先級:空心旗與勾選框框線共用。比有優先級的顏色淡,才分得出來;
+     是清單上的多數,仍要過非文字 3:1(base 4.1、panel 3.6、選取列底 3.1) */
+  --color-priority-none: var(--palette-stone);
+  /* 低/中/高:base 4.9 / 4.5 / 6.3、panel 4.3 / 4.0 / 5.5、選取列底 3.7 / 3.4 / 4.7 */
   --color-priority-low: var(--palette-green);
   --color-priority-medium: var(--palette-amber);
   --color-priority-high: var(--palette-red);
@@ -207,10 +223,9 @@
   --color-calendar-weekday: var(--palette-ink-soft);
 
   /* ---- 焦點 ----
-     全頁同一個顏色。不用 accent:橘色已代表主要行動與選取,
-     而且在 panel 底上對比只有 2.81,不到非文字元素要求的 3:1。
-     --palette-ink 在 base 14.6、panel 12.8、選取列底 10.9。 */
-  --color-focus-ring: var(--palette-ink);
+     全頁同一個顏色。不用 accent:橘色已代表主要行動與選取。
+     --palette-ink-soft 在 base 6.4、panel 5.7、選取列底 4.8。 */
+  --color-focus-ring: var(--palette-ink-soft);
 }
 
 * {

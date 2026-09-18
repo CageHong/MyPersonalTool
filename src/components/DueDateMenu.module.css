@@ -1,0 +1,36 @@
+/* 和 PriorityMenu 的觸發鈕同一套外觀;有值時圖示加日期。
+   寬度收到內容:放在直向 flex(右欄)裡不會被撐滿整欄 */
+.trigger {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: opacity, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
+}
+
+/* 空值:圖示與「無」都用淡色 */
+.empty {
+  color: var(--color-text-muted);
+}
+
+.overdue {
+  color: var(--color-overdue);
+}
+
+/* 和 PriorityMenu 一致:停用時調淡,不換色,逾期的紅色不會被蓋掉 */
+.trigger:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
+}

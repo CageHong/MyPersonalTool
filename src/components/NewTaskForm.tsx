@@ -1,8 +1,6 @@
-import { Calendar } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import DueDateDialog from './DueDateDialog'
+import DueDateMenu from './DueDateMenu'
 import PriorityMenu from './PriorityMenu'
-import { formatRelativeDate } from '@/lib/date'
 import type { ApiError } from '@/lib/errors'
 import type { NewTask } from '@/lib/tasks'
 import styles from './NewTaskForm.module.css'
@@ -18,7 +16,6 @@ const EMPTY: NewTask = { title: '', dueDate: null, priority: 0 }
 
 export default function NewTaskForm({ onCreate, disabled }: Props) {
   const [draft, setDraft] = useState<NewTask>(EMPTY)
-  const [dateOpen, setDateOpen] = useState(false)
 
   // title 必填的規則在 src/server/,這裡不擋,讓它走完 API;
   // 下面那行擋的是空白輸入框按 Enter 這種誤觸——正確反應是什麼都不發生,
@@ -51,33 +48,19 @@ export default function NewTaskForm({ onCreate, disabled }: Props) {
         placeholder="新增任務"
       />
 
-      {/* 日期是草稿,按確定只寫回 draft,不送 PATCH */}
-      <button
-        type="button"
-        className={draft.dueDate === null ? styles.trigger : `${styles.trigger} ${styles.triggerSet}`}
-        onClick={() => setDateOpen(true)}
+      {/* 日期與優先級都是草稿,只寫回 draft,不送 PATCH */}
+      <DueDateMenu
+        value={draft.dueDate}
+        onSelect={(dueDate) => setDraft((current) => ({ ...current, dueDate }))}
         disabled={disabled}
-        aria-label={`截止日:${draft.dueDate === null ? '未設定' : draft.dueDate}`}
-      >
-        <Calendar size={16} aria-hidden />
-        {draft.dueDate !== null && formatRelativeDate(draft.dueDate)}
-      </button>
-
-      {dateOpen && (
-        <DueDateDialog
-          dueDate={draft.dueDate}
-          onClose={() => setDateOpen(false)}
-          onConfirm={(dueDate) => {
-            setDraft((current) => ({ ...current, dueDate }))
-            setDateOpen(false)
-          }}
-        />
-      )}
+        showEmpty={false}
+      />
 
       <PriorityMenu
         value={draft.priority}
         onSelect={(priority) => setDraft((current) => ({ ...current, priority }))}
         disabled={disabled}
+        showValue={false}
       />
 
       <button className={styles.submit} type="submit" disabled={disabled}>

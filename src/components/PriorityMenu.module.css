@@ -1,36 +1,48 @@
-/* 選單貼著觸發鈕定位,所以包裝層要是定位原點 */
+/* 選單貼著觸發鈕定位,所以包裝層要是定位原點。
+   寬度收到內容:放在直向 flex(右欄)裡會被撐滿整欄,
+   點觸發鈕右邊的空白會被當成點在選單裡面,不會關 */
 .wrapper {
   position: relative;
   display: flex;
+  width: fit-content;
 }
 
 .trigger {
   display: flex;
   align-items: center;
+  gap: var(--space-1);
   padding: var(--space-2);
   border: 1px solid var(--color-button-border);
   border-radius: var(--radius);
   background: transparent;
-  /* 未設定:旗子是次要資訊 */
-  color: var(--color-text-muted);
+  color: var(--color-text);
   font: inherit;
+  white-space: nowrap;
   cursor: pointer;
   /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
-  transition-property: color, cursor;
+  transition-property: opacity, cursor;
   transition-duration: 0s;
   transition-behavior: allow-discrete;
 }
 
+/* 觸發鈕上的「無」:和 DueDateMenu 的空值一樣淡色 */
+.empty {
+  color: var(--color-text-muted);
+}
+
 .trigger:disabled {
-  color: var(--color-field-disabled-text);
+  /* 旗子自己上色,換 color 沒有作用;一律調淡 */
+  opacity: var(--disabled-opacity);
   cursor: not-allowed;
   transition-delay: var(--disabled-delay);
 }
 
 .menu {
   position: absolute;
+  /* 一律從觸發鈕左緣往右展開:右欄的觸發鈕貼左邊,往左會被欄的 overflow 裁掉;
+     新增列的觸發鈕右邊還有「新增」按鈕,往右展開仍在中欄內 */
   top: calc(100% + var(--space-1));
-  right: 0;
+  left: 0;
   z-index: 1;
   display: flex;
   flex-direction: column;
@@ -41,12 +53,16 @@
   background: var(--color-menu-bg);
 }
 
+/* 旗子帶顏色,文字維持一般色 */
 .option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -54,17 +70,4 @@
 
 .option[aria-checked='true'] {
   background: var(--color-field-selected-bg);
-}
-
-/* class 名對應 PRIORITY_LEVELS 的 tone;色碼一律走 :root 變數 */
-.low {
-  color: var(--color-priority-low);
-}
-
-.medium {
-  color: var(--color-priority-medium);
-}
-
-.high {
-  color: var(--color-priority-high);
 }

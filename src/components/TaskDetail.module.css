@@ -2,12 +2,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* 撐滿整欄,刪除鈕才壓得到底部。右欄的高度由 .layout 撐滿,這裡才吃得到 100% */
+  min-height: 100%;
 }
 
-/* 頂端一列;刪除鈕靠右 */
-.header {
-  display: flex;
-  justify-content: flex-end;
+/* 刪除鈕貼在右欄底部;和分類欄底部日期同一個做法 */
+.footer {
+  margin-top: auto;
 }
 
 .delete {
@@ -35,6 +36,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+/* 截止日與優先級的觸發鈕比輸入框小一階 */
+.menuField {
+  font-size: var(--text-sm);
 }
 
 .fieldLabel {
