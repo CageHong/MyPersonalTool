@@ -8,6 +8,13 @@
       "when": 1788628789400,
       "tag": "0000_ambiguous_thunderbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789739632402,
+      "tag": "0001_add_task_checklist_item",
+      "breakpoints": true
     }
   ]
 }

@@ -4,8 +4,9 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema'
 
-// 與 drizzle.config.ts 的 dbCredentials.url 一致
-const DB_PATH = './data/tasks.db'
+// 與 drizzle.config.ts 的 dbCredentials.url 一致。
+// TASKS_DB_PATH 只給測試用(':memory:'),正常執行不設
+const DB_PATH = process.env.TASKS_DB_PATH ?? './data/tasks.db'
 
 function createDb() {
   // data/ 不進版控,clone 下來時不存在

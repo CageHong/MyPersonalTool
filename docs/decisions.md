@@ -101,3 +101,4 @@
 | 載入字型檔 | 手機或 Windows 筆電常用時,與共用設計系統一起 |
 | Google Calendar 單向推送(Task → GCal) | task manager 功能穩定後 |
 | 色盲使用者無法區分任務列的優先級顏色(純顏色,無形狀差異) | 個人工具,刻意接受;這套元件若進共用設計系統再處理 |
+| ValidationError、NotFoundError 從 tasks.ts 移到 src/server/errors.ts，NotFoundError 帶資源類型 | 有第二個工具的 server 模組時 |
