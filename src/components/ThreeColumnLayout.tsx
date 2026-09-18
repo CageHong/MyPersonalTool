@@ -243,6 +243,8 @@ export default function ThreeColumnLayout() {
       >
         <TaskList
           tasks={visibleTasks}
+          totalCount={tasks.length}
+          view={view}
           loading={loading}
           error={error}
           mutating={mutating}

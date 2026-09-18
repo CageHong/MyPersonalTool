@@ -46,6 +46,12 @@
   font-size: var(--text-sm);
 }
 
+/* 未選取時置中,不貼在左上角。右欄的高度由 .layout 撐滿,這裡才吃得到 100% */
 .empty {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
   color: var(--color-text-subtle);
+  text-align: center;
 }

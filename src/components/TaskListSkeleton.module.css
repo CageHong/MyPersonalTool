@@ -1,0 +1,18 @@
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  /* 和任務列一樣的節奏:列高相近,分界靠間距 */
+  gap: var(--space-3);
+}
+
+.bar {
+  /* 一條橫條約等於一列任務的高度 */
+  height: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-skeleton-bg);
+}
+
+/* 最後一條短一點,看起來像長度不一的標題,不像表格 */
+.bar:last-child {
+  width: 60%;
+}

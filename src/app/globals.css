@@ -165,6 +165,9 @@
   /* 原生控制項(checkbox / radio)的 accent-color */
   --color-control-accent: var(--palette-accent);
 
+  /* 骨架橫條。自己一個名字:之後調 hover 顏色時骨架不該跟著變 */
+  --color-skeleton-bg: var(--palette-panel);
+
   /* ---- 清單項目 ---- */
   --color-row-bg: var(--palette-panel);
   --color-row-border: var(--palette-line);
