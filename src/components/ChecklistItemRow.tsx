@@ -13,7 +13,11 @@ type Props = {
   onToggle: (item: ChecklistItem) => Promise<ApiError | null>
   onRename: (item: ChecklistItem, title: string) => Promise<ApiError | null>
   onDelete: (item: ChecklistItem) => Promise<ApiError | null>
-  // 刪除後要把焦點放到遞補上來那一項的輸入框
+  // Enter:在這一項正下方開草稿列並把焦點移過去;失焦觸發這一項原本的儲存
+  onInsertBelow: (item: ChecklistItem) => void
+  // 輸入框已經是空的時按 Backspace:刪除這一項
+  onDeleteByKeyboard: (item: ChecklistItem) => void
+  // TaskChecklist 依 id 找輸入框移焦點
   inputRef: Ref<HTMLInputElement>
   errorId: string
 }
@@ -23,6 +27,8 @@ export default function ChecklistItemRow({
   onToggle,
   onRename,
   onDelete,
+  onInsertBelow,
+  onDeleteByKeyboard,
   inputRef,
   errorId,
 }: Props) {
@@ -72,10 +78,18 @@ export default function ChecklistItemRow({
             setFieldError(null)
           }}
           onBlur={draft.onBlur}
-          // Enter 等同失焦:存檔走同一條路。輸入法選字中的 Enter 是確認選字,不是存檔
+          // 輸入法選字中的 Enter / Backspace 是在操作輸入法,一律不處理
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-              event.currentTarget.blur()
+            if (event.nativeEvent.isComposing) {
+              return
+            }
+            if (event.key === 'Enter') {
+              // 不在游標處切開文字;這一項的儲存由焦點移走時的 onBlur 負責
+              event.preventDefault()
+              onInsertBelow(item)
+            } else if (event.key === 'Backspace' && event.currentTarget.value === '') {
+              event.preventDefault()
+              onDeleteByKeyboard(item)
             }
           }}
           aria-label="項目內容"

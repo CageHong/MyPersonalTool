@@ -104,3 +104,4 @@
 | ValidationError、NotFoundError 從 tasks.ts 移到 src/server/errors.ts，NotFoundError 帶資源類型 | 有第二個工具的 server 模組時 |
 | 任務側寫入期間 disabled 控制項，可能造成焦點掉到 body；評估改成寫入排隊 | C3b |
 | 觸控裝置沒有 hover，checklist 的刪除鈕不會出現 | 手機開始使用時 |
+| 錨點項目在另一個分頁被刪除時，草稿送出回 400 afterItemId。修法：收到這個錯誤時重新 fetch 清單，讓草稿依規則移到最後顯示，由使用者再送一次；不要自動重試，否則送出位置會和畫面不一致 | 實際遇到時 |
