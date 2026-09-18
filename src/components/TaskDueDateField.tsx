@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import DueDateDialog from './DueDateDialog'
 import { formatRelativeDate, isOverdue } from '@/lib/date'
+import type { ApiError } from '@/lib/errors'
 import type { Task } from '@/lib/tasks'
 import styles from './TaskDueDateField.module.css'
 
@@ -8,7 +9,7 @@ type Props = {
   id: string
   labelId: string
   task: Task
-  onSave: (dueDate: string | null) => Promise<boolean>
+  onSave: (dueDate: string | null) => Promise<ApiError | null>
   disabled: boolean
 }
 

@@ -1,10 +1,11 @@
 import { PRIORITY_OPTIONS, priorityLevel, type Task } from '@/lib/tasks'
+import type { ApiError } from '@/lib/errors'
 import styles from './TaskPriorityField.module.css'
 
 type Props = {
   labelId: string
   task: Task
-  onSave: (priority: number) => Promise<boolean>
+  onSave: (priority: number) => Promise<ApiError | null>
   disabled: boolean
 }
 

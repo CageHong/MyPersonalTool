@@ -9,6 +9,10 @@
   font-size: var(--text-lg);
 }
 
+.invalid {
+  border-color: var(--color-field-border-invalid);
+}
+
 .input:disabled {
   color: var(--color-field-disabled-text);
   cursor: not-allowed;

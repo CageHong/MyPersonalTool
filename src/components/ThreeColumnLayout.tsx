@@ -7,34 +7,13 @@ import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
 import styles from './ThreeColumnLayout.module.css'
 import { todayIso } from '@/lib/date'
+import { generalMessage, NETWORK_ERROR, readApiError, type ApiError } from '@/lib/errors'
 import { filterTasks, parseView, type ViewId } from '@/lib/views'
 import type { NewTask, Task, TaskPatch } from '@/lib/tasks'
 
-// API 的錯誤一律是 { error: { code, message, fields? } }
-async function readErrorMessage(response: Response): Promise<string> {
-  let body: unknown
-  try {
-    body = await response.json()
-  } catch {
-    return '請求失敗'
-  }
-
-  const error = (body as { error?: { message?: string; fields?: Record<string, string> } })?.error
-  if (!error?.message) {
-    return '請求失敗'
-  }
-  if (!error.fields) {
-    return error.message
-  }
-
-  const detail = Object.entries(error.fields)
-    .map(([field, reason]) => `${field}: ${reason}`)
-    .join(', ')
-  return `${error.message}(${detail})`
-}
-
-function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : '請求失敗'
+// 泛用錯誤才有整段訊息可顯示;欄位錯誤由出錯的欄位自己畫在下面
+function toGeneralMessage(failure: ApiError): string | null {
+  return failure.kind === 'general' ? generalMessage(failure.code) : null
 }
 
 // 網址上的值是使用者可以亂打的字串;不是正整數就當作沒選取
@@ -95,21 +74,24 @@ export default function ThreeColumnLayout() {
     [replaceParams],
   )
 
-  const refetch = useCallback(async () => {
+  // 回傳 null 代表成功;失敗的形狀和寫入共用同一個 ApiError
+  const refetch = useCallback(async (): Promise<ApiError | null> => {
     const response = await fetch('/api/tasks')
     if (!response.ok) {
-      throw new Error(await readErrorMessage(response))
+      return await readApiError(response)
     }
     setTasks((await response.json()) as Task[])
+    return null
   }, [])
 
   useEffect(() => {
     void (async () => {
       try {
-        await refetch()
-        setError(null)
-      } catch (caught) {
-        setError(toMessage(caught))
+        const failure = await refetch()
+        setError(failure === null ? null : toGeneralMessage(failure))
+      } catch {
+        // fetch 直接 reject:網路中斷、伺服器沒起來
+        setError(generalMessage('NETWORK'))
       } finally {
         setLoading(false)
       }
@@ -159,21 +141,25 @@ export default function ThreeColumnLayout() {
     }
   }, [tasks, selectedTask, visibleTasks])
 
-  // 寫入成功後整份重抓,不拿回應的物件更新 state,也不做樂觀更新
+  // 寫入成功後整份重抓,不拿回應的物件更新 state,也不做樂觀更新。
+  // 回傳 null 代表成功;欄位錯誤原樣回傳給呼叫端,不進中欄的錯誤區
   const mutate = useCallback(
-    async (request: () => Promise<Response>): Promise<boolean> => {
+    async (request: () => Promise<Response>): Promise<ApiError | null> => {
       setMutating(true)
       try {
         const response = await request()
         if (!response.ok) {
-          throw new Error(await readErrorMessage(response))
+          const failure = await readApiError(response)
+          setError(toGeneralMessage(failure))
+          return failure
         }
-        await refetch()
-        setError(null)
-        return true
-      } catch (caught) {
-        setError(toMessage(caught))
-        return false
+
+        const refetchFailure = await refetch()
+        setError(refetchFailure === null ? null : toGeneralMessage(refetchFailure))
+        return refetchFailure
+      } catch {
+        setError(generalMessage('NETWORK'))
+        return NETWORK_ERROR
       } finally {
         setMutating(false)
       }
@@ -231,13 +217,13 @@ export default function ThreeColumnLayout() {
         id,
         index: visibleTasks.findIndex((task) => task.id === id),
       }
-      const ok = await mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' }))
-      if (ok) {
+      const failure = await mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' }))
+      if (failure === null) {
         replaceParams((params) => params.delete('task'))
       } else {
         focusAfterDeleteRef.current = null
       }
-      return ok
+      return failure
     },
     [mutate, replaceParams, visibleTasks],
   )
@@ -269,7 +255,10 @@ export default function ThreeColumnLayout() {
       </section>
 
       <section className={`${styles.column} ${styles.detail}`}>
+        {/* key 換掉 = 換任務就重新掛載:欄位錯誤與確認彈窗的狀態自動回到初始值,
+            不必用 effect 偵測 task.id 變化 */}
         <TaskDetail
+          key={selectedTask?.id ?? 'empty'}
           task={selectedTask}
           mutating={mutating}
           onUpdate={handleUpdate}

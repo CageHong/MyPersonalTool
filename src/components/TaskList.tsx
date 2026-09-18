@@ -2,6 +2,7 @@ import NewTaskForm from './NewTaskForm'
 import TaskItem from './TaskItem'
 import styles from './TaskList.module.css'
 import type { RefObject } from 'react'
+import type { ApiError } from '@/lib/errors'
 import type { NewTask, Task } from '@/lib/tasks'
 
 // 資料與寫入都在 ThreeColumnLayout,這裡只負責畫清單
@@ -12,8 +13,8 @@ type Props = {
   mutating: boolean
   selectedId: number | null
   onSelect: (id: number) => void
-  onCreate: (input: NewTask) => Promise<boolean>
-  onToggle: (task: Task) => Promise<boolean>
+  onCreate: (input: NewTask) => Promise<ApiError | null>
+  onToggle: (task: Task) => Promise<ApiError | null>
   // 每一列標題按鈕的 DOM,依畫面順序放進陣列;刪除後由 ThreeColumnLayout 拿來移焦點。
   // React 19 可以直接把 ref 當 prop 傳,不用 forwardRef
   titleRefs: RefObject<(HTMLButtonElement | null)[]>

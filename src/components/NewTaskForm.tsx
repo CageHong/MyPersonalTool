@@ -3,11 +3,13 @@ import { useState, type FormEvent } from 'react'
 import DueDateDialog from './DueDateDialog'
 import PriorityMenu from './PriorityMenu'
 import { formatRelativeDate } from '@/lib/date'
+import type { ApiError } from '@/lib/errors'
 import type { NewTask } from '@/lib/tasks'
 import styles from './NewTaskForm.module.css'
 
 type Props = {
-  onCreate: (input: NewTask) => Promise<boolean>
+  // 新增列的錯誤走泛用路徑,顯示在中欄新增列正下方,不做欄位標示
+  onCreate: (input: NewTask) => Promise<ApiError | null>
   disabled: boolean
 }
 
@@ -28,8 +30,8 @@ export default function NewTaskForm({ onCreate, disabled }: Props) {
       return
     }
 
-    const created = await onCreate(draft)
-    if (created) {
+    const failure = await onCreate(draft)
+    if (failure === null) {
       setDraft(EMPTY)
     }
   }

@@ -10,6 +10,11 @@
   resize: vertical;
 }
 
+/* 目前描述沒有驗證規則,樣式先備好,和標題一致 */
+.invalid {
+  border-color: var(--color-field-border-invalid);
+}
+
 .textarea:disabled {
   color: var(--color-field-disabled-text);
   cursor: not-allowed;

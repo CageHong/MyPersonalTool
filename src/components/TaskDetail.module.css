@@ -40,6 +40,12 @@
   text-transform: uppercase;
 }
 
+/* 欄位下方的錯誤訊息;和輸入框的紅框成對出現 */
+.fieldError {
+  color: var(--color-error-text);
+  font-size: var(--text-sm);
+}
+
 .empty {
   color: var(--color-text-subtle);
 }

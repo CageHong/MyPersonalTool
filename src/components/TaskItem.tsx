@@ -1,13 +1,14 @@
 import type { MouseEvent, Ref } from 'react'
 import { formatRelativeDate, isOverdue } from '@/lib/date'
 import { priorityLevel, type Task } from '@/lib/tasks'
+import type { ApiError } from '@/lib/errors'
 import styles from './TaskItem.module.css'
 
 type Props = {
   task: Task
   selected: boolean
   onSelect: (id: number) => void
-  onToggle: (task: Task) => Promise<boolean>
+  onToggle: (task: Task) => Promise<ApiError | null>
   disabled: boolean
   // 刪除後要把焦點放到遞補上來那一列的標題;取名 titleRef 講明指的是標題按鈕不是整列
   titleRef?: Ref<HTMLButtonElement>

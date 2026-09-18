@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ApiError } from '@/lib/errors'
 
 export type Draft = {
   value: string
@@ -9,7 +10,10 @@ export type Draft = {
 
 // 編輯中的輸入框不被重抓覆蓋:聚焦期間值由 draft 持有,失焦後才跟回伺服器資料。
 // 值是字串,null 之類的空值語意由呼叫端在兩端換算。
-export function useDraft(serverValue: string, save: (value: string) => Promise<boolean>): Draft {
+export function useDraft(
+  serverValue: string,
+  save: (value: string) => Promise<ApiError | null>,
+): Draft {
   // null = 沒在編輯
   const [draft, setDraft] = useState<string | null>(null)
 
@@ -20,10 +24,12 @@ export function useDraft(serverValue: string, save: (value: string) => Promise<b
       return
     }
 
-    // 等 PATCH 與重抓都結束才放掉 draft:成功時畫面不會閃一下舊值,
-    // 失敗時(例如標題清空被擋)放掉正好還原成伺服器的值
-    await save(draft)
-    setDraft(null)
+    // 等 PATCH 與重抓都結束才放掉 draft,成功時畫面不會閃一下舊值。
+    // 失敗就留著草稿:使用者打的內容還在,對著欄位下方的訊息修正
+    const failure = await save(draft)
+    if (failure === null) {
+      setDraft(null)
+    }
   }
 
   return {
