@@ -6,7 +6,7 @@
   background: var(--color-field-bg);
   color: var(--color-field-text);
   font-family: inherit;
-  font-size: inherit;
+  font-size: var(--text-base);
   resize: vertical;
   /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
   transition-property: color, cursor;
