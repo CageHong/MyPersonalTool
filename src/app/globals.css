@@ -20,9 +20,6 @@
   --font-sans: "Helvetica Neue", Helvetica, Arial,
     "PingFang TC", "Microsoft JhengHei", sans-serif;
 
-  --font-serif: Georgia, "Times New Roman",
-    "Songti TC", PMingLiU, serif;
-
   /* -------------------------------------------------------------------------
      2. 字級
      手挑整數 px(以 rem 表示)。元件只能從這四級挑,不要自己填數字。
@@ -35,8 +32,6 @@
   --text-lg: 1.25rem;   /* 20px 右欄的任務標題 */
 
   /* 字重 */
-  --weight-normal: 400;
-  --weight-medium: 500;
   --weight-semibold: 600;
 
   /* =========================================================================
@@ -54,34 +49,24 @@
      ------------------------------------------------------------------------- */
   --palette-base: #ebe6e6;          /* 頁面底色;左右欄 */
   --palette-panel: #d6cece;         /* 較亮的一階;若中欄要區分就用這個 */
-  --palette-panel-hover: #433cc0;   /* 任務列 hover、檢視 hover */
 
   /* -------------------------------------------------------------------------
      4. 文字與框線
      ------------------------------------------------------------------------- */
   --palette-ink: #050500;           /* 主要文字 */
   --palette-ink-soft: #6e6a62;      /* 次要文字:日期、欄位標籤 */
-  --palette-ink-subtle: #9b968c;    /* 第四階:已完成任務、佔位文字 */
   --palette-line: #d9d8cf;
 
   /* -------------------------------------------------------------------------
      5. 行動色與選取色
      兩者刻意分開。橘色是「主要行動」(確定、送出),藍灰是「目前選中的東西」。
      若兩者同色,中欄掃視時分不出哪列是選中的、哪個是要按的。
-
-     A 題未決:選取狀態的形式。下面三組同時給出,用哪組由語意層決定,
-     沒用到的之後刪掉。
      ------------------------------------------------------------------------- */
   --palette-accent: #d44b29;        /* 主要行動:彈窗的確定鈕 */
   --palette-on-accent: #ffffff;     /* accent 當底色時上面的文字;也用在 danger 底色上 */
-  --palette-accent-hover: #a84625; /* 需自行調整 */
 
-  --palette-selected-bg: #e6dddd;      /* 選取列的淡底,黑字可讀 */
-  --palette-selected-border: #0c3061;  /* 選取列的左側粗邊或外框 */
-  --palette-selected-strong: #1f5095;  /* 若選取要用實底,搭配白字 */
-
-  --palette-secondary: #7c534e;     /* 棕。目前無指定用途 */
-  --palette-highlight: #f0bfd8;     /* 粉。對比不足,只能當大面積底色 */
+  --palette-rose-gray: #e6dddd;     /* 選取列的淡底,黑字可讀 */
+  --palette-blue: #1f5095;          /* 焦點外框 */
 
   /* -------------------------------------------------------------------------
      6. 語意色
@@ -110,11 +95,10 @@
   /* -------------------------------------------------------------------------
      8. 圓角
      原本只有一級,對話框和小標籤共用 6px,兩者大小差太多會不成比例。
-     --radius 的值與名稱不變,元件不必改;另外兩級是新增的。
+     --radius 的值與名稱不變,元件不必改;--radius-sm 是新增的。
      ------------------------------------------------------------------------- */
   --radius-sm: 4px;   /* 優先級標記這類小元素 */
   --radius: 6px;      /* 輸入框、按鈕 */
-  --radius-lg: 10px;  /* 日期彈窗 */
 
   /* -------------------------------------------------------------------------
      9. 焦點外框
@@ -122,6 +106,16 @@
      ------------------------------------------------------------------------- */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+
+  /* -------------------------------------------------------------------------
+     10. 停用延遲
+     寫入進行中控制項會被 disabled,多半幾十毫秒就解除;停用樣式立刻套上會一閃而過。
+     停用外觀延後這麼久才出現,解除時立即恢復。阻擋行為本身不延遲。
+     寫法:元件的基本規則設 transition-duration 0s(延遲 0s,回到啟用時立即恢復),
+     停用規則設 transition-delay: var(--disabled-delay)。cursor 是離散屬性,
+     要 transition-behavior: allow-discrete 才會跟著延後。
+     ------------------------------------------------------------------------- */
+  --disabled-delay: 250ms;
 
   /* =========================================================================
      第二層:語意
@@ -147,13 +141,12 @@
   /* ---- 文字 ---- */
   --color-text: var(--palette-ink);
   --color-text-muted: var(--palette-ink-soft);
-  --color-text-subtle: var(--palette-ink-soft);  /* 第四階,之後調淡;色票已備 --palette-ink-subtle */
+  --color-text-subtle: var(--palette-ink-soft);  /* 第四階,之後調淡 */
 
   /* ---- 可輸入欄位 ---- */
   --color-field-bg: var(--palette-base);
   --color-field-text: var(--palette-ink);
   --color-field-border: var(--palette-line);
-  --color-field-border-focus: var(--palette-accent);
   --color-field-border-invalid: var(--palette-danger);
   --color-field-label: var(--palette-ink-soft);
   --color-field-placeholder: var(--palette-ink-soft);
@@ -169,9 +162,8 @@
   --color-skeleton-bg: var(--palette-panel);
 
   /* ---- 清單項目 ---- */
-  --color-row-bg: var(--palette-panel);
   --color-row-border: var(--palette-line);
-  --color-row-selected-bg: var(--palette-selected-bg);
+  --color-row-selected-bg: var(--palette-rose-gray);
   /* hover 只換底色;在 base 上 1.25,和 selected-bg 差 1.16。
      比選取底色深,選取列靠左側色條認出 */
   --color-row-hover-bg: var(--palette-panel);
@@ -181,9 +173,8 @@
 
   /* ---- 左欄檢視 ---- */
   --color-nav-text: var(--palette-ink);
-  --color-nav-muted: var(--palette-ink-soft);
   /* 左欄底是 panel:hover 1.16、選取 1.25;兩者只差 1.08,選取另靠色條與字重區分 */
-  --color-nav-hover-bg: var(--palette-selected-bg);
+  --color-nav-hover-bg: var(--palette-rose-gray);
   --color-nav-selected-bg: var(--palette-base);
   --color-nav-selected-border: var(--palette-accent);
 
@@ -210,18 +201,16 @@
 
   /* ---- 月曆 ---- */
   --color-calendar-hover-bg: var(--palette-panel);
-  --color-calendar-today-bg: var(--palette-panel);
   --color-calendar-today-border: var(--palette-accent);
   --color-calendar-selected-bg: var(--palette-accent);
   --color-calendar-selected-text: var(--palette-on-accent);
-  --color-calendar-focus-border: var(--palette-accent);
   --color-calendar-weekday: var(--palette-ink-soft);
 
   /* ---- 焦點 ----
      全頁同一個顏色。不用 accent:橘色已代表主要行動與選取,
      而且在 panel 底上對比只有 2.81,不到非文字元素要求的 3:1。
-     selected-strong 在 base、panel、選取列底上都 ≥ 5:1。 */
-  --color-focus-ring: var(--palette-selected-strong);
+     --palette-blue 在 base、panel、選取列底上都 ≥ 5:1。 */
+  --color-focus-ring: var(--palette-blue);
 }
 
 * {

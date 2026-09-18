@@ -19,11 +19,16 @@
   font-family: inherit;
   font-size: inherit;
   cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
 }
 
 .delete:disabled {
   color: var(--color-action-disabled-text);
   cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
 }
 
 .field {

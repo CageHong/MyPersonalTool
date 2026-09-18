@@ -127,6 +127,9 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **樣式一律 CSS Modules。** 元件的 `.module.css` 不可以寫死顏色、間距、圓角、字級、字重、字型,一律引用 `src/app/globals.css` `:root` 的變數。需要新的值先加進 `:root`,不要在元件裡寫數值。
 
+**停用樣式一律延遲顯示。** 任何因 disabled 而改變外觀的規則,變化都要延遲
+--disabled-delay 才發生,回到啟用狀態時立即恢復。理由見 `docs/decisions.md` §4。
+
 **CSS 變數分兩層**(理由見 `docs/decisions.md` §7):
 
 - 色票層 `--palette-*`:名字只描述顏色本身,不帶用途。

@@ -7,6 +7,10 @@
   color: var(--color-field-text);
   font-family: inherit;
   font-size: var(--text-lg);
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
 }
 
 .invalid {
@@ -16,4 +20,5 @@
 .input:disabled {
   color: var(--color-field-disabled-text);
   cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
 }

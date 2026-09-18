@@ -17,15 +17,21 @@
   /* 不寫死字型,跟著 body 的 --font-sans */
   font-family: inherit;
   font-size: inherit;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: background-color, color;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
 }
 
 .input::placeholder {
   color: var(--color-field-placeholder);
 }
 
+/* 送出期間用 readOnly 取代 disabled(理由見 NewTaskForm.tsx),一樣延後 */
 .input:read-only {
   background: var(--color-field-disabled-bg);
   color: var(--color-field-disabled-text);
+  transition-delay: var(--disabled-delay);
 }
 
 /* 日期觸發鈕;未設定時只有圖示,已設定時圖示加日期 */
@@ -41,6 +47,9 @@
   font: inherit;
   white-space: nowrap;
   cursor: pointer;
+  transition-property: color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
 }
 
 .triggerSet {
@@ -50,6 +59,7 @@
 .trigger:disabled {
   color: var(--color-field-disabled-text);
   cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
 }
 
 .submit {
@@ -62,9 +72,13 @@
   font-size: inherit;
   white-space: nowrap;
   cursor: pointer;
+  transition-property: background-color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
 }
 
 .submit:disabled {
   background: var(--color-action-disabled-bg);
   cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
 }

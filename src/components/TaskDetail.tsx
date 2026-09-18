@@ -104,9 +104,7 @@ export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props
         <label className={styles.fieldLabel} htmlFor="task-title">
           標題
         </label>
-        {/* key 換掉 = 換任務就重新掛載,編輯到一半的值不會殘留到下一筆 */}
         <TaskTitleField
-          key={task.id}
           id="task-title"
           task={task}
           onSave={(title) => saveField('title', { title })}
@@ -124,7 +122,6 @@ export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props
         </label>
         {/* 純文字,不做 Markdown 渲染 */}
         <TaskNotesField
-          key={task.id}
           id="task-notes"
           task={task}
           onSave={(notes) => saveField('notes', { notes })}
@@ -141,9 +138,7 @@ export default function TaskDetail({ task, mutating, onUpdate, onDelete }: Props
         <span className={styles.fieldLabel} id="task-due-date-label">
           截止日
         </span>
-        {/* key 換掉 = 換任務就重新掛載,彈窗與草稿不會留到下一筆 */}
         <TaskDueDateField
-          key={task.id}
           id="task-due-date"
           labelId="task-due-date-label"
           task={task}

@@ -13,6 +13,10 @@
   border-radius: var(--radius);
   color: var(--color-field-label);
   cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
 }
 
 .option:has(.radio:checked) {
@@ -22,6 +26,7 @@
 
 .option:has(.radio:disabled) {
   cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
 }
 
 .radio {

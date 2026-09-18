@@ -39,10 +39,15 @@
 .checkbox {
   accent-color: var(--color-control-accent);
   cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
 }
 
 .checkbox:disabled {
   cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
 }
 
 /* 標題是按鈕(鍵盤要走得到),外觀維持純文字 */

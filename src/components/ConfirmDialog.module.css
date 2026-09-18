@@ -58,6 +58,10 @@
   color: var(--color-destructive-on-bg);
   font: inherit;
   cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: border-color, background-color, color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
 }
 
 .confirm:disabled {
@@ -65,4 +69,5 @@
   background: var(--color-action-disabled-bg);
   color: var(--color-action-disabled-text);
   cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
 }

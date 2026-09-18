@@ -42,6 +42,7 @@
 | 所有資料由 Client Component 經 HTTP fetch 取得;不用 Server Component 直接 import,不用 Server Action | 只有一條資料路徑,好除錯;API 搬家時只換網址 |
 | 任何寫入後重抓整份清單、整份替換 state;不做樂觀更新 | 資料庫是唯一事實來源,畫面是它的投影;之後加排序或篩選時,前端不必重算一次後端的邏輯 |
 | 唯一例外:標題與描述在聚焦期間由該輸入框自己的 local state 持有,失焦後才跟隨伺服器資料 | 慢網路下重抓回來的舊值會蓋掉使用者正在打的字 |
+|寫入進行中的停用樣式延遲 --disabled-delay(250ms)才顯示|阻擋與呈現分開:mutating 照常阻擋所有控制項,但本機寫入在延遲內完成時畫面完全不變化,只有慢速寫入才顯示停用樣式|
 | 任務陣列與 fetch 放在 `ThreeColumnLayout`,中欄與右欄都從這份讀 | 右欄從清單挑資料,不另開 `GET /api/tasks/[id]` |
 | 選取狀態只存在網址(`?view=…&task=…`);`useSearchParams` 在 `ThreeColumnLayout` 讀一次往下傳 | 網址是唯一來源;重整、分享、上一頁都一致 |
 | `task` 參數找不到對應任務時,在 `useEffect` 裡把它從網址移除,右欄回空狀態 | 副作用不能寫在渲染過程;例如改了截止日後任務離開目前檢視 |
@@ -93,5 +94,4 @@
 | 三欄響應式(可拖拉欄寬、右欄先縮後隱藏、抽屜覆蓋) | 版面 session,checklist 與習慣功能穩定後 |
 | 抽屜:是否出現只看網址有無 `task`;關閉鈕 = 移除 `task`;寬度沿用右欄 | 版面 session |
 | 載入字型檔 | 手機或 Windows 筆電常用時,與共用設計系統一起 |
-| 寫入進行中的視覺指示 | 本機 SQLite 夠快,暫不做 |
 | Google Calendar 單向推送(Task → GCal) | task manager 功能穩定後 |
