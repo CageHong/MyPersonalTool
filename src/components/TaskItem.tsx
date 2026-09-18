@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react'
+import type { MouseEvent, Ref } from 'react'
 import { formatRelativeDate, isOverdue } from '@/lib/date'
 import { priorityLevel, type Task } from '@/lib/tasks'
 import styles from './TaskItem.module.css'
@@ -9,6 +9,8 @@ type Props = {
   onSelect: (id: number) => void
   onToggle: (task: Task) => Promise<boolean>
   disabled: boolean
+  // 刪除後要把焦點放到遞補上來那一列的標題;取名 titleRef 講明指的是標題按鈕不是整列
+  titleRef?: Ref<HTMLButtonElement>
 }
 
 export default function TaskItem({
@@ -17,6 +19,7 @@ export default function TaskItem({
   onSelect,
   onToggle,
   disabled,
+  titleRef,
 }: Props) {
   const completed = task.completedAt !== null
   const level = priorityLevel(task.priority)
@@ -55,7 +58,7 @@ export default function TaskItem({
           disabled={disabled}
           aria-label={`完成「${task.title}」`}
         />
-        <button type="button" className={styles.title} onClick={handleSelect}>
+        <button ref={titleRef} type="button" className={styles.title} onClick={handleSelect}>
           {task.title}
         </button>
       </div>

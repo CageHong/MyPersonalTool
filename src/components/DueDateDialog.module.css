@@ -7,6 +7,11 @@
   color: var(--color-text);
 }
 
+/* 開啟時由程式聚焦,Tab 不會停在 dialog 本身,外框沒有資訊量 */
+.dialog:focus-visible {
+  outline: none;
+}
+
 .dialog::backdrop {
   background: var(--color-backdrop);
 }

@@ -30,6 +30,11 @@
   border-right: 1px solid var(--color-divider);
 }
 
+/* 只是刪除後的程式聚焦目標,tabIndex={-1} 讓 Tab 不會停在這裡,外框沒有資訊量 */
+.tasks:focus-visible {
+  outline: none;
+}
+
 .detail {
   flex: 0 0 20rem;
   background: var(--color-column-aside);

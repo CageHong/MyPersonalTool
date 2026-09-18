@@ -57,11 +57,13 @@ export default function ThreeColumnLayout() {
   // 寫入 + 重抓的空窗期,用來擋連點
   const [mutating, setMutating] = useState(false)
 
-  // 刪除成功後焦點要移到中欄。存「被刪的任務 id」而不是布林值:
+  // 刪除成功後焦點要移到遞補上來的那一列。存「被刪的任務」而不是布林值:
   // 確認彈窗在請求進行中可以取消,使用者可能先選了別的任務,布林值會停在 true,
-  // 之後任何一次 selectedTask 變成 undefined 都會誤移焦點。不影響畫面,所以用 ref 不用 state
+  // 之後任何一次 selectedTask 變成 undefined 都會誤移焦點。不影響畫面,所以用 ref 不用 state。
+  // 記索引不記「下一筆的 id」:之後加排序或篩選時,同一個索引仍然對應刪除後的同一個位置
   const tasksColumnRef = useRef<HTMLElement>(null)
-  const focusAfterDeleteIdRef = useRef<number | null>(null)
+  const rowTitleRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const focusAfterDeleteRef = useRef<{ id: number; index: number } | null>(null)
 
   const today = todayIso()
   const view = parseView(searchParams.get('view'))
@@ -124,20 +126,38 @@ export default function ThreeColumnLayout() {
     replaceParams((params) => params.delete('task'))
   }, [loading, replaceParams, selectedId, selectedTask])
 
+  // 列數變少時裁掉陣列尾巴,不留已經卸載的元素。陣列是這一層的 ref,裁切也放這一層:
+  // 在 TaskList 裡改會動到 prop,react-hooks/immutability 不允許
+  useEffect(() => {
+    rowTitleRefs.current.length = visibleTasks.length
+  }, [visibleTasks])
+
   // 被刪的任務從 tasks 消失 = 重抓已經套用到畫面。這次渲染裡右欄已換成空狀態,
   // ConfirmDialog 連同 <dialog> 一起卸載,彈窗外的 inert 已解除,focus() 才有效。
   // 不在 handleDelete 的 await 之後直接 focus:那時重抓的渲染不一定已經套用。
-  // 右欄仍有選取(請求中取消彈窗、改選別的任務)就不搶焦點;兩種情況都清掉旗標
+  // 右欄仍有選取(請求中取消彈窗、改選別的任務)就不搶焦點;兩種情況都清掉旗標。
+  //
+  // rowTitleRefs 讀得到新清單,是因為 callback ref 在 commit 階段就接好了,早於所有 effect。
+  // 尾巴的殘留由上面那個 effect 裁掉,它宣告在前面所以先執行;搬動順序前先確認這兩件事還成立
   useEffect(() => {
-    const deletedId = focusAfterDeleteIdRef.current
-    if (deletedId === null || tasks.some((task) => task.id === deletedId)) {
+    const pending = focusAfterDeleteRef.current
+    if (pending === null || tasks.some((task) => task.id === pending.id)) {
       return
     }
-    focusAfterDeleteIdRef.current = null
-    if (selectedTask === undefined) {
+    focusAfterDeleteRef.current = null
+    if (selectedTask !== undefined) {
+      return
+    }
+
+    // 刪的是最後一筆就退到前一筆;清單空了或元素不在就退到中欄容器
+    const rows = visibleTasks.length
+    const target = rows === 0 ? null : rowTitleRefs.current[Math.min(pending.index, rows - 1)]
+    if (target != null && target.isConnected) {
+      target.focus()
+    } else {
       tasksColumnRef.current?.focus()
     }
-  }, [tasks, selectedTask])
+  }, [tasks, selectedTask, visibleTasks])
 
   // 寫入成功後整份重抓,不拿回應的物件更新 state,也不做樂觀更新
   const mutate = useCallback(
@@ -205,17 +225,21 @@ export default function ThreeColumnLayout() {
   // 失敗時 mutate 已經 setError,任務、選取與焦點都不動
   const handleDelete = useCallback(
     async (id: number) => {
-      // 送出前就設好:重抓的渲染可能比 await 回來更早套用,effect 要在那時看得到旗標
-      focusAfterDeleteIdRef.current = id
+      // 送出前就設好:重抓的渲染可能比 await 回來更早套用,effect 要在那時看得到旗標。
+      // 索引是刪除前的畫面順序,刪除後同一個索引就是遞補上來的那一筆
+      focusAfterDeleteRef.current = {
+        id,
+        index: visibleTasks.findIndex((task) => task.id === id),
+      }
       const ok = await mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' }))
       if (ok) {
         replaceParams((params) => params.delete('task'))
       } else {
-        focusAfterDeleteIdRef.current = null
+        focusAfterDeleteRef.current = null
       }
       return ok
     },
-    [mutate, replaceParams],
+    [mutate, replaceParams, visibleTasks],
   )
 
   return (
@@ -240,6 +264,7 @@ export default function ThreeColumnLayout() {
           onSelect={handleSelect}
           onCreate={handleCreate}
           onToggle={handleToggle}
+          titleRefs={rowTitleRefs}
         />
       </section>
 
