@@ -3,6 +3,7 @@ import { db } from '../db'
 import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem } from '../db/schema'
 import { addDaysUtc, expandRule, firstOccurrence, FREQS, type Freq, type RecurrenceSpec } from '../lib/recurrence'
 import { NotFoundError, ValidationError } from './errors'
+import { DATE_PATTERN, PRIORITY_VALUES } from './validation'
 
 export type RecurrenceRule = typeof taskRecurrenceRule.$inferSelect
 
@@ -29,10 +30,6 @@ export type UpdateRuleChanges = {
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
-// 同 tasks.ts;不從那裡 import,因為 tasks.ts 會 import 這個檔案
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-const PRIORITY_VALUES: readonly number[] = [0, 1, 3, 5]
 
 // 補齊終點 = 今天 + 6(含),對上「未來 7 天」檢視的邊界
 const FILL_AHEAD_DAYS = 6

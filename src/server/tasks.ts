@@ -4,6 +4,7 @@ import { task } from '../db/schema'
 import { todayIso } from '../lib/date'
 import { NotFoundError, ValidationError } from './errors'
 import { fillInstances } from './recurrence'
+import { DATE_PATTERN, PRIORITY_VALUES } from './validation'
 
 // 錯誤類別搬到 errors.ts;保留從這裡 import 的既有路徑
 export { NotFoundError, ValidationError } from './errors'
@@ -36,11 +37,7 @@ export type UpdateTaskPatch = {
   done?: boolean
 }
 
-const DUE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const DUE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
-
-// 無 / 低 / 中 / 高;刻意留空隙,之後插一級不動既有資料
-const PRIORITY_VALUES: readonly number[] = [0, 1, 3, 5]
 
 const UPDATABLE_KEYS = [
   'title',
@@ -66,7 +63,7 @@ function collectErrors(
   }
 
   if (input.dueDate != null) {
-    if (typeof input.dueDate !== 'string' || !DUE_DATE_PATTERN.test(input.dueDate)) {
+    if (typeof input.dueDate !== 'string' || !DATE_PATTERN.test(input.dueDate)) {
       fields.dueDate = 'invalid_format'
     }
   }
