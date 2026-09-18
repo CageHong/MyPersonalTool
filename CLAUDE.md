@@ -78,12 +78,6 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - `done: false` → `null`;已經是 `null` 就不變。
 - 狀態沒有實際變化時,不更新 `updatedAt`。
 
-插入規則:
-
-- 沒有 `afterItemId` 時放在最後(`position = max + 1`)。
-- 有 `afterItemId` 時,同一個 transaction 內把該任務中 `position` 大於錨點的項目全部 +1,新項目的 `position` = 錨點 + 1。
-- 錨點不存在或不屬於這個任務 → `ValidationError { afterItemId: 'invalid' }`,不改動任何 `position`。
-
 之後才做(現在不要提出實作):
 
 - `recurrence` 表:重複規則(每日/每週/每月),`task` 用 `templateId` 指回。
@@ -107,7 +101,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 | PATCH | `/api/tasks/:id` | 部分更新(含勾完成) |
 | DELETE | `/api/tasks/:id` | 刪除 |
 | GET | `/api/tasks/:id/checklist-items` | 列出該任務的 checklist 項目(依 position) |
-| POST | `/api/tasks/:id/checklist-items` | 新增項目,body `{ title, afterItemId? }`;帶 `afterItemId` 時插在該項正下方,否則放最後 |
+| POST | `/api/tasks/:id/checklist-items` | 新增項目,放在最後 |
 | PUT | `/api/tasks/:id/checklist-items/order` | 重新排序,body `{ itemIds }` 必須恰好是該任務的全部項目 |
 | PATCH | `/api/checklist-items/:itemId` | 部分更新 `{ title?, done? }` |
 | DELETE | `/api/checklist-items/:itemId` | 刪除 |

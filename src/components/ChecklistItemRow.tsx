@@ -13,11 +13,9 @@ type Props = {
   onToggle: (item: ChecklistItem) => Promise<ApiError | null>
   onRename: (item: ChecklistItem, title: string) => Promise<ApiError | null>
   onDelete: (item: ChecklistItem) => Promise<ApiError | null>
-  // Enter:在這一項正下方開草稿列並把焦點移過去;失焦觸發這一項原本的儲存
-  onInsertBelow: (item: ChecklistItem) => void
   // 輸入框已經是空的時按 Backspace:刪除這一項
   onDeleteByKeyboard: (item: ChecklistItem) => void
-  // TaskChecklist 依 id 找輸入框移焦點
+  // 刪除後要把焦點放到遞補上來那一項的輸入框
   inputRef: Ref<HTMLInputElement>
   errorId: string
 }
@@ -27,7 +25,6 @@ export default function ChecklistItemRow({
   onToggle,
   onRename,
   onDelete,
-  onInsertBelow,
   onDeleteByKeyboard,
   inputRef,
   errorId,
@@ -84,10 +81,14 @@ export default function ChecklistItemRow({
               return
             }
             if (event.key === 'Enter') {
-              // 不在游標處切開文字;這一項的儲存由焦點移走時的 onBlur 負責
-              event.preventDefault()
-              onInsertBelow(item)
-            } else if (event.key === 'Backspace' && event.currentTarget.value === '') {
+              // Enter 等同失焦:存檔走同一條路
+              event.currentTarget.blur()
+            } else if (
+              event.key === 'Backspace' &&
+              // 按住不放的重複事件不刪:按住只會把文字清空、停在空白,放開再按一次才刪
+              !event.repeat &&
+              event.currentTarget.value === ''
+            ) {
               event.preventDefault()
               onDeleteByKeyboard(item)
             }

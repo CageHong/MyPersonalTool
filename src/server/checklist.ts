@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, max, sql } from 'drizzle-orm'
+import { asc, eq, max } from 'drizzle-orm'
 import { db } from '../db'
 import { task, taskChecklistItem } from '../db/schema'
 import { NotFoundError, ValidationError } from './tasks'
@@ -50,55 +50,19 @@ export function listChecklistItems(taskId: number): ChecklistItem[] {
   return selectItems(db, taskId)
 }
 
-// 沒有 afterItemId(undefined 或 null)放在最後;有的話插在那一項正下方,
-// 它後面的項目 position 全部 +1。錨點必須是這個任務的項目
-export function createChecklistItem(
-  taskId: number,
-  title: string,
-  afterItemId?: number | null,
-): ChecklistItem {
+export function createChecklistItem(taskId: number, title: string): ChecklistItem {
   assertTitle(title)
 
-  // 查任務、決定 position、挪動後面的項目與 insert 放在同一個 transaction
+  // 查任務與取最大 position 放在同一個 transaction,新項目才一定排在最後
   return db.transaction((tx) => {
     // 先查,不讓外鍵錯誤變成 500
     assertTaskExists(tx, taskId)
 
-    let position: number
-    if (afterItemId === undefined || afterItemId === null) {
-      const [{ last }] = tx
-        .select({ last: max(taskChecklistItem.position) })
-        .from(taskChecklistItem)
-        .where(eq(taskChecklistItem.taskId, taskId))
-        .all()
-      position = last === null ? 0 : last + 1
-    } else {
-      const [anchor] = Number.isInteger(afterItemId)
-        ? tx
-            .select({ position: taskChecklistItem.position })
-            .from(taskChecklistItem)
-            .where(
-              and(eq(taskChecklistItem.id, afterItemId), eq(taskChecklistItem.taskId, taskId)),
-            )
-            .limit(1)
-            .all()
-        : []
-      if (!anchor) {
-        // throw 讓 transaction 回滾;這之前沒有任何寫入
-        throw new ValidationError({ afterItemId: 'invalid' })
-      }
-
-      tx.update(taskChecklistItem)
-        .set({ position: sql`${taskChecklistItem.position} + 1` })
-        .where(
-          and(
-            eq(taskChecklistItem.taskId, taskId),
-            gt(taskChecklistItem.position, anchor.position),
-          ),
-        )
-        .run()
-      position = anchor.position + 1
-    }
+    const [{ last }] = tx
+      .select({ last: max(taskChecklistItem.position) })
+      .from(taskChecklistItem)
+      .where(eq(taskChecklistItem.taskId, taskId))
+      .all()
 
     const timestamp = now()
     const [created] = tx
@@ -106,7 +70,7 @@ export function createChecklistItem(
       .values({
         taskId,
         title: title.trim(),
-        position,
+        position: last === null ? 0 : last + 1,
         completedAt: null,
         createdAt: timestamp,
         updatedAt: timestamp,

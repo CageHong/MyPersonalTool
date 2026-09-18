@@ -109,38 +109,3 @@ describe('updateChecklistItem done', () => {
     assert.equal(result.updatedAt, old)
   })
 })
-
-describe('createChecklistItem afterItemId', () => {
-  test('inserts right below the anchor and shifts the rest', () => {
-    const { taskId, ids } = setupTaskWithItems(3)
-
-    const inserted = createChecklistItem(taskId, 'x', ids[0])
-
-    assert.deepEqual(
-      listChecklistItems(taskId).map((item) => item.id),
-      [ids[0], inserted.id, ids[1], ids[2]],
-    )
-  })
-
-  const rejected: [string, (otherId: number) => number][] = [
-    ["another task's item id", (otherId) => otherId],
-    ['a nonexistent id', () => 999_999],
-  ]
-
-  for (const [name, anchor] of rejected) {
-    test(`rejects ${name} and leaves every position unchanged`, () => {
-      const { taskId } = setupTaskWithItems(3)
-      const other = setupTaskWithItems(2)
-      const before = listChecklistItems(taskId)
-      const otherBefore = listChecklistItems(other.taskId)
-
-      assert.throws(() => createChecklistItem(taskId, 'x', anchor(other.ids[0])), (error) => {
-        assert.ok(error instanceof ValidationError)
-        assert.deepEqual(error.fields, { afterItemId: 'invalid' })
-        return true
-      })
-      assert.deepEqual(listChecklistItems(taskId), before)
-      assert.deepEqual(listChecklistItems(other.taskId), otherBefore)
-    })
-  }
-})

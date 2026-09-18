@@ -34,11 +34,8 @@ export async function POST(
   }
 
   try {
-    // title 與 afterItemId 的型別、內容由 createChecklistItem 驗證
-    return Response.json(
-      createChecklistItem(taskId, body.title as string, body.afterItemId as number | undefined),
-      { status: 201 },
-    )
+    // title 的型別與內容由 createChecklistItem 驗證
+    return Response.json(createChecklistItem(taskId, body.title as string), { status: 201 })
   } catch (error) {
     return handleError('[POST /api/tasks/[id]/checklist-items]', error, 'Task not found')
   }
