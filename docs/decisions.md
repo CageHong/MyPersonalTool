@@ -82,6 +82,19 @@
 | 結束用「停止重複」按鈕,不設預設結束日 | |
 | 不做跨週期目標連動 | 複雜度與需求不成比例 |
 
+## 6a. 重複任務(R1 資料層)
+
+| 決策 | 理由 |
+|---|---|
+| 規則是日曆規則(freq / interval / weekdays / startDate),不是「完成後 N 天」 | 繳費、會議這類重複依日曆發生,不隨完成時間漂移 |
+| 展開只依日曆計算:只看 startDate 與規則參數,不看上一次實例或完成時間;monthly 每個月從 startDate 的日重算,沒有那天取月底 | 結果可重現,虛擬展開與實體實例永遠一致;從上一次推算會讓 1/31 變成一路 28 號 |
+| 錯過的日期保留為逾期,且全部補出,不設回溯上限 | 錯過是事實,悄悄略過等於替使用者決定「那次不用做」 |
+| 實體實例只產生到補齊終點(今天 + 6,對上「未來 7 天」);之後的日期由 `expandRule` 虛擬展開 | 實例要能勾選、編輯,必須是資料列;更遠的日期只需要被看見,不需要落地 |
+| 規則以水位線 `generatedThrough` 記錄已產生到哪一天;補齊只往前,產生過的日期不再產生 | 使用者刪掉的實例不會在下次讀取時復活;唯一鍵 `(recurrenceRuleId, occurrenceDate)` 另外擋重複 |
+| 改規則與停止重複共用同一個邊界:只刪除今天之後、未完成的實例;今天的、逾期的、已完成的不動 | 已經發生或正在發生的紀錄不被規則變更改寫 |
+| 改規則、停止前,先用舊規則補到最新 | 之後 API 可以不經過 `listTasks` 直接呼叫;水位線落後的那段是舊規則下的逾期與今天實例,照「錯過全部補出」必須存在 |
+| `GET /api/tasks` 會補齊實例:不是 safe,但是冪等(水位線 + 唯一鍵,重複呼叫不會多產生實例) | 「讀取時補齊」的直接結果 |
+
 ## 7. 樣式
 
 | 決策 | 理由 |
@@ -106,5 +119,9 @@
 | 載入字型檔 | 手機或 Windows 筆電常用時,與共用設計系統一起 |
 | Google Calendar 單向推送(Task → GCal) | task manager 功能穩定後 |
 | 色盲使用者無法區分任務列的優先級顏色(純顏色,無形狀差異) | 個人工具,刻意接受;這套元件若進共用設計系統再處理 |
-| ValidationError、NotFoundError 從 tasks.ts 移到 src/server/errors.ts，NotFoundError 帶資源類型 | 有第二個工具的 server 模組時 |
+| ~~ValidationError、NotFoundError 從 tasks.ts 移到 src/server/errors.ts，NotFoundError 帶資源類型~~ 搬移已在 R1 完成(避免 tasks.ts 與 recurrence.ts 循環 import);剩下:NotFoundError 帶資源類型 | 有第二個工具的 server 模組時 |
 | 觸控裝置沒有 hover，checklist 的刪除鈕不會出現 | 手機開始使用時 |
+| 虛擬實例可操作(寫入 EXDATE 式的例外紀錄) | 做日曆視圖時 |
+| 規則加時間欄位(dueTime、scheduledAt、duration 的對應),實例從規則複製 | 做日曆視圖時 |
+| 改規則時,新規則在今天剛好有一次而舊規則沒有,今天不補 | 實際遇到時 |
+| createRuleFromTask 對有 scheduledAt 的任務目前拒絕;改成平移或由規則決定時刻 | 做日曆視圖時 |

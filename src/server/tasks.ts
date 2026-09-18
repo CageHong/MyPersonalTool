@@ -1,28 +1,14 @@
 import { asc, eq, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db'
 import { task } from '../db/schema'
+import { todayIso } from '../lib/date'
+import { NotFoundError, ValidationError } from './errors'
+import { fillInstances } from './recurrence'
+
+// 錯誤類別搬到 errors.ts;保留從這裡 import 的既有路徑
+export { NotFoundError, ValidationError } from './errors'
 
 export type Task = typeof task.$inferSelect
-
-export class ValidationError extends Error {
-  readonly fields: Record<string, string>
-
-  constructor(fields: Record<string, string>) {
-    super('Validation failed')
-    this.name = 'ValidationError'
-    this.fields = fields
-  }
-}
-
-export class NotFoundError extends Error {
-  readonly id: number
-
-  constructor(id: number) {
-    super(`Task ${id} not found`)
-    this.name = 'NotFoundError'
-    this.id = id
-  }
-}
 
 // id / createdAt / completedAt 不開放傳入
 export type CreateTaskInput = {
@@ -110,6 +96,8 @@ export type TaskSort = 'default'
 
 export type ListTasksOptions = {
   sort?: TaskSort
+  // 補齊重複實例用的「今天」;不傳時用伺服器本地時區的今天
+  today?: string
 }
 
 // 白名單:欄位名只能從這裡來,不從呼叫端的字串拼進 ORDER BY
@@ -119,6 +107,8 @@ const SORT_ORDERS: Record<TaskSort, SQL[]> = {
 }
 
 export function listTasks(options: ListTasksOptions = {}): Task[] {
+  // 讀取時補齊:實例在被看到之前產生(decisions §6)
+  fillInstances(options.today ?? todayIso())
   return db
     .select()
     .from(task)

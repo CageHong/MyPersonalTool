@@ -1,23 +1,38 @@
-import { index, sqliteTable, integer, text } from 'drizzle-orm/sqlite-core'
+import { sql } from 'drizzle-orm'
+import { check, index, sqliteTable, integer, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
 
-export const task = sqliteTable('task', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  title: text('title').notNull(),
-  notes: text('notes'),
-  // 日曆日,YYYY-MM-DD;不是時間戳
-  dueDate: text('due_date'),
-  // HH:MM,有指定時刻才填
-  dueTime: text('due_time'),
-  // Unix 秒
-  scheduledAt: integer('scheduled_at'),
-  durationMinutes: integer('duration_minutes'),
-  priority: integer('priority').notNull().default(0),
-  // Unix 秒;null = 未完成
-  completedAt: integer('completed_at'),
-  createdAt: integer('created_at').notNull(),
-  parentTaskId: integer('parent_task_id').references((): AnySQLiteColumn => task.id),
-})
+export const task = sqliteTable(
+  'task',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    title: text('title').notNull(),
+    notes: text('notes'),
+    // 日曆日,YYYY-MM-DD;不是時間戳
+    dueDate: text('due_date'),
+    // HH:MM,有指定時刻才填
+    dueTime: text('due_time'),
+    // Unix 秒
+    scheduledAt: integer('scheduled_at'),
+    durationMinutes: integer('duration_minutes'),
+    priority: integer('priority').notNull().default(0),
+    // Unix 秒;null = 未完成
+    completedAt: integer('completed_at'),
+    createdAt: integer('created_at').notNull(),
+    parentTaskId: integer('parent_task_id').references((): AnySQLiteColumn => task.id),
+    // 由重複規則產生的實例才有;規則刪除時實例留下,變回一般任務
+    recurrenceRuleId: integer('recurrence_rule_id').references(
+      (): AnySQLiteColumn => taskRecurrenceRule.id,
+      { onDelete: 'set null' },
+    ),
+    // 日曆日,YYYY-MM-DD;這個實例對應規則展開出的哪一天。之後改 dueDate 也不變
+    occurrenceDate: text('occurrence_date'),
+  },
+  // 同一規則同一天只有一個實例:補齊重跑或並發時靠它擋重複。NULL 彼此相異,一般任務不受影響
+  (table) => [
+    uniqueIndex('task_recurrence_occurrence_uq').on(table.recurrenceRuleId, table.occurrenceDate),
+  ],
+)
 
 // 任務底下的待辦項,不是任務:沒有截止日、不排程、不出現在任務清單裡。
 // 任務刪除時一起刪掉
@@ -39,4 +54,56 @@ export const taskChecklistItem = sqliteTable(
   },
   // 不設 unique:重新排序在 transaction 裡逐列寫,中途會有暫時重複的 position
   (table) => [index('task_checklist_item_task_position_idx').on(table.taskId, table.position)],
+)
+
+// 重複規則:日曆規則 + 範本內容。實例是一般的 task 列,以 recurrenceRuleId 指回
+export const taskRecurrenceRule = sqliteTable(
+  'task_recurrence_rule',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    freq: text('freq', { enum: ['daily', 'weekly', 'monthly', 'yearly'] }).notNull(),
+    interval: integer('interval').notNull(),
+    // bitmask,bit 0 = 星期一 … bit 6 = 星期日;只有 weekly 使用
+    weekdays: integer('weekdays'),
+    // 日曆日,YYYY-MM-DD;展開的錨點
+    startDate: text('start_date').notNull(),
+    // 範本內容,型別與限制同 task
+    title: text('title').notNull(),
+    notes: text('notes'),
+    priority: integer('priority').notNull().default(0),
+    // 日曆日,YYYY-MM-DD;實例已產生到哪一天(水位線)。null = 尚未產生
+    generatedThrough: text('generated_through'),
+    // Unix 秒;null = 仍在重複
+    endedAt: integer('ended_at'),
+    // Unix 秒;沒有 schema 預設值,由 src/server/ 填入(同 task.createdAt)
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    check('task_recurrence_rule_freq_check', sql`${table.freq} IN ('daily', 'weekly', 'monthly', 'yearly')`),
+    check('task_recurrence_rule_interval_check', sql`${table.interval} >= 1`),
+    check(
+      'task_recurrence_rule_weekdays_check',
+      sql`(${table.freq} = 'weekly' AND ${table.weekdays} BETWEEN 1 AND 127) OR (${table.freq} <> 'weekly' AND ${table.weekdays} IS NULL)`,
+    ),
+  ],
+)
+
+// 規則的範本 checklist:產生實例時複製成 task_checklist_item。範本不會被勾,所以沒有完成狀態
+export const taskRecurrenceRuleChecklistItem = sqliteTable(
+  'task_recurrence_rule_checklist_item',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    ruleId: integer('rule_id')
+      .notNull()
+      .references(() => taskRecurrenceRule.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    // 同一條規則內的順序,小的在前;不保證連號
+    position: integer('position').notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    index('task_recurrence_rule_checklist_item_rule_position_idx').on(table.ruleId, table.position),
+  ],
 )

@@ -50,6 +50,8 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 | `completedAt` | integer (Unix 秒) | 是 | `null` = 未完成 |
 | `createdAt` | integer (Unix 秒) | 否 | |
 | `parentTaskId` | integer FK → `task.id` | 是 | 子任務;本輪不做 UI |
+| `recurrenceRuleId` | integer FK → `task_recurrence_rule.id`,ON DELETE SET NULL | 是 | 重複規則產生的實例才有 |
+| `occurrenceDate` | text `YYYY-MM-DD` | 是 | 這個實例對應規則展開的哪一天;`(recurrenceRuleId, occurrenceDate)` UNIQUE |
 
 時間處理規則:
 
@@ -84,9 +86,39 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - `done: false` → `null`;已經是 `null` 就不變。
 - 狀態沒有實際變化時,不更新 `updatedAt`。
 
+`task_recurrence_rule` 表(重複規則:日曆規則 + 範本內容;實例是一般的 `task` 列,以 `recurrenceRuleId` 指回):
+
+| 欄位 | 型別 | 可空 | 說明 |
+|---|---|---|---|
+| `id` | integer PK autoincrement | 否 | |
+| `freq` | text | 否 | `daily` / `weekly` / `monthly` / `yearly`,CHECK |
+| `interval` | integer | 否 | CHECK `>= 1` |
+| `weekdays` | integer | 是 | bitmask,bit 0 = 星期一 … bit 6 = 星期日;`weekly` 時必須 1..127,其他必須 NULL(CHECK) |
+| `startDate` | text `YYYY-MM-DD` | 否 | 展開的錨點 |
+| `title` / `notes` / `priority` | 同 `task` | | 範本內容 |
+| `generatedThrough` | text `YYYY-MM-DD` | 是 | 水位線:實例已產生到哪一天;`null` = 尚未產生 |
+| `endedAt` | integer (Unix 秒) | 是 | `null` = 仍在重複 |
+| `createdAt` / `updatedAt` | integer (Unix 秒) | 否 | 水位線前進不更新 `updatedAt` |
+
+`task_recurrence_rule_checklist_item` 表(規則的範本 checklist,產生實例時複製成 `task_checklist_item`,全部未勾):
+
+| 欄位 | 型別 | 可空 | 說明 |
+|---|---|---|---|
+| `id` | integer PK autoincrement | 否 | |
+| `ruleId` | integer FK → `task_recurrence_rule.id`,ON DELETE CASCADE | 否 | |
+| `title` | text | 否 | |
+| `position` | integer | 否 | 同 `task_checklist_item` |
+| `createdAt` / `updatedAt` | integer (Unix 秒) | 否 | |
+
+重複任務的規則(函式在 `src/server/recurrence.ts`,日期展開 `expandRule` 在 `src/lib/recurrence.ts`):
+
+- 用到「今天」的函式都以參數接收 `today`,不在函式內讀時鐘;`listTasks()` 查詢前以伺服器本地時區的今天呼叫 `fillInstances`。
+- 補齊終點 = 今天 + 6(含),對上「未來 7 天」檢視。
+- 改規則(`updateRule`)與停止(`stopRule`)先用舊規則補到最新,再刪除今天之後、未完成的實例。
+
 之後才做(現在不要提出實作):
 
-- `recurrence` 表:重複規則(每日/每週/每月),`task` 用 `templateId` 指回。
+- ~~`recurrence` 表:重複規則(每日/每週/每月),`task` 用 `templateId` 指回。~~ 資料層已完成(R1):`task_recurrence_rule`,`task` 用 `recurrenceRuleId` 指回;API 與 UI 未做。
 - 子任務 UI:用既有的 `parentTaskId`。
 
 
@@ -102,7 +134,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 
 | 方法 | 路徑 | 說明 |
 |---|---|---|
-| GET | `/api/tasks` | 列出全部 |
+| GET | `/api/tasks` | 列出全部;查詢前先補齊重複實例,所以不是 safe,但冪等(水位線 + 唯一鍵) |
 | POST | `/api/tasks` | 建立 |
 | PATCH | `/api/tasks/:id` | 部分更新 `{ title?, notes?, dueDate?, dueTime?, scheduledAt?, durationMinutes?, priority?, parentTaskId?, done? }`;不收 `completedAt` |
 | DELETE | `/api/tasks/:id` | 刪除 |
@@ -215,7 +247,7 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **checklist 可拖曳排序(依賴 `@dnd-kit/core`、`@dnd-kit/sortable`、`@dnd-kit/utilities`)。** 只有每列左側的把手能啟動拖曳(滑鼠移動 5px 或鍵盤空白鍵/Enter);寫入排隊中不能開始拖曳,由感應器判斷,不用 `disabled`。放下後直接改 `items`(樂觀更新,全 app 唯一的樂觀更新),再排入 `PUT …/order`,完成後照常重抓;失敗時重抓還原。放下後焦點留在把手上。朗讀文字為中文。
 
-之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、重複任務、習慣。
+之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、重複任務、習慣。(重複任務的資料層已完成,API 與 UI 未做。)
 
 ## 待處理事項
 
