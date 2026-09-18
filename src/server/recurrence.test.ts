@@ -345,6 +345,23 @@ describe('createRuleFromTask', () => {
     )
   })
 
+  test('does not backfill dates before the rule exists', () => {
+    const source = createTask({ title: 'old habit', dueDate: '2026-08-19' })
+
+    const rule = createRuleFromTask(
+      source.id,
+      { freq: 'daily', interval: 1, startDate: '2026-08-19' },
+      TODAY,
+    )
+
+    // 原任務維持逾期,是第一個實例;之後從今天開始,不補 8/20..9/17
+    assert.deepEqual(dates(rule.id), ['2026-08-19', ...range(TODAY, END)])
+    const first = db.select().from(task).where(eq(task.id, source.id)).get()!
+    assert.equal(first.dueDate, '2026-08-19')
+    assert.equal(first.occurrenceDate, '2026-08-19')
+    assert.equal(rule.generatedThrough, END)
+  })
+
   function ruleCount(): number {
     return db.select().from(taskRecurrenceRule).all().length
   }

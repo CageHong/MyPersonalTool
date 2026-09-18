@@ -217,6 +217,7 @@ export function createRuleFromTask(
     }
 
     const first = firstOccurrence(normalizedSpec)
+    const yesterday = addDaysUtc(today, -1)
     const timestamp = now()
     const [rule] = tx
       .insert(taskRecurrenceRule)
@@ -225,8 +226,9 @@ export function createRuleFromTask(
         title: source.title,
         notes: source.notes,
         priority: source.priority,
-        // 原任務就是 first 那天的實例,補齊從隔天開始
-        generatedThrough: first,
+        // 原任務就是 first 那天的實例,補齊從隔天開始。
+        // 不回溯:first 在過去時從今天開始補,規則建立前的日期沒有被錯過,不產生實例
+        generatedThrough: first > yesterday ? first : yesterday,
         endedAt: null,
         createdAt: timestamp,
         updatedAt: timestamp,
