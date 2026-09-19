@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react'
+import type { MouseEvent, TransitionEvent } from 'react'
 import Checkbox from './Checkbox'
 import RepeatIcon from './RepeatIcon'
 import { formatRelativeDate, isOverdue } from '@/lib/date'
@@ -13,9 +13,22 @@ type Props = {
   selected: boolean
   onSelect: (id: number) => void
   onToggle: (task: Task) => Promise<ApiError | null>
+  // 進出中欄的過場。exiting 的列已經不在清單裡,只是畫面上的殘影
+  motion?: 'entering' | 'exiting'
+  // 退場的高度收完後呼叫,由 TaskList 移除這一列
+  onExited?: () => void
 }
 
-export default function TaskItem({ task, overdueCount, selected, onSelect, onToggle }: Props) {
+export default function TaskItem({
+  task,
+  overdueCount,
+  selected,
+  onSelect,
+  onToggle,
+  motion,
+  onExited,
+}: Props) {
+  const exiting = motion === 'exiting'
   const completed = task.completedAt !== null
   const level = priorityLevel(task.priority)
 
@@ -39,15 +52,31 @@ export default function TaskItem({ task, overdueCount, selected, onSelect, onTog
   if (selected) {
     classNames.push(styles.selected)
   }
+  if (motion !== undefined) {
+    classNames.push(styles[motion])
+  }
+
+  // 高度收到 0 才算退場結束;其他屬性與子元素的 transition 不算
+  function handleTransitionEnd(event: TransitionEvent<HTMLLIElement>) {
+    if (event.target === event.currentTarget && event.propertyName === 'height') {
+      onExited?.()
+    }
+  }
 
   return (
     // 整列可點選;標題另外是按鈕,鍵盤才走得到。
-    // data-task-id / data-task-control:任務離開視圖時,ThreeColumnLayout 靠這兩個找焦點的來源與遞補的落點
+    // data-task-id / data-task-control:任務離開視圖時,ThreeColumnLayout 靠這兩個找焦點的來源與遞補的落點。
+    // 退場列不帶 data-task-id:遞補的計算看不到它,焦點不會被移到它身上;
+    // inert 讓它整列不可聚焦、不可點,原本在它裡面的焦點會掉到 body,再由遞補規則接手
     <li
       className={classNames.join(' ')}
       onClick={handleSelect}
       aria-current={selected}
-      data-task-id={task.id}
+      data-task-id={exiting ? undefined : task.id}
+      data-exiting={exiting ? '' : undefined}
+      inert={exiting}
+      aria-hidden={exiting || undefined}
+      onTransitionEnd={exiting ? handleTransitionEnd : undefined}
     >
       <div className={styles.main}>
         {/* 任務列的優先級只靠顏色:未勾選時的框線色。文字標籤在右欄與新增列,

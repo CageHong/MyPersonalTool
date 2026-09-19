@@ -284,7 +284,7 @@ export default function ThreeColumnLayout() {
         <TaskList
           tasks={visibleTasks}
           overdueCounts={overdueCounts}
-          totalCount={tasks.length}
+          allTasks={tasks}
           view={view}
           loading={loading}
           error={error}

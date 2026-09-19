@@ -81,6 +81,39 @@
   color: var(--color-overdue);
 }
 
+/* 進場:淡入 */
+.entering {
+  animation: task-enter var(--motion-duration) var(--motion-easing);
+}
+
+@keyframes task-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 退場:掛載時維持原樣。TaskList 量好目前高度、寫成行內樣式後加上 data-collapsing,
+   再把高度改成 0,這幾個屬性才有起點可以過渡。內距與分隔線一起收掉,最後一點高度才不會卡住 */
+.exiting {
+  overflow: hidden;
+  transition-property: height, opacity, padding-block, border-bottom-width;
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-easing);
+}
+
+.exiting[data-collapsing] {
+  opacity: 0;
+  padding-block: 0;
+  border-bottom-width: 0;
+}
+
+/* 減少動態時 TaskList 不產生退場列;進場也不播 */
+@media (prefers-reduced-motion: reduce) {
+  .entering {
+    animation: none;
+  }
+}
+
 /* 已完成:淡化加刪除線區分,但列仍留在清單裡 */
 .completed .title {
   color: var(--color-row-done-text);
