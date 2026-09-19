@@ -1,6 +1,6 @@
 import type { Ref } from 'react'
 import CalendarIcon from './CalendarIcon'
-import { formatRelativeDate, isOverdue } from '@/lib/date'
+import { formatListDate, isOverdue } from '@/lib/date'
 import styles from './DueDateMenu.module.css'
 
 type Props = {
@@ -20,7 +20,8 @@ export default function DueDateTrigger({ value, showEmpty, onClick, ref }: Props
     classNames.push(styles.overdue)
   }
 
-  const label = value === null ? '無' : formatRelativeDate(value)
+  // 和中欄任務列同一種寫法
+  const label = value === null ? '無' : formatListDate(value)
 
   return (
     <button
@@ -31,7 +32,7 @@ export default function DueDateTrigger({ value, showEmpty, onClick, ref }: Props
       aria-label={`截止日:${label}`}
     >
       <CalendarIcon />
-      {/* 相對描述;要看真正的日曆就開彈窗 */}
+      {/* 日期加近期的相對說法(同中欄);要看月曆就開彈窗 */}
       {(value !== null || showEmpty) && label}
     </button>
   )

@@ -58,7 +58,8 @@ export function addMonths({ year, month }: { year: number; month: number }, delt
 
 // 月曆格子:前面補 null 讓 1 號落在正確的星期,後面是該月每一天
 export function monthDays(year: number, month: number): (string | null)[] {
-  const firstWeekday = new Date(year, month - 1, 1).getDay()
+  // 月初前面補幾個空格:從一週的起始日算到 1 號是星期幾
+  const firstWeekday = (new Date(year, month - 1, 1).getDay() - WEEK_START + 7) % 7
   // 下個月的第 0 天 = 這個月的最後一天
   const dayCount = new Date(year, month, 0).getDate()
 
@@ -69,7 +70,17 @@ export function monthDays(year: number, month: number): (string | null)[] {
   return cells
 }
 
+// 以 getDay() 為索引(0 = 週日),不是畫面上的排列順序
 export const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+
+// 一週從哪一天開始,0 = 週日、1 = 週一(同 getDay())。月曆的欄位順序與「本週/下週」都由它決定;
+// 之後做成使用者設定時只改這裡
+export const WEEK_START = 1
+
+// 月曆表頭:從 WEEK_START 起排的七天
+export function weekdayHeaders(): string[] {
+  return Array.from({ length: 7 }, (_, index) => WEEKDAY_LABELS[(WEEK_START + index) % 7])
+}
 
 // to 減 from 的天數;兩邊都用本地建構子,不經過 UTC
 export function diffDays(from: string, to: string): number {
@@ -86,29 +97,29 @@ export function isOverdue(iso: string, today: string = todayIso()): boolean {
   return iso < today
 }
 
-// 今天 / 明天 / 昨天 / 本週內的星期 / 月日(跨年才補年份)
-export function formatRelativeDate(iso: string, today: string = todayIso()): string {
+// 中欄任務列與截止日觸發鈕的日期:日期永遠顯示(M.D,不是今年才補年份),
+// 今天到下週最後一天再加相對說法:今天、明天用專稱,本週內「週X」,下週「下週X」。
+// 逾期與更遠的只有日期(逾期的顏色由呼叫端處理)
+export function formatListDate(iso: string, today: string = todayIso()): string {
+  const { year, month, day } = parseIso(iso)
+  const date = year === parseIso(today).year ? `${month}.${day}` : `${year}.${month}.${day}`
+
   const days = diffDays(today, iso)
-
+  // 今天到本週最後一天(週日)還有幾天;一週的起始日見 WEEK_START
+  const daysToWeekEnd = (WEEK_START + 6 - weekday(today) + 7) % 7
+  let relative: string | null = null
   if (days === 0) {
-    return '今天'
-  }
-  if (days === 1) {
-    return '明天'
-  }
-  if (days === -1) {
-    return '昨天'
-  }
-  // 「本週內」= 今天之後 6 天內,對得上「未來 7 天」那個檢視,不是日曆週
-  if (days >= 2 && days <= 6) {
-    return `週${WEEKDAY_LABELS[weekday(iso)]}`
+    relative = '今天'
+  } else if (days === 1) {
+    // 今天是週日時明天就是下週一;專稱優先
+    relative = '明天'
+  } else if (days > 1 && days <= daysToWeekEnd) {
+    relative = `週${WEEKDAY_LABELS[weekday(iso)]}`
+  } else if (days > daysToWeekEnd && days <= daysToWeekEnd + 7) {
+    relative = `下週${WEEKDAY_LABELS[weekday(iso)]}`
   }
 
-  const date = parseIso(iso)
-  const sameYear = date.year === parseIso(today).year
-  return sameYear
-    ? `${date.month}/${date.day}`
-    : `${date.year}/${date.month}/${date.day}`
+  return relative === null ? date : `${date} ${relative}`
 }
 
 // 重複選單的預覽:月/日 + 星期,跨年才補年份

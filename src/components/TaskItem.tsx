@@ -1,7 +1,7 @@
 import type { MouseEvent, TransitionEvent } from 'react'
 import Checkbox from './Checkbox'
 import RepeatIcon from './RepeatIcon'
-import { formatRelativeDate, isOverdue } from '@/lib/date'
+import { formatListDate, isOverdue } from '@/lib/date'
 import { priorityLevel, type Task } from '@/lib/tasks'
 import type { ApiError } from '@/lib/errors'
 import styles from './TaskItem.module.css'
@@ -113,14 +113,14 @@ export default function TaskItem({
         )}
         {/* 收合掉的同規則逾期實例;看得到代表以外還欠幾次 */}
         {overdueCount > 0 && <span className={styles.overdueCount}>+{overdueCount} 逾期</span>}
-        {/* dueDate 是日曆日,顯示成相對描述;逾期上警示色 */}
+        {/* dueDate 是日曆日,顯示 M.D 加近期的相對說法;逾期上警示色 */}
         {task.dueDate !== null && (
           <span
             className={
               isOverdue(task.dueDate) ? `${styles.dueDate} ${styles.overdue}` : styles.dueDate
             }
           >
-            {formatRelativeDate(task.dueDate)}
+            {formatListDate(task.dueDate)}
           </span>
         )}
       </div>

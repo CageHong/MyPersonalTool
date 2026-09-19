@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addMonths, monthDays, parseIso, todayIso, WEEKDAY_LABELS } from '@/lib/date'
+import { addMonths, monthDays, parseIso, todayIso, weekdayHeaders } from '@/lib/date'
 import styles from './MonthCalendar.module.css'
 
 type Props = {
@@ -56,7 +56,7 @@ export default function MonthCalendar({ value, onSelect, marked }: Props) {
       </div>
 
       <div className={styles.grid}>
-        {WEEKDAY_LABELS.map((label) => (
+        {weekdayHeaders().map((label) => (
           <span key={label} className={styles.weekday}>
             {label}
           </span>
