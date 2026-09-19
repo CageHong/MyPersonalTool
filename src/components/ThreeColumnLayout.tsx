@@ -106,6 +106,9 @@ export default function ThreeColumnLayout() {
   const searchParams = useSearchParams()
 
   const [tasks, setTasks] = useState<Task[]>([])
+  // 每次重抓任務清單就加一。右欄的規則跟著它重抓:停止、修改規則時任務本身的欄位不變,
+  // 只靠 tasks 的內容看不出規則變了
+  const [tasksVersion, setTasksVersion] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // 寫入排隊:每個動作等前一個(含重抓)結束才開始,所以不必停用任何控制項。
@@ -155,7 +158,10 @@ export default function ThreeColumnLayout() {
       return await readApiError(response)
     }
     const next = (await response.json()) as Task[]
-    flushSync(() => setTasks(next))
+    flushSync(() => {
+      setTasks(next)
+      setTasksVersion((version) => version + 1)
+    })
     return null
   }, [])
 
@@ -341,6 +347,7 @@ export default function ThreeColumnLayout() {
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onSaveDate={handleSaveDate}
+          tasksVersion={tasksVersion}
           // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
           onChecklistError={setError}
         />

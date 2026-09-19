@@ -9,14 +9,25 @@ export type RuleState =
   | { status: 'loaded'; rule: RecurrenceRuleView }
 
 // 實例的規則;右欄的摘要與日期選單的初始草稿共用這一份。
+// version 是任務清單的重抓次數:每次寫入重抓之後規則也重抓。停止、修改規則時任務的欄位不變,
+// ruleId 也不變,只看 ruleId 的話摘要會停在舊規則。
 // 競態:TaskDetail 以 key={task.id} 掛載,換任務時整個卸載,舊回應落在已卸載的實例上。
-// 同一個任務的 ruleId 也可能變(剛建立規則、停止後重建),StrictMode 也會跑兩次 effect,
+// 同一個任務的 ruleId 或 version 也會變,StrictMode 也會跑兩次 effect,
 // 所以 cleanup 再標記一次,過期的回應不寫 state
+export type RuleSnapshot = {
+  state: RuleState
+  // 值不是目前版本的結果:摘要照舊顯示(避免閃爍),但日期選單不能拿它組請求
+  stale: boolean
+}
+
 export function useRecurrenceRule(
   ruleId: number | null,
+  version: number,
   onError: (message: string | null) => void,
-): RuleState | null {
-  const [state, setState] = useState<{ ruleId: number; value: RuleState } | null>(null)
+): RuleSnapshot | null {
+  const [loaded, setLoaded] = useState<{ ruleId: number; version: number; value: RuleState } | null>(
+    null,
+  )
 
   useEffect(() => {
     if (ruleId === null) {
@@ -34,17 +45,17 @@ export function useRecurrenceRule(
           if (ignore) {
             return
           }
-          setState({ ruleId, value: { status: 'failed' } })
+          setLoaded({ ruleId, version, value: { status: 'failed' } })
           onError(failure.kind === 'general' ? recurrenceRuleMessage(failure.code) : null)
           return
         }
         const rule = (await response.json()) as RecurrenceRuleView
         if (!ignore) {
-          setState({ ruleId, value: { status: 'loaded', rule } })
+          setLoaded({ ruleId, version, value: { status: 'loaded', rule } })
         }
       } catch {
         if (!ignore) {
-          setState({ ruleId, value: { status: 'failed' } })
+          setLoaded({ ruleId, version, value: { status: 'failed' } })
           onError(generalMessage('NETWORK'))
         }
       }
@@ -52,13 +63,17 @@ export function useRecurrenceRule(
     return () => {
       ignore = true
     }
-  }, [onError, ruleId])
+  }, [onError, ruleId, version])
 
   if (ruleId === null) {
     return null
   }
-  // 規則換了但新的還沒回來:不拿舊規則的結果充數
-  return state?.ruleId === ruleId ? state.value : { status: 'loading' }
+  // 換了規則:新的還沒回來前不拿別條規則的結果充數
+  if (loaded?.ruleId !== ruleId) {
+    return { state: { status: 'loading' }, stale: true }
+  }
+  // 同一條規則重抓中:先沿用上一份結果
+  return { state: loaded.value, stale: loaded.version !== version }
 }
 
 type Props = {

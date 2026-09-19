@@ -54,17 +54,23 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
   // 草稿一開就有值;清除是直接關閉送 null,不經過草稿
   const currentDate = draft.dueDate ?? todayIso()
 
-  // 規則:沒有規則是 null;載入中或載入失敗時重複列不能展開
+  // 規則:沒有規則是 null;載入中(含呼叫端判斷資料過期)或載入失敗時重複列不能展開
   const ruleState = recurrence?.rule ?? null
   const ruleReady = recurrence !== undefined && (ruleState === null || ruleState.status === 'loaded')
-  const rule = ruleState?.status === 'loaded' ? ruleState.rule : null
-  // 重複的草稿在規則就緒時才建立:開啟時規則還在載入的話,載入完成後補建(渲染中調整 state)
-  const [repeatDraft, setRepeatDraft] = useState<RecurrenceDraft | null>(() =>
-    ruleReady ? initialDraft(rule, currentDate) : null,
+  const liveRule = ruleState?.status === 'loaded' ? ruleState.rule : null
+  // 重複的草稿在規則就緒時才建立:開啟時規則還在載入的話,載入完成後補建(渲染中調整 state)。
+  // 在那之前草稿不存在、清單打不開,所以補建不會蓋掉使用者的修改。
+  // 建立時一併記下當時的規則,之後的判斷都用這份:選單開著時若排在前面的寫入剛好完成,
+  // prop 會短暫變回載入中,直接讀 prop 會把進行中的規則當成「沒有規則」而送出新建
+  const [base, setBase] = useState<{ rule: typeof liveRule; draft: RecurrenceDraft } | null>(() =>
+    ruleReady ? { rule: liveRule, draft: initialDraft(liveRule, currentDate) } : null,
   )
-  if (repeatDraft === null && ruleReady) {
-    setRepeatDraft(initialDraft(rule, currentDate))
+  if (base === null && ruleReady) {
+    setBase({ rule: liveRule, draft: initialDraft(liveRule, currentDate) })
   }
+  const rule = base?.rule ?? null
+  const [editedDraft, setRepeatDraft] = useState<RecurrenceDraft | null>(null)
+  const repeatDraft = editedDraft ?? base?.draft ?? null
 
   // 目前的畫面,與切過去之後焦點要落的位置;每次導覽都是新物件,effect 據此放焦點
   const [screen, setScreen] = useState<{ view: View; focus: FocusTarget | null }>({
@@ -212,11 +218,8 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
   }
 
   function repeatRowText(): string {
-    if (ruleState?.status === 'loading') {
-      return '載入中…'
-    }
-    if (ruleState?.status === 'failed' || repeatDraft === null) {
-      return '—'
+    if (repeatDraft === null) {
+      return ruleState?.status === 'failed' ? '—' : '載入中…'
     }
     // 結束日另外一列顯示
     return spec === null ? '不重複' : describeRule({ ...spec, until: null })

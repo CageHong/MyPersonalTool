@@ -23,6 +23,8 @@ type Props = {
     dueDate: string | null | undefined,
     recurrence: RecurrenceRequest | undefined,
   ) => Promise<ApiError | null>
+  // 任務清單的重抓次數;實例的規則跟著它重抓
+  tasksVersion: number
   // checklist 的泛用錯誤顯示在中欄新增列下方,和任務的錯誤同一個位置
   onChecklistError: (message: string | null) => void
 }
@@ -32,6 +34,7 @@ export default function TaskDetail({
   onUpdate,
   onDelete,
   onSaveDate,
+  tasksVersion,
   onChecklistError,
 }: Props) {
   // 存「正在確認刪除哪一筆」而不是布林值:換任務自動失效,刪除成功或失敗後都清成 null
@@ -51,8 +54,17 @@ export default function TaskDetail({
   const summaryTriggerRef = useRef<HTMLButtonElement>(null)
   // 寫入排隊期間觸發鈕還在,可以再開一次再送一次;不停用按鈕,用 ref 擋掉第二次送出。完成後一律重設
   const dateSavePendingRef = useRef(false)
+  // 同一件事的 state 版本,給畫面用:寫入進行中時規則資料還是舊的(重抓還沒發生、版本還沒變),
+  // 這段期間日期選單不能拿它組請求
+  const [savingDate, setSavingDate] = useState(false)
   // 實例的規則:摘要與日期選單的初始草稿共用。一般任務是 null
-  const ruleState = useRecurrenceRule(task?.recurrenceRuleId ?? null, onChecklistError)
+  const ruleSnapshot = useRecurrenceRule(task?.recurrenceRuleId ?? null, tasksVersion, onChecklistError)
+  // 摘要:重抓中照舊顯示上一份結果,避免每次寫入都閃一下「載入中」
+  const ruleState = ruleSnapshot?.state ?? null
+  // 日期選單:從送出到規則重抓回來的整段期間都當成載入中,選單的重複草稿等新資料到了才建立,
+  // 不拿過期的規則組請求(例如停止之後馬上打開,舊資料還說規則進行中)
+  const dialogRuleState =
+    savingDate || ruleSnapshot?.stale ? ({ status: 'loading' } as const) : ruleState
 
   if (task === undefined) {
     return <p className={styles.empty}>未選取任務</p>
@@ -215,7 +227,7 @@ export default function TaskDetail({
       {dateMenuOpener !== null && (
         <DueDateDialog
           dueDate={task.dueDate}
-          recurrence={task.completedAt === null ? { rule: ruleState } : undefined}
+          recurrence={task.completedAt === null ? { rule: dialogRuleState } : undefined}
           // 對話框已經 close(),背景不再 inert,觸發鈕才聚焦得到。先移焦點再存:
           // 儲存時記錄的焦點位置才會是右欄,任務因此離開視圖時才找得到遞補列
           onClose={(result) => {
@@ -232,8 +244,10 @@ export default function TaskDetail({
               return
             }
             dateSavePendingRef.current = true
+            setSavingDate(true)
             void saveDate(dueDate, recurrence).finally(() => {
               dateSavePendingRef.current = false
+              setSavingDate(false)
             })
           }}
         />
