@@ -110,3 +110,79 @@ export const taskRecurrenceRuleChecklistItem = sqliteTable(
     index('task_recurrence_rule_checklist_item_rule_position_idx').on(table.ruleId, table.position),
   ],
 )
+
+// 習慣:配額(每週期做幾次),不是日曆規則;和 task_recurrence_rule 是兩個獨立實體(decisions §6b)。
+// periodType 與 target 是「現在的設定」的快取,歷史在 habit_settings_history
+export const habit = sqliteTable(
+  'habit',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    periodType: text('period_type', { enum: ['daily', 'weekly', 'monthly'] }).notNull(),
+    // 每週期的目標次數;null = 紀錄型(只記錄,不判定達成,不算 streak)
+    target: integer('target'),
+    // 清單順序,小的在前;不保證連號
+    sortOrder: integer('sort_order').notNull(),
+    // Unix 秒;沒有 schema 預設值,由 src/server/ 填入(同 task.createdAt)
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    check('habit_period_type_check', sql`${table.periodType} IN ('daily', 'weekly', 'monthly')`),
+    check('habit_target_check', sql`${table.target} IS NULL OR ${table.target} >= 1`),
+  ],
+)
+
+// 完成一次 = 一列,不存週期累計數:回顧要看得到哪天做的
+export const habitLog = sqliteTable(
+  'habit_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    habitId: integer('habit_id')
+      .notNull()
+      .references(() => habit.id, { onDelete: 'cascade' }),
+    // 日曆日,YYYY-MM-DD
+    date: text('date').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [index('habit_log_habit_date_idx').on(table.habitId, table.date)],
+)
+
+// 週期與目標的變更歷史:每次改週期或改目標都追加完整的一筆。
+// 歷史週期用當時的設定判定,不用現在的設定回頭重算
+export const habitSettingsHistory = sqliteTable(
+  'habit_settings_history',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    habitId: integer('habit_id')
+      .notNull()
+      .references(() => habit.id, { onDelete: 'cascade' }),
+    periodType: text('period_type', { enum: ['daily', 'weekly', 'monthly'] }).notNull(),
+    target: integer('target'),
+    // 日曆日,YYYY-MM-DD;這筆設定從哪天起生效。同一天多筆時 id 大的較新
+    effectiveFrom: text('effective_from').notNull(),
+  },
+  (table) => [
+    check('habit_settings_history_period_type_check', sql`${table.periodType} IN ('daily', 'weekly', 'monthly')`),
+    check('habit_settings_history_target_check', sql`${table.target} IS NULL OR ${table.target} >= 1`),
+    index('habit_settings_history_habit_effective_idx').on(table.habitId, table.effectiveFrom),
+  ],
+)
+
+// 停止區間。停止不建新實體:停止中 = 存在 endDate 為 null 的列
+export const habitPause = sqliteTable(
+  'habit_pause',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    habitId: integer('habit_id')
+      .notNull()
+      .references(() => habit.id, { onDelete: 'cascade' }),
+    // 日曆日,YYYY-MM-DD;兩端都含當天
+    startDate: text('start_date').notNull(),
+    // null = 仍在停止中
+    endDate: text('end_date'),
+  },
+  // 同一個習慣最多一段進行中的停止;並發的重複停止由它擋下
+  (table) => [
+    uniqueIndex('habit_pause_open_uq').on(table.habitId).where(sql`${table.endDate} IS NULL`),
+  ],
+)

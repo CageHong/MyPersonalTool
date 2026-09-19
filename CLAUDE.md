@@ -120,6 +120,36 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - 停止重複可逆:任務的規則已停止時 `createRuleFromTask` 允許建新規則,任務改指向新規則;舊規則與它的其他實例不動。規則仍在進行中才回 `already_set`。
 - 改規則(`updateRule`)與停止(`stopRule`)先用舊規則補到最新,再刪除今天之後、未完成的實例。
 
+### 習慣
+
+習慣是配額(每週期做幾次),和重複任務(日曆規則)是兩個獨立實體,不共用表(理由見 `docs/decisions.md` §6b)。純函式在 `src/lib/habit.ts`(`periodStart`、`settingsAt`、`progressOf`、`streakOf`),業務邏輯在 `src/server/habits.ts`。
+
+`habit` 表:
+
+| 欄位 | 型別 | 可空 | 說明 |
+|---|---|---|---|
+| `id` | integer PK autoincrement | 否 | |
+| `name` | text | 否 | trim 後不可空 |
+| `periodType` | text | 否 | `daily` / `weekly` / `monthly`,CHECK |
+| `target` | integer | 是 | 每週期目標次數,CHECK `NULL` 或 `>= 1`;`null` = 紀錄型(不判定達成、沒有 streak) |
+| `sortOrder` | integer | 否 | 小的在前,新建放最後;不保證連號 |
+| `createdAt` | integer (Unix 秒) | 否 | |
+
+`periodType` 與 `target` 是「現在的設定」的快取,歷史在 `habit_settings_history`。
+
+`habit_log` 表(完成一次 = 一列,不存週期累計數):`id`、`habitId`(FK,ON DELETE CASCADE)、`date`(text `YYYY-MM-DD`)、`createdAt`(Unix 秒)。
+
+`habit_settings_history` 表:`id`、`habitId`(FK,ON DELETE CASCADE)、`periodType`、`target`(可空)、`effectiveFrom`(text `YYYY-MM-DD`)。建立習慣時寫第一筆(`effectiveFrom` = 建立日);改週期或改目標都追加**完整**的一筆(`effectiveFrom` = 今天),`name` 不進歷史。同一天多筆時 id 大的較新。
+
+`habit_pause` 表:`id`、`habitId`(FK,ON DELETE CASCADE)、`startDate`、`endDate`(可空,兩端都含當天)。
+
+- **停止不建新實體。** `habit` 沒有 `endedAt`:停止中 = 存在 `endDate` 為 null 的 `habit_pause` 列;partial unique index 保證同一習慣最多一段。停止寫 `startDate` = 今天,恢復補 `endDate` = 今天;已停止時再停止(`state: already_paused`)、未停止時恢復(`state: not_paused`)都回 `VALIDATION_FAILED`。
+- **刪除是硬刪除**(同 task),log、設定歷史、停止區間一起刪。要保留紀錄請用停止。
+- `addLog`:日期格式不合 → `invalid_format`;晚於今天 → `invalid_value`;停止中 → `state: paused`;過去日期允許(補登)。`removeLog` 刪該日期 id 最大的一列,沒有 → `date: no_log`。
+- 進度:`count` 是當前週期的 log 數,不封頂。週期起始:daily 當天、weekly 該週 `WEEK_START`(週一)、monthly 1 日。
+- streak(單位跟著週期):從今天所屬週期往前;與任一停止區間有交集的週期跳過(不計入也不中斷);每個週期用它最後一天(不超過今天)生效的 `target` 判定;當前週期未達成不算斷;該期 `target` 為 null(當時是紀錄型)→ 停止。下限是目前週期類型那一段設定的第一筆 `effectiveFrom` 所屬週期:改週期後 streak 從變更起重算,只改目標不重算。
+- 用到「今天」的函式都以參數接收 `today`;route 傳伺服器本地時區的 `todayIso()`。
+
 之後才做(現在不要提出實作):
 
 - ~~`recurrence` 表:重複規則(每日/每週/每月),`task` 用 `templateId` 指回。~~ 資料層已完成(R1):`task_recurrence_rule`,`task` 用 `recurrenceRuleId` 指回;API 與 UI 未做。
@@ -151,6 +181,14 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 | GET | `/api/recurrence-rules/:ruleId` | 規則欄位加 `checklist: string[]`(範本標題);已停止的規則照樣回傳 |
 | PATCH | `/api/recurrence-rules/:ruleId` | 部分更新規則參數與範本 `{ freq?, interval?, weekdays?, startDate?, until?, title?, notes?, priority?, checklist? }`(`until: null` = 改回永不結束);已停止的規則回 400 |
 | POST | `/api/recurrence-rules/:ruleId/stop` | 停止重複,冪等,沒有 body |
+| GET | `/api/habits` | 列出全部(依 `sortOrder`),每筆加 `paused`、`periodStart`、`progress { count, target, achieved }`、`streak` |
+| POST | `/api/habits` | 建立 `{ name, periodType, target? }`;成功 201 |
+| PATCH | `/api/habits/:habitId` | 部分更新 `{ name?, periodType?, target? }` |
+| DELETE | `/api/habits/:habitId` | 硬刪除,連同 log、設定歷史、停止區間 |
+| POST | `/api/habits/:habitId/logs` | 記一次 `{ date }`;成功 201 |
+| DELETE | `/api/habits/:habitId/logs?date=YYYY-MM-DD` | 刪該日期最新的一筆;日期放 query string,不放 body |
+| POST | `/api/habits/:habitId/pause` | 停止,沒有 body;已停止時 400,不冪等 |
+| POST | `/api/habits/:habitId/resume` | 恢復,沒有 body;未停止時 400 |
 
 用 PATCH 不用 PUT:勾完成只改 `completedAt` 一個欄位,不是整個資源替換。
 
@@ -269,7 +307,7 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **移動過的實例有標示。** `dueDate !== occurrenceDate` 時,中欄日期後面加「(原定 M.D)」(`formatListDay`,在 `.meta` 裡不縮);右欄截止日下方顯示「原定 M.D」與「還原」,按下送 `PATCH { dueDate: occurrenceDate }`,經日期選單同一條寫入佇列與防重複送出;送出前焦點先移到截止日觸發鈕(還原鈕會卸載)。列表收合的代表仍按 `dueDate` 選。
 
-之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、重複任務、習慣。(重複任務的資料層已完成,API 與 UI 未做。)
+之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、重複任務、習慣。(重複任務的資料層已完成,API 與 UI 未做。習慣的資料層與 API 已完成(H1),UI 未做。)
 
 ## 待處理事項
 
