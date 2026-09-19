@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react'
 import Checkbox from './Checkbox'
+import RepeatIcon from './RepeatIcon'
 import { formatRelativeDate, isOverdue } from '@/lib/date'
 import { priorityLevel, type Task } from '@/lib/tasks'
 import type { ApiError } from '@/lib/errors'
@@ -7,12 +8,14 @@ import styles from './TaskItem.module.css'
 
 type Props = {
   task: Task
+  // 重複實例的代表才可能大於 0:同規則中代表以外的逾期實例數
+  overdueCount: number
   selected: boolean
   onSelect: (id: number) => void
   onToggle: (task: Task) => Promise<ApiError | null>
 }
 
-export default function TaskItem({ task, selected, onSelect, onToggle }: Props) {
+export default function TaskItem({ task, overdueCount, selected, onSelect, onToggle }: Props) {
   const completed = task.completedAt !== null
   const level = priorityLevel(task.priority)
 
@@ -71,7 +74,16 @@ export default function TaskItem({ task, selected, onSelect, onToggle }: Props) 
         </button>
       </div>
 
+      {/* 圖示、逾期數、日期都在 .meta 裡,不縮;空間不足時只截標題 */}
       <div className={styles.meta}>
+        {/* 圖示是裝飾,外層帶文字給螢幕閱讀器 */}
+        {task.recurrenceRuleId !== null && (
+          <span className={styles.repeat} role="img" aria-label="重複">
+            <RepeatIcon />
+          </span>
+        )}
+        {/* 收合掉的同規則逾期實例;看得到代表以外還欠幾次 */}
+        {overdueCount > 0 && <span className={styles.overdueCount}>+{overdueCount} 逾期</span>}
         {/* dueDate 是日曆日,顯示成相對描述;逾期上警示色 */}
         {task.dueDate !== null && (
           <span

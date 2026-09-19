@@ -19,8 +19,77 @@ export function parseView(raw: string | null): ViewId {
   return VIEWS.some((view) => view.id === raw) ? (raw as ViewId) : DEFAULT_VIEW
 }
 
-// 只過濾不排序 —— 順序是 listTasks() 的 ORDER BY 決定的
-export function filterTasks(tasks: Task[], view: ViewId, today: string): Task[] {
+export type CollapsedView = {
+  tasks: Task[]
+  // 代表的 id → 同組中代表以外、dueDate < today 的未完成實例數;0 不放
+  overdueCounts: Map<number, number>
+}
+
+// 日期字串比較,null 排最後(截止日被清掉的實例不搶代表)。字典序就是時間序
+function compareNullableDate(a: string | null, b: string | null): number {
+  if (a === b) {
+    return 0
+  }
+  if (a === null) {
+    return 1
+  }
+  if (b === null) {
+    return -1
+  }
+  return a < b ? -1 : 1
+}
+
+// dueDate 最早的是代表;平手比 occurrenceDate,再比 id
+function isEarlier(a: Task, b: Task): boolean {
+  return (
+    (compareNullableDate(a.dueDate, b.dueDate) ||
+      compareNullableDate(a.occurrenceDate, b.occurrenceDate) ||
+      a.id - b.id) < 0
+  )
+}
+
+// 每條規則的未完成實例只留一個代表:這條規則「現在活著」的那一個。
+// 已完成的實例是紀錄,不收合;一般任務原樣保留。只移除,不重排
+export function collapseRecurring(tasks: Task[], today: string): CollapsedView {
+  const representatives = new Map<number, Task>()
+  for (const task of tasks) {
+    if (task.recurrenceRuleId === null || task.completedAt !== null) {
+      continue
+    }
+    const current = representatives.get(task.recurrenceRuleId)
+    if (current === undefined || isEarlier(task, current)) {
+      representatives.set(task.recurrenceRuleId, task)
+    }
+  }
+
+  const overdueCounts = new Map<number, number>()
+  const collapsed = tasks.filter((task) => {
+    if (task.recurrenceRuleId === null || task.completedAt !== null) {
+      return true
+    }
+    const representative = representatives.get(task.recurrenceRuleId)!
+    if (task === representative) {
+      return true
+    }
+    if (task.dueDate !== null && task.dueDate < today) {
+      overdueCounts.set(representative.id, (overdueCounts.get(representative.id) ?? 0) + 1)
+    }
+    return false
+  })
+
+  return { tasks: collapsed, overdueCounts }
+}
+
+// 只過濾不排序 —— 順序是 listTasks() 的 ORDER BY 決定的。
+// 先收合、後日期篩選:所有視圖共用同一個代表,代表不隨視圖而變。
+// 現有視圖的日期條件只有上限,兩種順序結果相同;有下限的視圖(某一天、「明天」)出現時,
+// 先篩選會在 9/17 未完成時把 9/18 選為代表(docs/decisions.md §6a)
+export function filterTasks(tasks: Task[], view: ViewId, today: string): CollapsedView {
+  const { tasks: collapsed, overdueCounts } = collapseRecurring(tasks, today)
+  return { tasks: filterByView(collapsed, view, today), overdueCounts }
+}
+
+function filterByView(tasks: Task[], view: ViewId, today: string): Task[] {
   switch (view) {
     // 逾期的要留在今天,所以是 <= 而不是 ===
     case 'today':

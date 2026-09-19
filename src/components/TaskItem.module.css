@@ -60,6 +60,17 @@
   flex-shrink: 0;
 }
 
+.repeat {
+  display: flex;
+  color: var(--color-row-meta);
+}
+
+.overdueCount {
+  color: var(--color-overdue);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
 .dueDate {
   color: var(--color-row-meta);
   font-size: var(--text-sm);

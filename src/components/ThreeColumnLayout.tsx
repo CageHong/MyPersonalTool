@@ -97,8 +97,9 @@ export default function ThreeColumnLayout() {
 
   const today = todayIso()
   const view = parseView(searchParams.get('view'))
-  // 篩選在前端做,GET /api/tasks 照舊拿全部
-  const visibleTasks = filterTasks(tasks, view, today)
+  // 篩選在前端做,GET /api/tasks 照舊拿全部。重複實例每條規則只剩一個代表,
+  // 非代表的實例不在 visibleTasks 裡,所以也選不到(網址上的 task 會被下面的 effect 清掉)
+  const { tasks: visibleTasks, overdueCounts } = filterTasks(tasks, view, today)
 
   const selectedId = parseTaskId(searchParams.get('task'))
   // 從看得到的那些裡面找:選取的任務被檢視濾掉時,下面的 effect 會清掉 task 參數
@@ -282,6 +283,7 @@ export default function ThreeColumnLayout() {
       >
         <TaskList
           tasks={visibleTasks}
+          overdueCounts={overdueCounts}
           totalCount={tasks.length}
           view={view}
           loading={loading}

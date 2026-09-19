@@ -19,8 +19,10 @@ function emptyMessage(totalCount: number, view: ViewId): string {
 
 // 資料與寫入都在 ThreeColumnLayout,這裡只負責畫清單
 type Props = {
-  // 已經照目前檢視篩選過
+  // 已經照目前檢視篩選過,重複實例已收合成每條規則一個代表
   tasks: Task[]
+  // 代表的 id → 同規則還有幾個逾期的實例
+  overdueCounts: Map<number, number>
   // 篩選前的總數與目前檢視:空狀態要分辨「一筆都沒有」和「這個檢視是空的」
   totalCount: number
   view: ViewId
@@ -34,6 +36,7 @@ type Props = {
 
 export default function TaskList({
   tasks,
+  overdueCounts,
   totalCount,
   view,
   loading,
@@ -67,6 +70,7 @@ export default function TaskList({
             <TaskItem
               key={task.id}
               task={task}
+              overdueCount={overdueCounts.get(task.id) ?? 0}
               selected={task.id === selectedId}
               onSelect={onSelect}
               onToggle={onToggle}

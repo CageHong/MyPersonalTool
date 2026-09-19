@@ -259,6 +259,8 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **規則摘要(`RecurrenceSummary`)自己載入 `GET /api/recurrence-rules/:ruleId`。** 顯示 `describeRule`,已停止的規則加註「已停止重複」。競態靠 `TaskDetail` 的 `key={task.id}` 重新掛載,effect 的 cleanup 另外標記過期,舊回應不寫 state。載入失敗的訊息照 checklist 的方式顯示在中欄新增列下方。
 
+**重複實例在列表視圖收合成每條規則一列。** `filterTasks` 的第一步是 `collapseRecurring`,之後才套各視圖的日期條件:每條規則的未完成實例只留一個代表(`dueDate` 最早,`null` 排最後;平手比 `occurrenceDate`,再比 `id`),同組中代表以外 `dueDate < today` 的未完成實例數標在代表那一列(「+N 逾期」)。先收合、後篩選,所有視圖共用同一個代表:代表是這條規則現在活著的實例,不隨視圖而變;有下限的視圖(某一天、「明天」)出現時,先篩選會在 9/17 未完成時把 9/18 選為代表(理由見 `docs/decisions.md` §6a)。已完成的實例是紀錄,不收合;一般任務原樣保留。收合只移除、不重排,順序仍是 `listTasks()` 的 ORDER BY。非代表的實例不在清單裡,也選不到。任務列 `.meta` 依序是重複圖示、「+N 逾期」、日期,都不縮。`totalCount` 仍是收合前的全部任務數,只用來分辨空狀態。
+
 之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、重複任務、習慣。(重複任務的資料層已完成,API 與 UI 未做。)
 
 ## 待處理事項
