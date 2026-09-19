@@ -247,6 +247,16 @@
   margin: 0;
 }
 
+/* 上面的 margin: 0 會蓋掉瀏覽器讓 dialog:modal 置中的 margin: auto(作者樣式一律勝過瀏覽器內建樣式,
+   與選擇器權重無關);position: fixed 與 inset: 0 沒被蓋,補回 margin 就置中。
+   上限與捲動也明寫,不依賴各瀏覽器的內建值:視窗比對話框矮時在對話框內捲動,內容不被切掉 */
+dialog:modal {
+  max-width: calc(100% - 2 * var(--space-3));
+  max-height: calc(100% - 2 * var(--space-3));
+  margin: auto;
+  overflow: auto;
+}
+
 html {
   height: 100%;
 }

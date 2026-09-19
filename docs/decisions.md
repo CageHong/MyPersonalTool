@@ -134,3 +134,4 @@
 | createRuleFromTask 對有 scheduledAt 的任務目前拒絕;改成平移或由規則決定時刻 | 做日曆視圖時 |
 | 前端 PRIORITY_LEVELS / PRIORITY_OPTIONS 與伺服器 PRIORITY_VALUES 共用一份值域(放 src/lib/,伺服器 import) | 值域要改時 |
 | 中欄加入逾期 / 今天 / 之後的區段標題與列數(含區段規則、鍵盤跨區段移動) | 之後 |
+| 選單錨定在觸發它的控制項旁邊(需要邊緣偵測,可能引入定位函式庫) | 之後 |
