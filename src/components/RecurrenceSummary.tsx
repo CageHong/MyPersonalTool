@@ -75,7 +75,7 @@ export default function RecurrenceSummary({ ruleId, onError, focusOnMountRef }: 
       {state.status === 'failed' && <span className={styles.muted}>—</span>}
       {state.status === 'loaded' && (
         <>
-          <span>{describeRule(state.rule)}</span>
+          <span>{describeRule(state.rule, { stopped: state.rule.endedAt !== null })}</span>
           {state.rule.endedAt !== null && <span className={styles.muted}>已停止重複</span>}
         </>
       )}

@@ -96,6 +96,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 | `interval` | integer | 否 | CHECK `>= 1` |
 | `weekdays` | integer | 是 | bitmask,bit 0 = 星期一 … bit 6 = 星期日;`weekly` 時必須 1..127,其他必須 NULL(CHECK) |
 | `startDate` | text `YYYY-MM-DD` | 否 | 展開的錨點 |
+| `until` | text `YYYY-MM-DD` | 是 | 結束日,含當天;`null` = 永不結束。必須是真實日曆日且 `>= startDate`,可以早於今天;到期不自動寫 `endedAt` |
 | `title` / `notes` / `priority` | 同 `task` | | 範本內容 |
 | `generatedThrough` | text `YYYY-MM-DD` | 是 | 水位線:實例已產生到哪一天;`null` = 尚未產生 |
 | `endedAt` | integer (Unix 秒) | 是 | `null` = 仍在重複 |
@@ -145,9 +146,9 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 | PUT | `/api/tasks/:id/checklist-items/order` | 重新排序,body `{ itemIds }` 必須恰好是該任務的全部項目 |
 | PATCH | `/api/checklist-items/:itemId` | 部分更新 `{ title?, done? }` |
 | DELETE | `/api/checklist-items/:itemId` | 刪除 |
-| POST | `/api/tasks/:id/recurrence` | 把任務變成重複規則的第一個實例,body `{ freq, interval, weekdays?, startDate }`;成功 201,回傳規則 |
+| POST | `/api/tasks/:id/recurrence` | 把任務變成重複規則的第一個實例,body `{ freq, interval, weekdays?, startDate, until? }`(`until` 早於第一個日期回 `before_start`);成功 201,回傳規則 |
 | GET | `/api/recurrence-rules/:ruleId` | 規則欄位加 `checklist: string[]`(範本標題);已停止的規則照樣回傳 |
-| PATCH | `/api/recurrence-rules/:ruleId` | 部分更新規則參數與範本 `{ freq?, interval?, weekdays?, startDate?, title?, notes?, priority?, checklist? }`;已停止的規則回 400 |
+| PATCH | `/api/recurrence-rules/:ruleId` | 部分更新規則參數與範本 `{ freq?, interval?, weekdays?, startDate?, until?, title?, notes?, priority?, checklist? }`(`until: null` = 改回永不結束);已停止的規則回 400 |
 | POST | `/api/recurrence-rules/:ruleId/stop` | 停止重複,冪等,沒有 body |
 
 用 PATCH 不用 PUT:勾完成只改 `completedAt` 一個欄位,不是整個資源替換。

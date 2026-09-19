@@ -69,6 +69,8 @@ function toSpec(draft: Draft, anchor: string): { spec: RecurrenceSpec } | { erro
       interval,
       weekdays: draft.freq === 'weekly' ? draft.weekdays : null,
       startDate: anchor,
+      // 選單還沒有結束日欄位
+      until: null,
     },
   }
 }

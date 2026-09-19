@@ -452,3 +452,98 @@ describe('unique occurrence', () => {
     assert.throws(() => db.insert(task).values(row).run(), /UNIQUE/)
   })
 })
+
+describe('until', () => {
+  function ruleCount(): number {
+    return db.select().from(taskRecurrenceRule).all().length
+  }
+
+  test('createRuleFromTask rejects an until before the first occurrence', () => {
+    const source = createTask({ title: 'task', dueDate: TODAY })
+    const before = ruleCount()
+
+    // 9/18 是星期五:第一個星期一是 9/21
+    assert.throws(
+      () =>
+        createRuleFromTask(
+          source.id,
+          { freq: 'weekly', interval: 1, weekdays: 1 << 0, startDate: TODAY, until: '2026-09-20' },
+          TODAY,
+        ),
+      (error: unknown) => error instanceof ValidationError && error.fields.until === 'before_start',
+    )
+    assert.equal(ruleCount(), before)
+    assert.equal(db.select().from(task).where(eq(task.id, source.id)).get()!.recurrenceRuleId, null)
+  })
+
+  test('createRuleFromTask with until equal to the first occurrence makes one instance', () => {
+    const source = createTask({ title: 'task', dueDate: TODAY })
+
+    const rule = createRuleFromTask(
+      source.id,
+      { freq: 'daily', interval: 1, startDate: TODAY, until: TODAY },
+      TODAY,
+    )
+
+    assert.equal(rule.until, TODAY)
+    assert.deepEqual(dates(rule.id), [TODAY])
+  })
+
+  test('shortening until removes future incomplete instances beyond it; keeps today, overdue, completed', () => {
+    const { rule, todayItemId, before } = setupRuleWithHistory()
+
+    updateRule(rule.id, { until: '2026-09-21' }, TODAY)
+
+    assertPastAndCompletedUnchanged(rule.id, before, todayItemId)
+    // 9/15–9/18 已經發生;9/19–9/21 用新規則重生;9/20 是已完成的舊實例;9/22 之後消失
+    assert.deepEqual(dates(rule.id), [
+      '2026-09-15',
+      '2026-09-16',
+      '2026-09-17',
+      '2026-09-18',
+      '2026-09-19',
+      '2026-09-20',
+      '2026-09-21',
+    ])
+  })
+
+  test('extending until fills the new range', () => {
+    const rule = insertRule({ startDate: TODAY, until: '2026-09-19' })
+    fillInstances(TODAY)
+    assert.deepEqual(dates(rule.id), [TODAY, '2026-09-19'])
+
+    updateRule(rule.id, { until: '2026-09-22' }, TODAY)
+
+    assert.deepEqual(dates(rule.id), range(TODAY, '2026-09-22'))
+  })
+
+  test('until: null goes back to never ending', () => {
+    const rule = insertRule({ startDate: TODAY, until: '2026-09-19' })
+    fillInstances(TODAY)
+
+    const updated = updateRule(rule.id, { until: null }, TODAY)
+
+    assert.equal(updated.until, null)
+    assert.deepEqual(dates(rule.id), range(TODAY, END))
+  })
+
+  test('an expired rule produces nothing on fill and is not marked ended', () => {
+    const rule = insertRule({ startDate: '2026-09-01', until: '2026-09-10', generatedThrough: '2026-09-10' })
+
+    fillInstances(TODAY)
+
+    assert.deepEqual(dates(rule.id), [])
+    assert.equal(ruleRow(rule.id).endedAt, null)
+  })
+
+  for (const until of ['2026-13-01', '2026-02-30']) {
+    test(`rejects until ${until}`, () => {
+      const { id } = createTask({ title: 'task' })
+
+      assert.throws(
+        () => createRuleFromTask(id, { freq: 'daily', interval: 1, startDate: TODAY, until }, TODAY),
+        (error: unknown) => error instanceof ValidationError && error.fields.until === 'invalid_format',
+      )
+    })
+  }
+})

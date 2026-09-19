@@ -18,6 +18,8 @@ export type RecurrenceSpec = {
   weekdays: number | null
   // 日曆日,YYYY-MM-DD;展開的錨點,早於它的日期一律不出現
   startDate: string
+  // 日曆日,YYYY-MM-DD;結束日,含當天,晚於它的日期一律不出現。null = 永不結束
+  until: string | null
 }
 
 const MS_PER_DAY = 86400000
@@ -50,22 +52,23 @@ export function addDaysUtc(iso: string, days: number): string {
   return fromDayNumber(dayNumber(iso) + days)
 }
 
-// [from, to] 內所有符合規則、且 >= startDate 的日期,由小到大
+// [from, to] 內所有符合規則、且 >= startDate、<= until 的日期,由小到大
 export function expandRule(rule: RecurrenceSpec, from: string, to: string): string[] {
   const lower = from > rule.startDate ? from : rule.startDate
-  if (lower > to) {
+  const upper = rule.until !== null && rule.until < to ? rule.until : to
+  if (lower > upper) {
     return []
   }
 
   switch (rule.freq) {
     case 'daily':
-      return expandDaily(rule, lower, to)
+      return expandDaily(rule, lower, upper)
     case 'weekly':
-      return expandWeekly(rule, lower, to)
+      return expandWeekly(rule, lower, upper)
     case 'monthly':
-      return expandMonthly(rule, lower, to)
+      return expandMonthly(rule, lower, upper)
     case 'yearly':
-      return expandYearly(rule, lower, to)
+      return expandYearly(rule, lower, upper)
   }
 }
 
@@ -137,10 +140,11 @@ function expandYearly(rule: RecurrenceSpec, lower: string, to: string): string[]
 }
 
 // startDate 當天或之後的第一個日期。daily / monthly / yearly 一定是 startDate 本身;
-// weekly 最遲在 interval 週之後,所以查 interval + 1 週一定找得到(weekdays 至少一個 bit)
+// weekly 最遲在 interval 週之後,所以查 interval + 1 週一定找得到(weekdays 至少一個 bit)。
+// 不看 until:這是純曆法問題;createRuleFromTask 拿它和 until 比較,讓 until 影響它會形成循環
 export function firstOccurrence(rule: RecurrenceSpec): string {
   const [first] = expandRule(
-    rule,
+    { ...rule, until: null },
     rule.startDate,
     addDaysUtc(rule.startDate, (rule.interval + 1) * 7),
   )
@@ -163,7 +167,20 @@ export function weekdayBit(iso: string): number {
 // bit 0..6 的順序就是一 → 日
 const WEEKDAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
 
-export function describeRule(rule: RecurrenceSpec): string {
+export type DescribeOptions = {
+  // 已停止的規則不寫「直到」:停止是既成事實,until 是不會發生的計畫
+  stopped?: boolean
+}
+
+export function describeRule(rule: RecurrenceSpec, options: DescribeOptions = {}): string {
+  if (rule.until === null || options.stopped) {
+    return describeCadence(rule)
+  }
+  const { year, month, day } = parseIso(rule.until)
+  return `${describeCadence(rule)}，直到 ${year}/${month}/${day}`
+}
+
+function describeCadence(rule: RecurrenceSpec): string {
   const every = rule.interval === 1
   switch (rule.freq) {
     case 'daily':
@@ -191,12 +208,16 @@ export function describeRule(rule: RecurrenceSpec): string {
 const DAYS_PER_UNIT: Record<Freq, number> = { daily: 1, weekly: 7, monthly: 31, yearly: 366 }
 
 // 建立規則後實際會存在的前 count 個實例,和伺服器一致:
-// 第一個是 firstOccurrence(原任務),之後從 max(今天, 第一個的隔天) 開始(建立規則不回溯)
+// 第一個是 firstOccurrence(原任務),之後從 max(今天, 第一個的隔天) 開始(建立規則不回溯)。
+// until 會讓結果少於 count,第一個就晚於 until 時是 0 個
 export function upcomingOccurrences(rule: RecurrenceSpec, today: string, count: number): string[] {
   if (count <= 0) {
     return []
   }
   const first = firstOccurrence(rule)
+  if (rule.until !== null && first > rule.until) {
+    return []
+  }
   const afterFirst = addDaysUtc(first, 1)
   const lower = today > afterFirst ? today : afterFirst
   const upper = addDaysUtc(lower, DAYS_PER_UNIT[rule.freq] * (rule.interval * count + 1))

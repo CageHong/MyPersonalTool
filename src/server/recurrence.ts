@@ -18,6 +18,8 @@ export type RuleSpecInput = {
   interval: number
   weekdays?: number | null
   startDate: string
+  // 結束日,含當天;不給或 null = 永不結束
+  until?: string | null
 }
 
 // key 不存在 = 不改。checklist 給了就整份取代範本
@@ -26,6 +28,8 @@ export type UpdateRuleChanges = {
   interval?: number
   weekdays?: number | null
   startDate?: string
+  // 同 weekdays:key 出現才變更,null = 改回永不結束
+  until?: string | null
   title?: string
   notes?: string | null
   priority?: number | null
@@ -61,6 +65,15 @@ function collectSpecErrors(spec: Partial<RuleSpecInput>): Record<string, string>
   if (!isCalendarDate(spec.startDate)) {
     fields.startDate = 'invalid_format'
   }
+  // 允許早於今天:等同已到期,不產生新實例;限制的話修改歷史規則會變難
+  const until = spec.until ?? null
+  if (until !== null) {
+    if (!isCalendarDate(until)) {
+      fields.until = 'invalid_format'
+    } else if (fields.startDate === undefined && until < (spec.startDate as string)) {
+      fields.until = 'before_start'
+    }
+  }
   return fields
 }
 
@@ -70,6 +83,7 @@ function toSpec(rule: RecurrenceRule): RecurrenceSpec {
     interval: rule.interval,
     weekdays: rule.weekdays,
     startDate: rule.startDate,
+    until: rule.until,
   }
 }
 
@@ -198,6 +212,7 @@ export function createRuleFromTask(
     interval: spec.interval,
     weekdays: spec.weekdays ?? null,
     startDate: spec.startDate,
+    until: spec.until ?? null,
   }
 
   return db.transaction((tx) => {
@@ -217,6 +232,10 @@ export function createRuleFromTask(
     }
 
     const first = firstOccurrence(normalizedSpec)
+    // 原任務會成為 first 那天的實例;until 早於它的話規則一個實例都沒有。寫入前擋掉
+    if (normalizedSpec.until !== null && normalizedSpec.until < first) {
+      throw new ValidationError({ until: 'before_start' })
+    }
     const yesterday = addDaysUtc(today, -1)
     const timestamp = now()
     const [rule] = tx
@@ -314,6 +333,7 @@ export function updateRule(
       interval: changes.interval ?? existing.interval,
       weekdays: 'weekdays' in changes ? (changes.weekdays ?? null) : existing.weekdays,
       startDate: changes.startDate ?? existing.startDate,
+      until: 'until' in changes ? (changes.until ?? null) : existing.until,
       title: changes.title !== undefined ? changes.title.trim() : existing.title,
       notes: 'notes' in changes ? (changes.notes ?? null) : existing.notes,
       // 欄位是 NOT NULL DEFAULT 0,null 在這裡正規化成 0

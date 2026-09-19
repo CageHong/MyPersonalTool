@@ -67,6 +67,9 @@ export const taskRecurrenceRule = sqliteTable(
     weekdays: integer('weekdays'),
     // 日曆日,YYYY-MM-DD;展開的錨點
     startDate: text('start_date').notNull(),
+    // 日曆日,YYYY-MM-DD;規則的結束日,含當天。null = 永不結束。
+    // 和 endedAt 不同:這是規則的一部分,endedAt 是使用者中途停止
+    until: text('until'),
     // 範本內容,型別與限制同 task
     title: text('title').notNull(),
     notes: text('notes'),

@@ -9,7 +9,7 @@ const MONDAY = 1 << 0
 const THURSDAY = 1 << 3
 
 function rule(spec: Partial<RecurrenceSpec> & Pick<RecurrenceSpec, 'freq' | 'startDate'>): RecurrenceSpec {
-  return { interval: 1, weekdays: null, ...spec }
+  return { interval: 1, weekdays: null, until: null, ...spec }
 }
 
 describe('expandRule', () => {
@@ -171,5 +171,67 @@ describe('upcomingOccurrences', () => {
       '2224-09-18',
       '2323-09-18',
     ])
+  })
+})
+
+describe('until', () => {
+  const TODAY = '2026-09-18'
+
+  test('expandRule includes a matching date equal to until', () => {
+    const weekly = rule({ freq: 'weekly', weekdays: MONDAY, startDate: '2026-09-14', until: '2026-09-28' })
+
+    assert.deepEqual(expandRule(weekly, '2026-09-14', '2026-10-31'), [
+      '2026-09-14',
+      '2026-09-21',
+      '2026-09-28',
+    ])
+  })
+
+  test('expandRule drops dates after an until inside the range', () => {
+    const daily = rule({ freq: 'daily', startDate: '2026-09-01', until: '2026-09-20' })
+
+    assert.deepEqual(expandRule(daily, '2026-09-18', '2026-09-25'), [
+      '2026-09-18',
+      '2026-09-19',
+      '2026-09-20',
+    ])
+  })
+
+  test('expandRule is empty when until is before from', () => {
+    const daily = rule({ freq: 'daily', startDate: '2026-09-01', until: '2026-09-10' })
+
+    assert.deepEqual(expandRule(daily, '2026-09-18', '2026-09-25'), [])
+  })
+
+  test('upcomingOccurrences returns fewer than count', () => {
+    const daily = rule({ freq: 'daily', startDate: TODAY, until: '2026-09-19' })
+
+    assert.deepEqual(upcomingOccurrences(daily, TODAY, 4), ['2026-09-18', '2026-09-19'])
+  })
+
+  test('upcomingOccurrences returns nothing when the first date is after until', () => {
+    // 2026-09-18 是星期五:第一個星期一是 9/21,until 在它之前
+    const weekly = rule({ freq: 'weekly', weekdays: MONDAY, startDate: TODAY, until: '2026-09-20' })
+
+    assert.deepEqual(upcomingOccurrences(weekly, TODAY, 4), [])
+  })
+
+  test('describeRule appends until', () => {
+    assert.equal(
+      describeRule(rule({ freq: 'daily', startDate: TODAY, until: '2026-09-30' })),
+      '每天，直到 2026/9/30',
+    )
+    assert.equal(
+      describeRule(
+        rule({ freq: 'weekly', interval: 2, weekdays: MONDAY | THURSDAY, startDate: TODAY, until: '2027-01-05' }),
+      ),
+      '每 2 週的週一、四，直到 2027/1/5',
+    )
+  })
+
+  test('describeRule omits until for a stopped rule', () => {
+    const daily = rule({ freq: 'daily', startDate: TODAY, until: '2026-09-30' })
+
+    assert.equal(describeRule(daily, { stopped: true }), '每天')
   })
 })

@@ -1,0 +1,1 @@
+ALTER TABLE `task_recurrence_rule` ADD `until` text;
