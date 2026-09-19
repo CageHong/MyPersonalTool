@@ -1,0 +1,96 @@
+/* 整排圈圈是一個 tab stop;焦點框走全域 :focus-visible */
+.group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* 深淺編碼已勾與未勾,不是位置:勾了才變深,畫面才看得出勾選發生了 */
+.circle {
+  flex-shrink: 0;
+  width: var(--habit-circle-size);
+  height: var(--habit-circle-size);
+  border: 2px solid var(--color-habit-pending);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.done {
+  border-color: var(--color-habit-done);
+  background: var(--color-habit-done);
+}
+
+.next {
+  border-color: var(--color-habit-next);
+}
+
+/* 超額:接在大勾之後,只有外框 */
+.overflow {
+  border-color: var(--color-habit-overflow);
+}
+
+/* 大勾旁邊的小圈圈:超額 +1 */
+.small {
+  width: var(--habit-circle-small-size);
+  height: var(--habit-circle-small-size);
+  border-color: var(--color-habit-next);
+}
+
+/* 可點的只有下一顆與最後一顆;其餘沒有 pointer,也沒有 onClick */
+.clickable {
+  cursor: pointer;
+}
+
+/* 滿額收合的大勾:實心深色圓,白勾用邊框畫(同 Checkbox) */
+.check {
+  display: grid;
+  place-content: center;
+  flex-shrink: 0;
+  width: var(--habit-check-size);
+  height: var(--habit-check-size);
+  border-radius: 50%;
+  background: var(--color-habit-done);
+}
+
+.check::before {
+  content: '';
+  width: calc(var(--habit-check-size) * 0.25);
+  height: calc(var(--habit-check-size) * 0.5);
+  border: solid var(--color-habit-check);
+  border-width: 0 2px 2px 0;
+  transform: translateY(-10%) rotate(45deg);
+}
+
+.overflowCount,
+.ratio,
+.count {
+  color: var(--color-row-meta);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+/* 目標超過六顆與紀錄型:數字加 −/+ */
+.numbers {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.stepButton {
+  min-width: var(--habit-check-size);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* count 0 的 −:不動作,拿掉 pointer(和不可點的大勾一致) */
+.stepButton[aria-disabled='true'] {
+  cursor: default;
+}

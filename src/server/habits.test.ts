@@ -14,6 +14,7 @@ import {
   pauseHabit,
   removeLog,
   resumeHabit,
+  setLogCount,
   updateHabit,
 } from './habits'
 import { ValidationError } from './errors'
@@ -196,5 +197,105 @@ describe('listHabits', () => {
     assert.equal(summary.periodStart, TODAY)
     assert.deepEqual(summary.progress, { count: 0, target: 1, achieved: false })
     assert.equal(summary.streak, 2)
+  })
+})
+
+describe('setLogCount', () => {
+  function countOn(habitId: number, date: string) {
+    return logsOf(habitId).filter((log) => log.date === date)
+  }
+
+  test('fills up to N', () => {
+    const { id } = createHabit({ name: 'x', periodType: 'daily', target: 4 }, TODAY)
+    addLog(id, TODAY, TODAY)
+
+    assert.deepEqual(setLogCount(id, TODAY, 3, TODAY), { date: TODAY, count: 3 })
+    assert.equal(countOn(id, TODAY).length, 3)
+  })
+
+  test('removes down to N, newest first, leaving other dates alone', () => {
+    const { id } = createHabit({ name: 'x', periodType: 'daily', target: 4 }, TODAY)
+    const first = addLog(id, TODAY, TODAY)
+    addLog(id, TODAY, TODAY)
+    addLog(id, TODAY, TODAY)
+    const other = addLog(id, '2026-09-18', TODAY)
+
+    setLogCount(id, TODAY, 1, TODAY)
+
+    assert.deepEqual(logsOf(id).map((log) => log.id), [first.id, other.id])
+  })
+
+  test('count 0 clears the date and is not an error', () => {
+    const { id } = createHabit({ name: 'x', periodType: 'daily', target: 4 }, TODAY)
+    addLog(id, TODAY, TODAY)
+    addLog(id, TODAY, TODAY)
+
+    assert.deepEqual(setLogCount(id, TODAY, 0, TODAY), { date: TODAY, count: 0 })
+    assert.equal(countOn(id, TODAY).length, 0)
+    // 已經是 0 再設 0 也不是錯誤
+    assert.deepEqual(setLogCount(id, TODAY, 0, TODAY), { date: TODAY, count: 0 })
+  })
+
+  test('rejects a future date, a bad count, and writes while paused', () => {
+    const { id } = createHabit({ name: 'x', periodType: 'daily', target: 4 }, TODAY)
+    assertRejects(() => setLogCount(id, '2026-09-20', 1, TODAY), { date: 'invalid_value' })
+    assertRejects(() => setLogCount(id, '2026-02-30', 1, TODAY), { date: 'invalid_format' })
+    assertRejects(() => setLogCount(id, TODAY, -1, TODAY), { count: 'invalid_value' })
+    assertRejects(() => setLogCount(id, TODAY, 1.5, TODAY), { count: 'invalid_value' })
+
+    pauseHabit(id, TODAY)
+    assertRejects(() => setLogCount(id, TODAY, 1, TODAY), { state: 'paused' })
+    assert.equal(logsOf(id).length, 0)
+  })
+})
+
+describe('listHabits periodCounts and totalLogs', () => {
+  function summaryOf(id: number, today: string) {
+    const summary = listHabits(today).find((habit) => habit.id === id)
+    assert.ok(summary)
+    return summary
+  }
+
+  test('only the current period, newest first; totalLogs counts everything', () => {
+    // 2026-09-14 是星期一
+    const { id } = createHabit({ name: 'w', periodType: 'weekly', target: 3 }, '2026-09-01')
+    setLogCount(id, '2026-09-13', 2, TODAY)
+    setLogCount(id, '2026-09-14', 1, TODAY)
+    setLogCount(id, '2026-09-16', 2, TODAY)
+
+    const summary = summaryOf(id, TODAY)
+    assert.deepEqual(summary.periodCounts, [
+      { date: '2026-09-16', count: 2 },
+      { date: '2026-09-14', count: 1 },
+    ])
+    assert.equal(summary.totalLogs, 5)
+  })
+
+  test('once the period rolls over, the old period is gone from periodCounts', () => {
+    const { id } = createHabit({ name: 'w', periodType: 'weekly', target: 3 }, '2026-09-01')
+    // 週日記的,到下週一就屬於上一週
+    setLogCount(id, '2026-09-20', 1, '2026-09-20')
+
+    assert.deepEqual(summaryOf(id, '2026-09-20').periodCounts, [{ date: '2026-09-20', count: 1 }])
+    assert.deepEqual(summaryOf(id, '2026-09-21').periodCounts, [])
+  })
+
+  test('undoing repeatedly walks back to earlier dates as each one reaches zero', () => {
+    const { id } = createHabit({ name: 'w', periodType: 'weekly', target: 5 }, '2026-09-01')
+    setLogCount(id, '2026-09-14', 2, TODAY)
+    setLogCount(id, '2026-09-16', 1, TODAY)
+
+    // 前端的退回:periodCounts 的第一筆減一
+    function undo() {
+      const [latest] = summaryOf(id, TODAY).periodCounts
+      setLogCount(id, latest.date, latest.count - 1, TODAY)
+    }
+
+    undo()
+    assert.deepEqual(summaryOf(id, TODAY).periodCounts, [{ date: '2026-09-14', count: 2 }])
+    undo()
+    assert.deepEqual(summaryOf(id, TODAY).periodCounts, [{ date: '2026-09-14', count: 1 }])
+    undo()
+    assert.deepEqual(summaryOf(id, TODAY).periodCounts, [])
   })
 })

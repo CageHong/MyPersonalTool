@@ -1,4 +1,4 @@
-import { addLog, removeLog } from '@/server/habits'
+import { addLog, removeLog, setLogCount } from '@/server/habits'
 import { todayIso } from '@/lib/date'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
@@ -42,5 +42,31 @@ export async function DELETE(
     return new Response(null, { status: 204 })
   } catch (error) {
     return handleError('[DELETE /api/habits/[habitId]/logs]', error, 'Habit not found')
+  }
+}
+
+// 把某一天的紀錄設成 count 筆(絕對值)。UI 的計數一律走這裡;日期放 query string,與 DELETE 一致
+export async function PUT(
+  request: Request,
+  ctx: RouteContext<'/api/habits/[habitId]/logs'>,
+): Promise<Response> {
+  const habitId = parseId((await ctx.params).habitId, 'habitId')
+  if (habitId instanceof Response) {
+    return habitId
+  }
+
+  const body = await readJsonObject(request)
+  if (!body) {
+    return errorResponse(400, 'VALIDATION_FAILED', 'Request body must be a JSON object', {
+      body: 'invalid_json',
+    })
+  }
+
+  const date = new URL(request.url).searchParams.get('date')
+
+  try {
+    return Response.json(setLogCount(habitId, date as string, body.count as number, todayIso()))
+  } catch (error) {
+    return handleError('[PUT /api/habits/[habitId]/logs]', error, 'Habit not found')
   }
 }

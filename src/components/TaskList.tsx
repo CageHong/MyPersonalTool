@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import NewTaskForm from './NewTaskForm'
 import TaskItem from './TaskItem'
 import TaskListSkeleton from './TaskListSkeleton'
@@ -55,6 +55,8 @@ type Props = {
   onSelect: (id: number) => void
   onCreate: (input: NewTask) => Promise<ApiError | null>
   onToggle: (task: Task) => Promise<ApiError | null>
+  // 今天與全部未完成時,ThreeColumnLayout 傳進來的習慣小區塊;畫在新增列與錯誤之後、任務清單之前
+  habitBlock?: ReactNode
 }
 
 export default function TaskList({
@@ -68,6 +70,7 @@ export default function TaskList({
   onSelect,
   onCreate,
   onToggle,
+  habitBlock,
 }: Props) {
   // 上一次畫出來的列,用來算出這次誰離開、誰進來。「prop 變了就調整 state」的寫法:
   // 在渲染中比對並 setState,退場列和新清單在同一次提交裡出現,
@@ -124,6 +127,8 @@ export default function TaskList({
           {error}
         </p>
       )}
+
+      {habitBlock}
 
       {/* 載入中就直接放骨架,和首屏的 PageSkeleton 是同一份;
           不再先顯示一行「載入中…」,免得畫面切換兩次 */}

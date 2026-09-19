@@ -1,0 +1,85 @@
+/* 版面與任務清單一致:新增列、錯誤、清單之間的間距由 gap 處理 */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+/* 列的樣式同任務列(TaskItem):分隔線式,hover 換底色,選取 = 底色 + 左側色條 */
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-row-border);
+  cursor: pointer;
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.item:not(.selected):hover {
+  background: var(--color-row-hover-bg);
+}
+
+.selected {
+  background: var(--color-row-selected-bg);
+  box-shadow: inset var(--space-1) 0 0 var(--color-row-selected-border);
+}
+
+/* 名稱是按鈕(鍵盤要走得到),外觀維持純文字;單行截斷 */
+.name {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.progress,
+.streak {
+  color: var(--color-row-meta);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.heading {
+  color: var(--color-field-label);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.status {
+  color: var(--color-text-subtle);
+}
+
+.error {
+  color: var(--color-error-text);
+}

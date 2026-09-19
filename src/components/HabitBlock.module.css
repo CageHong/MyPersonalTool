@@ -1,0 +1,85 @@
+/* 中欄小區塊:標題列 + 未滿額的習慣。和任務清單之間的間距由 TaskList 的 gap 處理 */
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: none;
+  color: var(--color-field-label);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.chevron {
+  font-size: var(--text-xs);
+}
+
+.done {
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+/* 列的外觀同任務列:分隔線式。這裡的列不可選取,沒有 hover 與選取樣式 */
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-row-border);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.progress {
+  color: var(--color-row-meta);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+/* 退場:同 TaskItem 的 .exiting。HabitBlock 量好目前高度、寫成行內樣式後加上 data-collapsing,
+   再把高度改成 0,這幾個屬性才有起點可以過渡 */
+.exiting {
+  overflow: hidden;
+  transition-property: height, opacity, padding-block, border-bottom-width;
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-easing);
+}
+
+.exiting[data-collapsing] {
+  opacity: 0;
+  padding-block: 0;
+  border-bottom-width: 0;
+}

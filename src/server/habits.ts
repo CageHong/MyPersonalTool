@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, max } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, max } from 'drizzle-orm'
 import { db } from '../db'
 import { habit, habitLog, habitPause, habitSettingsHistory } from '../db/schema'
 import {
@@ -40,6 +40,11 @@ export type HabitSummary = Habit & {
   progress: HabitProgress
   // 紀錄型為 null
   streak: number | null
+  // 本週期(periodStart 到 today)內有紀錄的日期與筆數,日期新的在前。
+  // 前端的「退回一次」作用在第一筆:本週期最近有紀錄的那天
+  periodCounts: { date: string; count: number }[]
+  // 全期的紀錄筆數
+  totalLogs: number
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -203,6 +208,52 @@ export function removeLog(habitId: number, date: string): void {
   })
 }
 
+// 把該日期的 log 補到或刪到 count 筆,回傳結果筆數。UI 的計數一律走這裡:送絕對值,
+// 連按時最後一筆決定結果,中途失敗的請求不會讓次數一路偏掉(decisions §6b)。
+// 驗證同 addLog;要刪時刪最新的幾筆(同 removeLog);count = 0 是清空,不是錯誤
+export function setLogCount(
+  habitId: number,
+  date: string,
+  count: number,
+  today: string,
+): { date: string; count: number } {
+  const fields: Record<string, string> = {}
+  if (!isCalendarDate(date)) {
+    fields.date = 'invalid_format'
+  } else if (date > today) {
+    fields.date = 'invalid_value'
+  }
+  if (!Number.isInteger(count) || count < 0) {
+    fields.count = 'invalid_value'
+  }
+  if (Object.keys(fields).length > 0) {
+    throw new ValidationError(fields)
+  }
+
+  return db.transaction((tx) => {
+    selectHabit(tx, habitId)
+    if (selectOpenPause(tx, habitId)) {
+      throw new ValidationError({ state: 'paused' })
+    }
+    const existing = tx
+      .select({ id: habitLog.id })
+      .from(habitLog)
+      .where(and(eq(habitLog.habitId, habitId), eq(habitLog.date, date)))
+      .orderBy(desc(habitLog.id))
+      .all()
+    if (existing.length > count) {
+      const removeIds = existing.slice(0, existing.length - count).map((row) => row.id)
+      tx.delete(habitLog).where(inArray(habitLog.id, removeIds)).run()
+    } else if (existing.length < count) {
+      const createdAt = now()
+      tx.insert(habitLog)
+        .values(Array.from({ length: count - existing.length }, () => ({ habitId, date, createdAt })))
+        .run()
+    }
+    return { date, count }
+  })
+}
+
 // 停止不建新實體:寫一段 endDate 為 null 的區間。已停止時拒絕,不冪等:重複停止多半是畫面過期
 export function pauseHabit(id: number, today: string): HabitPause {
   return db.transaction((tx) => {
@@ -257,6 +308,16 @@ export function listHabits(today: string): HabitSummary[] {
     const habitLogs = logs.get(row.id) ?? []
     const habitPauses = pauses.get(row.id) ?? []
     const start = periodStart(today, row.periodType)
+    const byDate = new Map<string, number>()
+    for (const log of habitLogs) {
+      if (log.date >= start && log.date <= today) {
+        byDate.set(log.date, (byDate.get(log.date) ?? 0) + 1)
+      }
+    }
+    // 字典序就是時間序;新的在前
+    const periodCounts = [...byDate.entries()]
+      .sort(([a], [b]) => (a < b ? 1 : -1))
+      .map(([date, count]) => ({ date, count }))
     return {
       ...row,
       paused: habitPauses.some((pause) => pause.endDate === null),
@@ -270,6 +331,8 @@ export function listHabits(today: string): HabitSummary[] {
         // 豁免(點數購買凍結)接積分系統時才有
         exempt: [],
       }),
+      periodCounts,
+      totalLogs: habitLogs.length,
     }
   })
 }

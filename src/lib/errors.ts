@@ -21,7 +21,7 @@ export const NETWORK_ERROR: ApiError = { kind: 'general', code: 'NETWORK' }
 
 // 畫面上真的有欄位可以標示的 key。API 的 fields 還會出現 id、body 這種協定層的 key,
 // 它們沒有對應的輸入框,歸類成泛用錯誤
-const DISPLAY_FIELDS = ['title', 'notes', 'dueDate', 'priority'] as const
+const DISPLAY_FIELDS = ['title', 'notes', 'dueDate', 'priority', 'name', 'target'] as const
 
 const GENERAL_CODES: readonly string[] = ['NOT_FOUND', 'INTERNAL_ERROR', 'VALIDATION_FAILED']
 
@@ -29,6 +29,8 @@ const FIELD_MESSAGES: Record<string, string> = {
   'title.required': '標題不能空白',
   'dueDate.invalid_format': '日期格式不正確,要像 2026-09-18',
   'priority.invalid_value': '優先級只能是無、低、中、高',
+  'name.required': '名稱不能空白',
+  'target.invalid_value': '目標次數要是 1 以上的整數;留空代表只記錄次數',
 }
 
 const GENERAL_MESSAGES: Record<GeneralCode, string> = {
@@ -57,6 +59,23 @@ export function checklistItemMessage(code: GeneralCode): string {
 // 讀取重複規則時的泛用錯誤。404 是「規則」不見了,不是任務;其餘代碼和任務共用
 export function recurrenceRuleMessage(code: GeneralCode): string {
   return code === 'NOT_FOUND' ? '找不到這個重複規則' : generalMessage(code)
+}
+
+// 習慣的一般寫入(新增、改欄位、停止、刪除)的泛用錯誤。404 是「習慣」不見了
+export function habitMessage(code: GeneralCode): string {
+  return code === 'NOT_FOUND' ? '找不到這個習慣,可能已經被刪除了' : generalMessage(code)
+}
+
+// 習慣計數失敗:畫面已經從樂觀值還原成伺服器上的次數,訊息要講明,不能靜靜還原。
+// 400 多半是習慣剛被停止(停止中不能記錄)或畫面不是最新的
+export function habitCountMessage(code: GeneralCode): string {
+  const reason =
+    code === 'VALIDATION_FAILED'
+      ? '這次記錄沒有存進去(習慣可能已停止)'
+      : code === 'NOT_FOUND'
+        ? '這次記錄沒有存進去(習慣可能已被刪除)'
+        : `這次記錄沒有存進去:${generalMessage(code)}`
+  return `${reason},次數已還原成伺服器上的值`
 }
 
 function toGeneralCode(code: unknown): GeneralCode {

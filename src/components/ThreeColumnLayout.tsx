@@ -4,11 +4,22 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import CategoryColumn from './CategoryColumn'
+import HabitBlock from './HabitBlock'
+import HabitDetail from './HabitDetail'
+import HabitList from './HabitList'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
 import styles from './ThreeColumnLayout.module.css'
 import { todayIso } from '@/lib/date'
-import { generalMessage, NETWORK_ERROR, readApiError, type ApiError } from '@/lib/errors'
+import {
+  generalMessage,
+  habitCountMessage,
+  habitMessage,
+  NETWORK_ERROR,
+  readApiError,
+  type ApiError,
+} from '@/lib/errors'
+import { countOf, stepCounts, type HabitItem, type HabitPatch, type PeriodCount } from '@/lib/habitView'
 import type { RecurrenceRequest } from '@/lib/recurrenceDraft'
 import { earliestIncomplete, filterTasks, parseView, type ViewId } from '@/lib/views'
 import type { NewTask, Task, TaskPatch } from '@/lib/tasks'
@@ -18,8 +29,13 @@ function toGeneralMessage(failure: ApiError): string | null {
   return failure.kind === 'general' ? generalMessage(failure.code) : null
 }
 
-// 網址上的值是使用者可以亂打的字串;不是正整數就當作沒選取
-function parseTaskId(raw: string | null): number | null {
+// 習慣的一般寫入失敗;欄位錯誤由右欄的欄位自己畫
+function toHabitMessage(failure: ApiError): string | null {
+  return failure.kind === 'general' ? habitMessage(failure.code) : null
+}
+
+// 網址上的值(task、habit)是使用者可以亂打的字串;不是正整數就當作沒選取
+function parseSelectedId(raw: string | null): number | null {
   if (raw === null) {
     return null
   }
@@ -100,6 +116,40 @@ function restoreFocus(column: HTMLElement, snapshot: FocusSnapshot) {
   ;(target ?? column).focus()
 }
 
+// 習慣視圖中欄的列,依畫面順序(進行中在前、已停止在後)
+function habitRows(column: HTMLElement): HTMLElement[] {
+  return Array.from(column.querySelectorAll<HTMLElement>('li[data-habit-id]'))
+}
+
+// 刪除習慣後焦點落到遞補的列:同一個索引(下一列),沒有就上一列,清單空了落中欄容器。
+// 同任務的規則(decisions §5);只在焦點已經掉到 body 時才動
+function restoreHabitFocus(column: HTMLElement, index: number) {
+  const active = document.activeElement
+  if (active !== null && active !== document.body) {
+    return
+  }
+  const rows = habitRows(column)
+  if (rows.length === 0) {
+    column.focus()
+    return
+  }
+  const row = rows[Math.min(index, rows.length - 1)]
+  ;(row.querySelector<HTMLElement>('[data-habit-control="row"]') ?? column).focus()
+}
+
+// 樂觀覆寫值套到習慣上:本週期的筆數與由它推出的進度。streak 等伺服器重算,不在這裡猜
+function withOverride(habit: HabitItem, override: PeriodCount[] | undefined): HabitItem {
+  if (override === undefined) {
+    return habit
+  }
+  const count = countOf(override)
+  return {
+    ...habit,
+    periodCounts: override,
+    progress: { ...habit.progress, count, achieved: habit.target === null ? null : count >= habit.target },
+  }
+}
+
 export default function ThreeColumnLayout() {
   const router = useRouter()
   const pathname = usePathname()
@@ -123,15 +173,32 @@ export default function ThreeColumnLayout() {
   const [ruleWritePending, setRuleWritePending] = useState(false)
   const lastRuleWriteRef = useRef<{ taskId: number; ruleId: number } | null>(null)
 
+  // 習慣:伺服器的資料整份替換(同任務)。habitsRef 是同一份的同步複本,計數在事件處理中讀它
+  const [habits, setHabits] = useState<HabitItem[]>([])
+  const habitsRef = useRef<HabitItem[]>([])
+  const [habitsLoading, setHabitsLoading] = useState(true)
+  // 習慣計數的樂觀覆寫值(全 app 第二個樂觀更新,decisions §4):習慣 id → 本週期的筆數。
+  // ref 同步更新,連按時每一下都讀到上一下的結果;state 是給畫面用的複本。
+  // 這個習慣排隊中的 PUT 全部送完、重抓回來後才清掉,中途的重抓不會讓數字倒退
+  const countOverridesRef = useRef(new Map<number, PeriodCount[]>())
+  const [countOverrides, setCountOverrides] = useState<ReadonlyMap<number, PeriodCount[]>>(new Map())
+  const pendingCountsRef = useRef(new Map<number, number>())
+
   const today = todayIso()
   const view = parseView(searchParams.get('view'))
   // 篩選在前端做,GET /api/tasks 照舊拿全部。重複實例每條規則只剩一個代表,
   // 非代表的實例不在 visibleTasks 裡,所以也選不到(網址上的 task 會被下面的 effect 清掉)
   const { tasks: visibleTasks, overdueCounts } = filterTasks(tasks, view, today)
 
-  const selectedId = parseTaskId(searchParams.get('task'))
+  const selectedId = parseSelectedId(searchParams.get('task'))
   // 從看得到的那些裡面找:選取的任務被檢視濾掉時,下面的 effect 會清掉 task 參數
   const selectedTask = visibleTasks.find((task) => task.id === selectedId)
+
+  const displayHabits = habits.map((habit) => withOverride(habit, countOverrides.get(habit.id)))
+  // 習慣視圖的選取:?view=habits&habit=ID。其他視圖不讀這個參數
+  const selectedHabitId = parseSelectedId(searchParams.get('habit'))
+  const selectedHabit =
+    view === 'habits' ? displayHabits.find((habit) => habit.id === selectedHabitId) : undefined
 
   // 選取狀態只存在網址裡,不放元件 state;複製既有參數,之後加的 view 才不會被洗掉
   const replaceParams = useCallback(
@@ -146,6 +213,11 @@ export default function ThreeColumnLayout() {
 
   const handleSelect = useCallback(
     (id: number) => replaceParams((params) => params.set('task', String(id))),
+    [replaceParams],
+  )
+
+  const handleSelectHabit = useCallback(
+    (id: number) => replaceParams((params) => params.set('habit', String(id))),
     [replaceParams],
   )
 
@@ -169,6 +241,43 @@ export default function ThreeColumnLayout() {
     })
     return null
   }, [])
+
+  const refetchHabits = useCallback(async (): Promise<ApiError | null> => {
+    const response = await fetch('/api/habits')
+    if (!response.ok) {
+      return await readApiError(response)
+    }
+    const next = (await response.json()) as HabitItem[]
+    habitsRef.current = next
+    flushSync(() => setHabits(next))
+    return null
+  }, [])
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const failure = await refetchHabits()
+        if (failure !== null) {
+          setError(toHabitMessage(failure))
+        }
+      } catch {
+        setError(generalMessage('NETWORK'))
+      } finally {
+        setHabitsLoading(false)
+      }
+    })()
+  }, [refetchHabits])
+
+  // 習慣視圖的網址指到不存在的習慣(被刪掉、手打的 id)就清掉參數,右欄回空狀態。
+  // 其他視圖不管這個參數:切回習慣視圖時選取還在
+  useEffect(() => {
+    if (view !== 'habits' || habitsLoading || selectedHabitId === null) {
+      return
+    }
+    if (!habits.some((habit) => habit.id === selectedHabitId)) {
+      replaceParams((params) => params.delete('habit'))
+    }
+  }, [habits, habitsLoading, replaceParams, selectedHabitId, view])
 
   useEffect(() => {
     void (async () => {
@@ -344,6 +453,177 @@ export default function ThreeColumnLayout() {
     [mutate, replaceParams],
   )
 
+  // 習慣的一般寫入(新增以外):排進同一條佇列,成功後整份重抓習慣,不做樂觀更新。
+  // 回傳 null 代表成功;欄位錯誤原樣回傳給右欄,不進中欄的錯誤區
+  const mutateHabit = useCallback(
+    (request: () => Promise<Response>): Promise<ApiError | null> =>
+      enqueue(async () => {
+        try {
+          const response = await request()
+          if (!response.ok) {
+            const failure = await readApiError(response)
+            setError(toHabitMessage(failure))
+            return failure
+          }
+          const refetchFailure = await refetchHabits()
+          setError(refetchFailure === null ? null : toHabitMessage(refetchFailure))
+          return refetchFailure
+        } catch {
+          setError(generalMessage('NETWORK'))
+          return NETWORK_ERROR
+        }
+      }),
+    [enqueue, refetchHabits],
+  )
+
+  const clearCountOverride = useCallback((id: number) => {
+    if (countOverridesRef.current.delete(id)) {
+      setCountOverrides(new Map(countOverridesRef.current))
+    }
+  }, [])
+
+  // 圈圈的一步(+1 / -1)。新值由覆寫值(沒有就用伺服器值)經 stepCounts 算出,
+  // 同一個結果同時拿來顯示與送出,不拿伺服器回來的舊值另外算,連按時兩者才不會分岔。
+  // PUT 送絕對值:最後一筆決定結果,中途的請求順序不影響最終狀態(decisions §6b)
+  const stepHabit = useCallback(
+    (habit: HabitItem, delta: 1 | -1) => {
+      const id = habit.id
+      const base =
+        countOverridesRef.current.get(id) ??
+        habitsRef.current.find((item) => item.id === id)?.periodCounts ??
+        []
+      const step = stepCounts(base, todayIso(), delta)
+      // 本週期沒有紀錄可退
+      if (step.writes.length === 0) {
+        return
+      }
+      countOverridesRef.current.set(id, step.periodCounts)
+      setCountOverrides(new Map(countOverridesRef.current))
+      pendingCountsRef.current.set(id, (pendingCountsRef.current.get(id) ?? 0) + 1)
+
+      void enqueue(async () => {
+        let failure: ApiError | null = null
+        try {
+          for (const write of step.writes) {
+            const response = await fetch(`/api/habits/${id}/logs?date=${write.date}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ count: write.count }),
+            })
+            if (!response.ok) {
+              failure = await readApiError(response)
+              break
+            }
+          }
+        } catch {
+          failure = NETWORK_ERROR
+        }
+
+        const remaining = (pendingCountsRef.current.get(id) ?? 1) - 1
+        if (remaining === 0) {
+          pendingCountsRef.current.delete(id)
+        } else {
+          pendingCountsRef.current.set(id, remaining)
+        }
+
+        // 失敗:清掉覆寫值並重抓,畫面回到伺服器的真實值;訊息講明次數已還原,不靜靜還原
+        if (failure !== null) {
+          clearCountOverride(id)
+          setError(habitCountMessage(failure.kind === 'general' ? failure.code : 'VALIDATION_FAILED'))
+        }
+        try {
+          const refetchFailure = await refetchHabits()
+          if (failure === null) {
+            setError(refetchFailure === null ? null : toHabitMessage(refetchFailure))
+          }
+        } catch {
+          if (failure === null) {
+            setError(generalMessage('NETWORK'))
+          }
+        }
+        // 這個習慣排隊中的 PUT 都送完了:伺服器的值已經追上,覆寫值功成身退
+        if (remaining === 0) {
+          clearCountOverride(id)
+        }
+      })
+    },
+    [clearCountOverride, enqueue, refetchHabits],
+  )
+
+  // 新增習慣:預設每天 1 次,頻率與目標到右欄再改。成功後選取它、打開右欄;
+  // 焦點不動,留在新增列的輸入框,可以連續新增
+  const handleCreateHabit = useCallback(
+    (name: string) =>
+      enqueue(async (): Promise<ApiError | null> => {
+        try {
+          const response = await fetch('/api/habits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, periodType: 'daily', target: 1 }),
+          })
+          if (!response.ok) {
+            const failure = await readApiError(response)
+            setError(toHabitMessage(failure))
+            return failure
+          }
+          const created = (await response.json()) as { id: number }
+          const refetchFailure = await refetchHabits()
+          setError(refetchFailure === null ? null : toHabitMessage(refetchFailure))
+          replaceParams((params) => params.set('habit', String(created.id)))
+          return refetchFailure
+        } catch {
+          setError(generalMessage('NETWORK'))
+          return NETWORK_ERROR
+        }
+      }),
+    [enqueue, refetchHabits, replaceParams],
+  )
+
+  const handleUpdateHabit = useCallback(
+    (id: number, patch: HabitPatch) =>
+      mutateHabit(() =>
+        fetch(`/api/habits/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        }),
+      ),
+    [mutateHabit],
+  )
+
+  // 停止與重新開始是動作,不是欄位;選取不變,習慣在中欄移到「已停止」或移回來
+  const handleTogglePause = useCallback(
+    (habit: HabitItem) =>
+      mutateHabit(() =>
+        fetch(`/api/habits/${habit.id}/${habit.paused ? 'resume' : 'pause'}`, { method: 'POST' }),
+      ),
+    [mutateHabit],
+  )
+
+  // 硬刪除,連同所有紀錄(確認彈窗寫明筆數)。成功後清掉 habit,焦點落到遞補的列
+  const handleDeleteHabit = useCallback(
+    async (id: number) => {
+      const column = tasksColumnRef.current
+      const index =
+        column === null ? -1 : habitRows(column).findIndex((row) => row.dataset.habitId === String(id))
+      const failure = await mutateHabit(() => fetch(`/api/habits/${id}`, { method: 'DELETE' }))
+      if (failure === null) {
+        replaceParams((params) => params.delete('habit'))
+        if (column !== null && index !== -1) {
+          restoreHabitFocus(column, index)
+        }
+      }
+      return failure
+    },
+    [mutateHabit, replaceParams],
+  )
+
+  // 中欄小區塊只在今天與全部未完成出現;習慣還在載入時不畫,免得先閃一下空狀態
+  const habitBlock =
+    (view === 'today' || view === 'open') && !habitsLoading ? (
+      <HabitBlock habits={displayHabits} onStep={stepHabit} />
+    ) : undefined
+
   return (
     <div className={styles.layout}>
       <section className={`${styles.column} ${styles.categories}`}>
@@ -354,36 +634,60 @@ export default function ThreeColumnLayout() {
       <section
         ref={tasksColumnRef}
         tabIndex={-1}
-        aria-label="任務清單"
+        aria-label={view === 'habits' ? '習慣清單' : '任務清單'}
         className={`${styles.column} ${styles.tasks}`}
       >
-        <TaskList
-          tasks={visibleTasks}
-          overdueCounts={overdueCounts}
-          allTasks={tasks}
-          view={view}
-          loading={loading}
-          error={error}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-          onCreate={handleCreate}
-          onToggle={handleToggle}
-        />
+        {view === 'habits' ? (
+          <HabitList
+            habits={displayHabits}
+            loading={habitsLoading}
+            error={error}
+            selectedId={selectedHabitId}
+            onSelect={handleSelectHabit}
+            onCreate={handleCreateHabit}
+            onStep={stepHabit}
+          />
+        ) : (
+          <TaskList
+            tasks={visibleTasks}
+            overdueCounts={overdueCounts}
+            allTasks={tasks}
+            view={view}
+            loading={loading}
+            error={error}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            onCreate={handleCreate}
+            onToggle={handleToggle}
+            habitBlock={habitBlock}
+          />
+        )}
       </section>
 
       <section className={`${styles.column} ${styles.detail}`}>
         {/* key 換掉 = 換任務就重新掛載:欄位錯誤與確認彈窗的狀態自動回到初始值,
             不必用 effect 偵測 task.id 變化 */}
-        <TaskDetail
-          key={selectedTask?.id ?? 'empty'}
-          task={selectedTask}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-          onSaveDate={handleSaveDate}
-          tasksVersion={tasksVersion}
-          // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
-          onChecklistError={setError}
-        />
+        {view === 'habits' ? (
+          // 同一個理由:換習慣就重新掛載,草稿、欄位錯誤、確認彈窗隨卸載清除
+          <HabitDetail
+            key={selectedHabit?.id ?? 'empty'}
+            habit={selectedHabit}
+            onUpdate={handleUpdateHabit}
+            onTogglePause={handleTogglePause}
+            onDelete={handleDeleteHabit}
+          />
+        ) : (
+          <TaskDetail
+            key={selectedTask?.id ?? 'empty'}
+            task={selectedTask}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            onSaveDate={handleSaveDate}
+            tasksVersion={tasksVersion}
+            // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
+            onChecklistError={setError}
+          />
+        )}
       </section>
     </div>
   )

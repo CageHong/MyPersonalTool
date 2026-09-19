@@ -132,6 +132,10 @@
      ------------------------------------------------------------------------- */
   --icon-size: 1rem;
   --checkbox-size: 1rem;
+  /* 習慣的圈圈:一般圈圈、滿額收合後的大勾、大勾旁邊用來超額 +1 的小圈圈 */
+  --habit-circle-size: 1rem;
+  --habit-check-size: 1.5rem;
+  --habit-circle-small-size: 0.75rem;
 
   /* =========================================================================
      第二層:語意
@@ -175,6 +179,15 @@
      勾選後不分優先級,一律填 stone-deep 配白勾(7.2:1),和已完成任務的淡化文字一致 */
   --color-checkbox-checked-bg: var(--palette-stone-deep);
   --color-checkbox-check: var(--palette-white);
+
+  /* ---- 習慣的圈圈 ----
+     深淺編碼已勾與未勾,不是位置:已勾實心深色(同已勾選框),下一顆空心深框,
+     尚未輪到空心淡框,超額只有深框(接在目標之後) */
+  --color-habit-done: var(--palette-stone-deep);
+  --color-habit-check: var(--palette-white);
+  --color-habit-next: var(--palette-stone-deep);
+  --color-habit-pending: var(--palette-tan);
+  --color-habit-overflow: var(--palette-stone-deep);
 
   /* ---- checklist ---- */
   /* 已勾項目留在原位,文字淡化加刪除線;和已完成任務同色,名字分開以便各自調 */

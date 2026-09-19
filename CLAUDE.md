@@ -181,11 +181,12 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 | GET | `/api/recurrence-rules/:ruleId` | 規則欄位加 `checklist: string[]`(範本標題);已停止的規則照樣回傳 |
 | PATCH | `/api/recurrence-rules/:ruleId` | 部分更新規則參數與範本 `{ freq?, interval?, weekdays?, startDate?, until?, title?, notes?, priority?, checklist? }`(`until: null` = 改回永不結束);已停止的規則回 400 |
 | POST | `/api/recurrence-rules/:ruleId/stop` | 停止重複,冪等,沒有 body |
-| GET | `/api/habits` | 列出全部(依 `sortOrder`),每筆加 `paused`、`periodStart`、`progress { count, target, achieved }`、`streak` |
+| GET | `/api/habits` | 列出全部(依 `sortOrder`),每筆加 `paused`、`periodStart`、`progress { count, target, achieved }`、`streak`、`periodCounts`(本週期內有紀錄的日期與筆數,新的在前)、`totalLogs`(全期筆數) |
 | POST | `/api/habits` | 建立 `{ name, periodType, target? }`;成功 201 |
 | PATCH | `/api/habits/:habitId` | 部分更新 `{ name?, periodType?, target? }` |
 | DELETE | `/api/habits/:habitId` | 硬刪除,連同 log、設定歷史、停止區間 |
 | POST | `/api/habits/:habitId/logs` | 記一次 `{ date }`;成功 201 |
+| PUT | `/api/habits/:habitId/logs?date=YYYY-MM-DD` | 把該日期設成 `{ count }` 筆(絕對值),回 `{ date, count }`;刪時刪最新的幾筆,`count: 0` 是清空。UI 的計數一律走這裡 |
 | DELETE | `/api/habits/:habitId/logs?date=YYYY-MM-DD` | 刪該日期最新的一筆;日期放 query string,不放 body |
 | POST | `/api/habits/:habitId/pause` | 停止,沒有 body;已停止時 400,不冪等 |
 | POST | `/api/habits/:habitId/resume` | 恢復,沒有 body;未停止時 400 |
@@ -247,7 +248,7 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **元件只能引用語意層**,不得引用 `--palette-*`。需要新顏色時先看語意層有沒有合適的名字;沒有就新增語意變數指向既有色票,新增色票要先問。間距只能用 `--space-1` 到 `--space-5`,字級只能用 `--text-xs` 到 `--text-lg`。過場的時長與曲線只能用 `--motion-duration`、`--motion-easing`。
 
-**畫面更新一律重新抓。** 任何寫入操作(POST / PATCH / DELETE)成功後,重新 `GET /api/tasks`,用回傳結果整份替換 state。不要拿回應的物件去局部更新 state,不要做樂觀更新(例外:checklist 拖曳排序,見 UI 架構)。理由見 `docs/decisions.md` §4。
+**畫面更新一律重新抓。** 任何寫入操作(POST / PATCH / DELETE)成功後,重新 `GET /api/tasks`,用回傳結果整份替換 state。不要拿回應的物件去局部更新 state,不要做樂觀更新(例外:checklist 拖曳排序與習慣計數,見 UI 架構)。理由見 `docs/decisions.md` §4。習慣的寫入同理,重抓的是 `GET /api/habits`。
 
 現階段不做深色模式,不做共用設計系統。
 
@@ -261,7 +262,7 @@ MVP 只有三種錯誤碼,不要自行增加:
 | 任務清單 | 頂端是新增列,下方是任務列;點任務列選取它 |
 | 編輯欄 | 顯示被選取的任務,各欄位可編輯 |
 
-本輪的智慧檢視只有查詢條件,沒有自訂清單表:今天、未來 7 天、全部未完成、已完成。
+本輪的智慧檢視只有查詢條件,沒有自訂清單表:今天、未來 7 天、全部未完成、已完成。另外有「習慣」(`view=habits`),中欄換成習慣清單、右欄換成習慣的編輯面板,見下方〈習慣〉。
 
 **選取狀態放在網址。** `?view=today&task=123`。`view` 是分類欄選的檢視,`task` 是被選取的任務 id;沒有 `task` 時編輯欄顯示空狀態。`useSearchParams` 在 `ThreeColumnLayout` 讀一次往下傳,用 `router.replace` 寫。不要用元件內的 state 存這兩個值。理由見 `docs/decisions.md` §4。
 
@@ -291,7 +292,7 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **checklist 在右欄描述下方,由 `TaskChecklist` 自己載入與寫入。** 寫入排隊執行,每個動作等前一個(含重抓)完成才開始,期間**不停用**任何控制項:有焦點的元素被停用會把焦點丟到 body,編輯中直接點刪除鈕的 click 也會被吞掉。刪除後焦點落到遞補的那一項 → 前一項 → 新增列。
 
-**checklist 可拖曳排序(依賴 `@dnd-kit/core`、`@dnd-kit/sortable`、`@dnd-kit/utilities`)。** 只有每列左側的把手能啟動拖曳(滑鼠移動 5px 或鍵盤空白鍵/Enter);寫入排隊中不能開始拖曳,由感應器判斷,不用 `disabled`。放下後直接改 `items`(樂觀更新,全 app 唯一的樂觀更新),再排入 `PUT …/order`,完成後照常重抓;失敗時重抓還原。放下後焦點留在把手上。朗讀文字為中文。
+**checklist 可拖曳排序(依賴 `@dnd-kit/core`、`@dnd-kit/sortable`、`@dnd-kit/utilities`)。** 只有每列左側的把手能啟動拖曳(滑鼠移動 5px 或鍵盤空白鍵/Enter);寫入排隊中不能開始拖曳,由感應器判斷,不用 `disabled`。放下後直接改 `items`(樂觀更新,全 app 兩個樂觀更新之一,另一個是習慣計數),再排入 `PUT …/order`,完成後照常重抓;失敗時重抓還原。放下後焦點留在把手上。朗讀文字為中文。
 
 **重複設定在日期選單裡(`DueDateDialog`),右欄沒有獨立的「重複」按鈕。** 右欄的截止日觸發鈕開日期選單;實例(`recurrenceRuleId` 不為 null)在優先級下方多一列規則摘要(`RecurrenceSummary`),它也是按鈕,點它開同一個日期選單。兩個觸發鈕由 `TaskDetail` 管理,記住是哪一個打開的,close 事件裡焦點回到它;兩者在送出後都還在,焦點不會掉到 body。新增列(`NewTaskForm` → `DueDateMenu`)的日期選單只有日期:任務還不存在,不能建規則。已完成的任務也只有日期。
 
@@ -307,7 +308,24 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **移動過的實例有標示。** `dueDate !== occurrenceDate` 時,中欄日期後面加「(原定 M.D)」(`formatListDay`,在 `.meta` 裡不縮);右欄截止日下方顯示「原定 M.D」與「還原」,按下送 `PATCH { dueDate: occurrenceDate }`,經日期選單同一條寫入佇列與防重複送出;送出前焦點先移到截止日觸發鈕(還原鈕會卸載)。列表收合的代表仍按 `dueDate` 選。
 
-之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、重複任務、習慣。(重複任務的資料層已完成,API 與 UI 未做。習慣的資料層與 API 已完成(H1),UI 未做。)
+### 習慣(H2)
+
+**習慣視圖(`?view=habits&habit=ID`)。** 中欄是 `HabitList`:頂端新增列(`NewHabitForm`,同任務新增列:名稱 trim 後空白不送、成功才清空、焦點留在輸入框;用每天 1 次建立,成功後選取它),下方是進行中的習慣(含已滿額),底部「已停止」區塊。列上:名稱、本週期進度(「本週 2/4」)、streak(紀錄型不顯示)、圈圈或數字;已停止的列不畫圈圈。右欄是 `HabitDetail`(`key={habit.id}`):名稱(失焦即存)、頻率(點選即存)、目標次數(失焦即存,留空 = 紀錄型)、全期累計與 streak、停止/重新開始、最底部刪除(ConfirmDialog,文案寫明一併刪掉 N 筆紀錄)。`habit` 參數指到不存在的習慣時由 effect 清掉;其他視圖不讀這個參數。
+
+**圈圈(`HabitCircles`,習慣視圖與中欄共用;畫面模型是 `src/lib/habitView.ts` 的 `circleModel`)。**
+
+- 有目標且 target <= 6 才用圈圈;target > 6 顯示 `count/target` 加 −/+;紀錄型顯示次數加 +。count 0 時的 − 不動作,用 `aria-disabled`,不用 `disabled`。
+- 四種狀態:已勾(實心深色)、下一顆(空心、邊框明顯)、尚未輪到(空心淡色)、超額(接在目標之後,只有外框)。深淺編碼已勾與未勾,不是位置。
+- 可點的只有第 count+1 顆(+1)與第 count 顆(-1)。滿額收合成大勾加一顆小圈圈:沒有超額時點大勾退一步(展開回圈圈);有超額時大勾不可點(`aria-disabled`、沒有 pointer),從最後一顆超額圈圈或 +N(超額超過 3 顆)一顆一顆退;小圈圈超額 +1。超額時右邊顯示 `6/4`。
+- 整排一個 tab stop(`role="group"`,`aria-label` 帶名稱與次數),圈圈本身是 span、不可聚焦。Space/Enter 送 +1,←/− 送 -1。點圈圈不選取所在的列。
+
+**習慣計數的樂觀更新(`ThreeColumnLayout` 的 `stepHabit`)。** 新值由 `stepCounts` 從覆寫值(沒有就用伺服器的 `periodCounts`)算出,同一個結果同時顯示與送出(`PUT …/logs?date=` 絕對值)。+1 記在今天;-1 作用在本週期最近有紀錄的那天。覆寫值存在 `countOverridesRef`(同步)與 state 複本(給畫面);每個習慣記排隊中的 PUT 數,全部送完、重抓回來後才清掉。失敗時立刻清掉覆寫值並重抓,錯誤訊息(`habitCountMessage`,明講「次數已還原」)顯示在中欄新增列下方。其他習慣寫入(新增、PATCH、停止、刪除)走 `mutateHabit`,不做樂觀更新。所有習慣寫入與任務共用同一條佇列。
+
+**中欄小區塊(`HabitBlock`,只在「今天」與「全部未完成」)。** 由 `TaskList` 的 `habitBlock` prop 畫在新增列與錯誤之後、任務清單之前。只列進行中、有目標、本週期未滿額的習慣;停止中與紀錄型不列,也不算進總數。只要有進行中、有目標的習慣就出現,全部滿額時保留標題列並顯示「本週期的習慣都完成了」;一個都沒有才整個不出現。可收合,預設展開,收合後標題顯示「習慣 已滿額/總數」;收合狀態存 localStorage(兩個視圖共用一個 key),在 effect 裡讀。滿額時先顯示大勾 `FULL_HOLD_MS`(400ms),期間退回就取消離場;之後照任務列的退場方式淡出並收起高度(`--motion-duration`、`--motion-easing`),減少動態時直接移除。
+
+**習慣的焦點。** 中欄小區塊的列離場前(變成 inert 之前),焦點若在那一列裡就移到下一列的圈圈 → 上一列的圈圈 → 區塊的收合鈕。停止/重新開始是同一個按鈕原地換文字,焦點留在它上面,中欄的列移到「已停止」不動中欄焦點。刪除習慣後焦點落到遞補的列(同一索引 → 上一列 → 中欄容器,`restoreHabitFocus`)。習慣的列不帶 `data-task-id`,任務的焦點遞補看不到它們。
+
+之後才做(現在不要提出實作):自訂清單(需要 `list` 表與 `task.listId`)、重複任務、習慣的回顧視圖與格子圖(H3)。(重複任務的資料層已完成,API 與 UI 未做。)
 
 ## 待處理事項
 

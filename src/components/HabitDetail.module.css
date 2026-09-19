@@ -1,0 +1,104 @@
+/* 版面同 TaskDetail:欄位由上往下,刪除鈕貼在右欄底部 */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  color: var(--color-field-label);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.input {
+  padding: var(--space-2);
+  border: 1px solid var(--color-field-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-field-text);
+  font-family: inherit;
+  font-size: var(--text-base);
+}
+
+.input::placeholder {
+  color: var(--color-field-placeholder);
+}
+
+.invalid {
+  border-color: var(--color-field-border-invalid);
+}
+
+.fieldError {
+  color: var(--color-error-text);
+  font-size: var(--text-sm);
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+/* 頻率:三個並排的按鈕,目前的值用選取底色 */
+.options {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.option,
+.button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.option[aria-pressed='true'] {
+  background: var(--color-field-selected-bg);
+  font-weight: var(--weight-semibold);
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.footer {
+  margin-top: auto;
+}
+
+.delete {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-destructive-text);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.empty {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-subtle);
+  text-align: center;
+}
