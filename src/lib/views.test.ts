@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { Task } from './tasks'
-import { collapseRecurring, filterTasks } from './views'
+import { collapseRecurring, earliestIncomplete, filterTasks } from './views'
 
 const TODAY = '2026-09-18'
 
@@ -121,5 +121,25 @@ describe('filterTasks collapses before filtering by date', () => {
     for (const view of ['today', 'next7', 'open'] as const) {
       assert.deepEqual(ids(filterTasks(tasks, view, TODAY).tasks), [tasks[0].id], view)
     }
+  })
+})
+
+describe('earliestIncomplete', () => {
+  test('is the same task collapseRecurring keeps as the representative', () => {
+    const done = instance(1, '2026-09-16', { completedAt: 1 })
+    const later = instance(1, '2026-09-20')
+    const earlier = instance(1, '2026-09-19')
+    const other = instance(2, '2026-09-10')
+    const tasks = [done, later, earlier, other]
+
+    assert.equal(earliestIncomplete(tasks, 1), earlier)
+    assert.ok(collapseRecurring(tasks, TODAY).tasks.includes(earlier))
+  })
+
+  test('is undefined when the rule has no incomplete instance', () => {
+    const done = instance(1, '2026-09-16', { completedAt: 1 })
+
+    assert.equal(earliestIncomplete([done], 1), undefined)
+    assert.equal(earliestIncomplete([], 1), undefined)
   })
 })

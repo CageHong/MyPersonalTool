@@ -10,7 +10,7 @@ import styles from './ThreeColumnLayout.module.css'
 import { todayIso } from '@/lib/date'
 import { generalMessage, NETWORK_ERROR, readApiError, type ApiError } from '@/lib/errors'
 import type { RecurrenceRequest } from '@/lib/recurrenceDraft'
-import { filterTasks, parseView, type ViewId } from '@/lib/views'
+import { earliestIncomplete, filterTasks, parseView, type ViewId } from '@/lib/views'
 import type { NewTask, Task, TaskPatch } from '@/lib/tasks'
 
 // 泛用錯誤才有整段訊息可顯示;欄位錯誤由出錯的欄位自己畫在下面
@@ -117,6 +117,11 @@ export default function ThreeColumnLayout() {
   const queueRef = useRef<Promise<unknown>>(Promise.resolve())
   // 任務消失後要把焦點放回來的容器(清單空了的落點);tabIndex={-1} 見下方
   const tasksColumnRef = useRef<HTMLElement>(null)
+  // 規則寫入(修改、停止)會刪掉今天之後未完成的實例並重生成新 id(R1 的邊界),
+  // 選中的正是其中之一時它會消失。寫入期間先不判斷選取;結束後第一次判斷時,
+  // 不見的若是剛才寫入規則的那個任務,改選這條規則最早的未完成實例
+  const [ruleWritePending, setRuleWritePending] = useState(false)
+  const lastRuleWriteRef = useRef<{ taskId: number; ruleId: number } | null>(null)
 
   const today = todayIso()
   const view = parseView(searchParams.get('view'))
@@ -182,12 +187,31 @@ export default function ThreeColumnLayout() {
   // 網址指到看不到的任務(被刪掉、手打的 id、被檢視濾掉)就把參數清掉,右欄回空狀態。
   // 要等 loading 結束才判斷,否則首次載入時 tasks 還是空的,合法的 ?task= 會被誤刪。
   // 從右欄刪除時由 handleDelete 在成功後直接清,不靠這個 effect;兩邊都清也是同一個結果。
+  // 規則寫入的例外:不見的是剛寫入規則的那個任務時,改選這條規則最早的未完成實例;
+  // 沒有任何未完成實例才清掉。改選的實例被目前檢視濾掉的話,下一輪照常清掉
   useEffect(() => {
+    if (ruleWritePending) {
+      return
+    }
+    // 寫入結束後只用一次:之後任務因為別的原因(刪除)消失,照原本的規則清掉
+    const ruleWrite = lastRuleWriteRef.current
+    lastRuleWriteRef.current = null
     if (loading || selectedId === null || selectedTask !== undefined) {
       return
     }
+    if (
+      ruleWrite !== null &&
+      ruleWrite.taskId === selectedId &&
+      !tasks.some((task) => task.id === selectedId)
+    ) {
+      const next = earliestIncomplete(tasks, ruleWrite.ruleId)
+      if (next !== undefined) {
+        replaceParams((params) => params.set('task', String(next.id)))
+        return
+      }
+    }
     replaceParams((params) => params.delete('task'))
-  }, [loading, replaceParams, selectedId, selectedTask])
+  }, [loading, replaceParams, ruleWritePending, selectedId, selectedTask, tasks])
 
   const enqueue = useCallback(<T,>(job: () => Promise<T>): Promise<T> => {
     const next = queueRef.current.then(job)
@@ -293,7 +317,16 @@ export default function ThreeColumnLayout() {
       if (recurrence !== undefined) {
         requests.push(() => recurrenceRequest(id, recurrence))
       }
-      return requests.length === 0 ? Promise.resolve(null) : mutate(requests)
+      if (requests.length === 0) {
+        return Promise.resolve(null)
+      }
+      // 新建不刪實例(任務本身成為第一個實例),只有修改與停止會讓選中的任務消失
+      if (recurrence === undefined || recurrence.kind === 'create') {
+        return mutate(requests)
+      }
+      lastRuleWriteRef.current = { taskId: id, ruleId: recurrence.ruleId }
+      setRuleWritePending(true)
+      return mutate(requests).finally(() => setRuleWritePending(false))
     },
     [mutate],
   )

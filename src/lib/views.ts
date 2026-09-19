@@ -48,6 +48,21 @@ function isEarlier(a: Task, b: Task): boolean {
   )
 }
 
+// 這條規則最早的未完成實例 = 列表視圖裡代表它的那一列;沒有未完成實例時是 undefined。
+// 規則寫入後原本選中的實例被刪掉時,右欄改選它
+export function earliestIncomplete(tasks: Task[], ruleId: number): Task | undefined {
+  let earliest: Task | undefined
+  for (const task of tasks) {
+    if (task.recurrenceRuleId !== ruleId || task.completedAt !== null) {
+      continue
+    }
+    if (earliest === undefined || isEarlier(task, earliest)) {
+      earliest = task
+    }
+  }
+  return earliest
+}
+
 // 每條規則的未完成實例只留一個代表:這條規則「現在活著」的那一個。
 // 已完成的實例是紀錄,不收合;一般任務原樣保留。只移除,不重排
 export function collapseRecurring(tasks: Task[], today: string): CollapsedView {
