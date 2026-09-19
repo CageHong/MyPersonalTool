@@ -230,6 +230,7 @@
 
   /* ---- 月曆 ---- */
   --color-calendar-hover-bg: var(--palette-beige);
+  --color-calendar-recurring-bg: var(--palette-rose-gray);  /* 重複規則的預覽;不用 beige,免得和 hover 撞色 */
   --color-calendar-today-border: var(--palette-rust);
   --color-calendar-selected-bg: var(--palette-rust);
   --color-calendar-selected-text: var(--palette-white);

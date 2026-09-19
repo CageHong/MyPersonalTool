@@ -60,6 +60,11 @@
   font-weight: var(--weight-semibold);
 }
 
+/* 重複規則的預覽:接下來符合規則的日期。淡底,和 hover(beige)分得開;選中的格子照樣是 selected */
+.marked:not(.selected) {
+  background: var(--color-calendar-recurring-bg);
+}
+
 .selected {
   background: var(--color-calendar-selected-bg);
   color: var(--color-calendar-selected-text);

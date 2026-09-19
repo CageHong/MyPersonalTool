@@ -5,6 +5,8 @@ import styles from './MonthCalendar.module.css'
 type Props = {
   value: string | null
   onSelect: (iso: string) => void
+  // 目前顯示的月份裡要淡色標示的日期(重複規則的預覽);翻月份時用新的範圍重算
+  marked?: (first: string, last: string) => ReadonlySet<string>
 }
 
 function monthOf(iso: string) {
@@ -12,7 +14,7 @@ function monthOf(iso: string) {
   return { year, month }
 }
 
-export default function MonthCalendar({ value, onSelect }: Props) {
+export default function MonthCalendar({ value, onSelect, marked }: Props) {
   const today = todayIso()
   const [view, setView] = useState(() => monthOf(value ?? today))
 
@@ -24,6 +26,10 @@ export default function MonthCalendar({ value, onSelect }: Props) {
       setView(monthOf(value))
     }
   }
+
+  const days = monthDays(view.year, view.month)
+  const inMonth = days.filter((iso): iso is string => iso !== null)
+  const markedDays = marked?.(inMonth[0], inMonth[inMonth.length - 1])
 
   return (
     <div className={styles.calendar}>
@@ -56,7 +62,7 @@ export default function MonthCalendar({ value, onSelect }: Props) {
           </span>
         ))}
 
-        {monthDays(view.year, view.month).map((iso, index) =>
+        {days.map((iso, index) =>
           iso === null ? (
             // 月初的空格,只是佔位
             <span key={`blank-${index}`} />
@@ -68,6 +74,7 @@ export default function MonthCalendar({ value, onSelect }: Props) {
                 styles.day,
                 iso === today ? styles.today : '',
                 iso === value ? styles.selected : '',
+                markedDays?.has(iso) ? styles.marked : '',
               ]
                 .filter((name) => name !== '')
                 .join(' ')}

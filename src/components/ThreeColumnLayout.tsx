@@ -9,7 +9,7 @@ import TaskList from './TaskList'
 import styles from './ThreeColumnLayout.module.css'
 import { todayIso } from '@/lib/date'
 import { generalMessage, NETWORK_ERROR, readApiError, type ApiError } from '@/lib/errors'
-import type { RecurrenceSpec } from '@/lib/recurrence'
+import type { RecurrenceRequest } from '@/lib/recurrenceDraft'
 import { filterTasks, parseView, type ViewId } from '@/lib/views'
 import type { NewTask, Task, TaskPatch } from '@/lib/tasks'
 
@@ -25,6 +25,26 @@ function parseTaskId(raw: string | null): number | null {
   }
   const id = Number(raw)
   return Number.isInteger(id) && id > 0 ? id : null
+}
+
+// 規則的三個端點:新建、修改、停止
+function recurrenceRequest(taskId: number, request: RecurrenceRequest): Promise<Response> {
+  switch (request.kind) {
+    case 'create':
+      return fetch(`/api/tasks/${taskId}/recurrence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.spec),
+      })
+    case 'update':
+      return fetch(`/api/recurrence-rules/${request.ruleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.changes),
+      })
+    case 'stop':
+      return fetch(`/api/recurrence-rules/${request.ruleId}/stop`, { method: 'POST' })
+  }
 }
 
 // 寫入時焦點所在的任務。control:焦點在中欄勾選框、中欄的列(勾選框以外),或右欄(含確認彈窗)
@@ -172,18 +192,26 @@ export default function ThreeColumnLayout() {
 
   // 寫入成功後整份重抓,不拿回應的物件更新 state,也不做樂觀更新。
   // 回傳 null 代表成功;欄位錯誤原樣回傳給呼叫端,不進中欄的錯誤區
+  // 多個請求時放進同一個佇列工作、依序送出:例如日期選單先改截止日、再改規則(規則的錨點是那個日期)。
+  // 遇到第一個失敗就停,不拿被拒的日期去改規則;前面已經成功的仍然重抓一次,畫面要跟上伺服器
   const mutate = useCallback(
-    (request: () => Promise<Response>): Promise<ApiError | null> => {
+    (requests: (() => Promise<Response>) | (() => Promise<Response>)[]): Promise<ApiError | null> => {
+      const list = Array.isArray(requests) ? requests : [requests]
       // 在呼叫當下(事件處理中)同步記錄焦點,不等 job 開始才讀:
       // 例如確認刪除時確認鈕進入 pending 而 disabled,那次提交早於 job,焦點已經掉到 body
       const focus = captureFocus(tasksColumnRef.current)
       return enqueue(async () => {
         try {
-          const response = await request()
-          if (!response.ok) {
-            const failure = await readApiError(response)
-            setError(toGeneralMessage(failure))
-            return failure
+          for (const [index, request] of list.entries()) {
+            const response = await request()
+            if (!response.ok) {
+              const failure = await readApiError(response)
+              if (index > 0) {
+                await refetch()
+              }
+              setError(toGeneralMessage(failure))
+              return failure
+            }
           }
 
           const refetchFailure = await refetch()
@@ -241,17 +269,26 @@ export default function ThreeColumnLayout() {
     [mutate],
   )
 
-  // 把任務變成重複規則的第一個實例。截止日可能因此改變、任務離開目前檢視,
-  // 焦點照 mutate 的離開視圖規則處理
-  const handleCreateRecurrence = useCallback(
-    (id: number, spec: RecurrenceSpec) =>
-      mutate(() =>
-        fetch(`/api/tasks/${id}/recurrence`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(spec),
-        }),
-      ),
+  // 日期選單按確定:截止日與重複規則。兩者都有改時先送日期、再送規則(規則的錨點是任務的日期),
+  // 放在同一個佇列工作裡。undefined = 那一項沒有改。
+  // 截止日可能因此改變、任務離開目前檢視,焦點照 mutate 的離開視圖規則處理
+  const handleSaveDate = useCallback(
+    (id: number, dueDate: string | null | undefined, recurrence: RecurrenceRequest | undefined) => {
+      const requests: (() => Promise<Response>)[] = []
+      if (dueDate !== undefined) {
+        requests.push(() =>
+          fetch(`/api/tasks/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dueDate }),
+          }),
+        )
+      }
+      if (recurrence !== undefined) {
+        requests.push(() => recurrenceRequest(id, recurrence))
+      }
+      return requests.length === 0 ? Promise.resolve(null) : mutate(requests)
+    },
     [mutate],
   )
 
@@ -303,7 +340,7 @@ export default function ThreeColumnLayout() {
           task={selectedTask}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
-          onCreateRecurrence={handleCreateRecurrence}
+          onSaveDate={handleSaveDate}
           // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
           onChecklistError={setError}
         />

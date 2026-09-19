@@ -1,0 +1,88 @@
+/* 日期選單「自訂」畫面的欄位;外觀沿用 R3 的重複選單 */
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.label {
+  color: var(--color-field-label);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.freqs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.freqs .label {
+  width: 100%;
+  margin-bottom: var(--space-1);
+  padding: 0;
+}
+
+.freq {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.interval {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.intervalInput {
+  width: 4rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-field-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-field-text);
+  font: inherit;
+}
+
+.intervalInput[aria-invalid='true'] {
+  border-color: var(--color-field-border-invalid);
+}
+
+.weekdays {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.weekday {
+  width: 2rem;
+  padding: var(--space-1) 0;
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.weekday[aria-pressed='true'] {
+  border-color: var(--color-action-border);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+}
+
+.error {
+  margin: 0;
+  color: var(--color-error-text);
+  font-size: var(--text-sm);
+}

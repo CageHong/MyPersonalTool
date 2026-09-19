@@ -1,41 +1,27 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useState, type Ref } from 'react'
 import { generalMessage, readApiError, recurrenceRuleMessage } from '@/lib/errors'
 import { describeRule, type RecurrenceRuleView } from '@/lib/recurrence'
 import styles from './RecurrenceSummary.module.css'
 
-type Props = {
-  ruleId: number
-  // 泛用錯誤交給中欄新增列下方顯示,同 TaskChecklist
-  onError: (message: string | null) => void
-  // 剛建立規則時為 true:「重複」按鈕被這個摘要取代,焦點掉到 body 的話接到這裡。用完即清
-  focusOnMountRef: RefObject<boolean>
-}
-
-type State =
+export type RuleState =
   | { status: 'loading' }
   | { status: 'failed' }
   | { status: 'loaded'; rule: RecurrenceRuleView }
 
-// 唯讀的規則摘要;修改與停止重複是之後的事
-export default function RecurrenceSummary({ ruleId, onError, focusOnMountRef }: Props) {
-  const [state, setState] = useState<State>({ status: 'loading' })
-  const containerRef = useRef<HTMLDivElement>(null)
+// 實例的規則;右欄的摘要與日期選單的初始草稿共用這一份。
+// 競態:TaskDetail 以 key={task.id} 掛載,換任務時整個卸載,舊回應落在已卸載的實例上。
+// 同一個任務的 ruleId 也可能變(剛建立規則、停止後重建),StrictMode 也會跑兩次 effect,
+// 所以 cleanup 再標記一次,過期的回應不寫 state
+export function useRecurrenceRule(
+  ruleId: number | null,
+  onError: (message: string | null) => void,
+): RuleState | null {
+  const [state, setState] = useState<{ ruleId: number; value: RuleState } | null>(null)
 
-  // 掛載的 effect 在 DOM 提交之後才跑,這時「重複」按鈕已經卸載,判斷 activeElement 才準
   useEffect(() => {
-    if (!focusOnMountRef.current) {
+    if (ruleId === null) {
       return
     }
-    focusOnMountRef.current = false
-    if (document.activeElement === null || document.activeElement === document.body) {
-      containerRef.current?.focus()
-    }
-  }, [focusOnMountRef])
-
-  // 競態:TaskDetail 以 key={task.id} 掛載,換任務時整個卸載,舊回應落在已卸載的實例上。
-  // 同一個任務的 ruleId 也可能變(剛建立規則),StrictMode 也會跑兩次 effect,
-  // 所以 cleanup 再標記一次,過期的回應不寫 state
-  useEffect(() => {
     let ignore = false
     void (async () => {
       try {
@@ -48,17 +34,17 @@ export default function RecurrenceSummary({ ruleId, onError, focusOnMountRef }: 
           if (ignore) {
             return
           }
-          setState({ status: 'failed' })
+          setState({ ruleId, value: { status: 'failed' } })
           onError(failure.kind === 'general' ? recurrenceRuleMessage(failure.code) : null)
           return
         }
         const rule = (await response.json()) as RecurrenceRuleView
         if (!ignore) {
-          setState({ status: 'loaded', rule })
+          setState({ ruleId, value: { status: 'loaded', rule } })
         }
       } catch {
         if (!ignore) {
-          setState({ status: 'failed' })
+          setState({ ruleId, value: { status: 'failed' } })
           onError(generalMessage('NETWORK'))
         }
       }
@@ -68,17 +54,40 @@ export default function RecurrenceSummary({ ruleId, onError, focusOnMountRef }: 
     }
   }, [onError, ruleId])
 
+  if (ruleId === null) {
+    return null
+  }
+  // 規則換了但新的還沒回來:不拿舊規則的結果充數
+  return state?.ruleId === ruleId ? state.value : { status: 'loading' }
+}
+
+type Props = {
+  state: RuleState
+  // 點摘要開啟日期選單,重複設定在那裡改
+  onClick: () => void
+  ref?: Ref<HTMLButtonElement>
+}
+
+// 實例的規則摘要;是日期選單的第二個觸發鈕
+export default function RecurrenceSummary({ state, onClick, ref }: Props) {
+  let text = '載入中…'
+  if (state.status === 'failed') {
+    text = '—'
+  } else if (state.status === 'loaded') {
+    text = describeRule(state.rule, { stopped: state.rule.endedAt !== null })
+  }
+  const stopped = state.status === 'loaded' && state.rule.endedAt !== null
+
   return (
-    // tabIndex={-1}:不進 Tab 順序,只讓建立規則後的焦點有地方落
-    <div ref={containerRef} tabIndex={-1} className={styles.summary}>
-      {state.status === 'loading' && <span className={styles.muted}>載入中…</span>}
-      {state.status === 'failed' && <span className={styles.muted}>—</span>}
-      {state.status === 'loaded' && (
-        <>
-          <span>{describeRule(state.rule, { stopped: state.rule.endedAt !== null })}</span>
-          {state.rule.endedAt !== null && <span className={styles.muted}>已停止重複</span>}
-        </>
-      )}
-    </div>
+    <button
+      ref={ref}
+      type="button"
+      className={styles.summary}
+      onClick={onClick}
+      aria-label={`重複:${text}${stopped ? ',已停止重複' : ''}`}
+    >
+      <span className={state.status === 'loaded' ? undefined : styles.muted}>{text}</span>
+      {stopped && <span className={styles.muted}>已停止重複</span>}
+    </button>
   )
 }

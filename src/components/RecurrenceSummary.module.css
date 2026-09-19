@@ -1,10 +1,18 @@
-/* 唯讀文字,和觸發鈕同一個內距,換成實例時版面不跳 */
+/* 和截止日、優先級的觸發鈕同一套外觀;點它開啟日期選單 */
 .summary {
   display: flex;
+  width: fit-content;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
   color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .muted {

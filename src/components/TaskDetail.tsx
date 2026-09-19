@@ -1,15 +1,14 @@
 import { useId, useRef, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
-import DueDateMenu from './DueDateMenu'
+import DueDateDialog from './DueDateDialog'
+import DueDateTrigger from './DueDateTrigger'
 import PriorityMenu from './PriorityMenu'
-import RecurrenceMenu from './RecurrenceMenu'
-import RecurrenceSummary from './RecurrenceSummary'
+import RecurrenceSummary, { useRecurrenceRule } from './RecurrenceSummary'
 import TaskChecklist from './TaskChecklist'
 import TaskNotesField from './TaskNotesField'
 import TaskTitleField from './TaskTitleField'
-import { todayIso } from '@/lib/date'
 import { fieldMessage, type ApiError, type FieldErrors } from '@/lib/errors'
-import type { RecurrenceSpec } from '@/lib/recurrence'
+import type { RecurrenceRequest } from '@/lib/recurrenceDraft'
 import type { Task, TaskPatch } from '@/lib/tasks'
 import styles from './TaskDetail.module.css'
 
@@ -18,8 +17,12 @@ type Props = {
   task: Task | undefined
   onUpdate: (id: number, patch: TaskPatch) => Promise<ApiError | null>
   onDelete: (id: number) => Promise<ApiError | null>
-  // POST /api/tasks/:id/recurrence;成功後任務變成實例,右欄改顯示規則摘要
-  onCreateRecurrence: (id: number, spec: RecurrenceSpec) => Promise<ApiError | null>
+  // 日期選單按確定:截止日與重複規則一起存(先日期、再規則);undefined = 那一項沒有改
+  onSaveDate: (
+    id: number,
+    dueDate: string | null | undefined,
+    recurrence: RecurrenceRequest | undefined,
+  ) => Promise<ApiError | null>
   // checklist 的泛用錯誤顯示在中欄新增列下方,和任務的錯誤同一個位置
   onChecklistError: (message: string | null) => void
 }
@@ -28,7 +31,7 @@ export default function TaskDetail({
   task,
   onUpdate,
   onDelete,
-  onCreateRecurrence,
+  onSaveDate,
   onChecklistError,
 }: Props) {
   // 存「正在確認刪除哪一筆」而不是布林值:換任務自動失效,刪除成功或失敗後都清成 null
@@ -41,9 +44,15 @@ export default function TaskDetail({
   const errorIdPrefix = useId()
   // 刪除確認取消(或刪除失敗)後焦點回到刪除鈕
   const deleteButtonRef = useRef<HTMLButtonElement>(null)
-  // 建立規則後「重複」按鈕會被規則摘要取代,焦點掉到 body。送出前立旗標,
-  // 由 RecurrenceSummary 掛載後(DOM 已提交)接手焦點並清旗標;失敗時這裡清
-  const focusSummaryRef = useRef(false)
+  // 日期選單有兩個觸發鈕:截止日(A)與實例的規則摘要(B)。記住是哪一個打開的,關閉時焦點回到它。
+  // 兩個觸發鈕在送出後都還在(建立規則後摘要列才出現,但 A 一直都在),焦點不會掉到 body
+  const [dateMenuOpener, setDateMenuOpener] = useState<'date' | 'summary' | null>(null)
+  const dateTriggerRef = useRef<HTMLButtonElement>(null)
+  const summaryTriggerRef = useRef<HTMLButtonElement>(null)
+  // 寫入排隊期間觸發鈕還在,可以再開一次再送一次;不停用按鈕,用 ref 擋掉第二次送出。完成後一律重設
+  const dateSavePendingRef = useRef(false)
+  // 實例的規則:摘要與日期選單的初始草稿共用。一般任務是 null
+  const ruleState = useRecurrenceRule(task?.recurrenceRuleId ?? null, onChecklistError)
 
   if (task === undefined) {
     return <p className={styles.empty}>未選取任務</p>
@@ -59,6 +68,23 @@ export default function TaskDetail({
     setFieldErrors((current) => {
       const next = { ...current }
       delete next[field]
+      if (failure?.kind === 'fields') {
+        Object.assign(next, failure.fields)
+      }
+      return next
+    })
+    return failure
+  }
+
+  // 日期選單:日期被拒時欄位錯誤畫在截止日下方;規則的錯誤是泛用錯誤,顯示在中欄新增列下方
+  async function saveDate(
+    dueDate: string | null | undefined,
+    recurrence: RecurrenceRequest | undefined,
+  ): Promise<ApiError | null> {
+    const failure = await onSaveDate(taskId, dueDate, recurrence)
+    setFieldErrors((current) => {
+      const next = { ...current }
+      delete next.dueDate
       if (failure?.kind === 'fields') {
         Object.assign(next, failure.fields)
       }
@@ -150,14 +176,15 @@ export default function TaskDetail({
         />
       </div>
 
-      {/* 兩個觸發鈕的字級比輸入框小一階;觸發鈕是 font: inherit,跟著這層走。
+      {/* 觸發鈕的字級比輸入框小一階;觸發鈕是 font: inherit,跟著這層走。
           標籤只是視覺用,觸發鈕自己的 aria-label 已經帶欄位名與目前值 */}
       <div className={`${styles.field} ${styles.menuField}`}>
         <span className={styles.fieldLabel}>截止日</span>
-        <DueDateMenu
+        <DueDateTrigger
+          ref={dateTriggerRef}
           value={task.dueDate}
-          onSelect={(dueDate) => void saveField('dueDate', { dueDate })}
           showEmpty
+          onClick={() => setDateMenuOpener('date')}
         />
         {fieldError('dueDate')}
       </div>
@@ -172,30 +199,44 @@ export default function TaskDetail({
         {fieldError('priority')}
       </div>
 
-      {/* 實例顯示唯讀摘要;未完成的一般任務才能設定重複;已完成的一般任務整列不顯示 */}
-      {(task.recurrenceRuleId !== null || task.completedAt === null) && (
+      {/* 實例才有這一列:目前的規則摘要,點它開啟日期選單(重複設定在那裡改) */}
+      {ruleState !== null && (
         <div className={`${styles.field} ${styles.menuField}`}>
           <span className={styles.fieldLabel}>重複</span>
-          {task.recurrenceRuleId !== null ? (
-            <RecurrenceSummary
-              ruleId={task.recurrenceRuleId}
-              onError={onChecklistError}
-              focusOnMountRef={focusSummaryRef}
-            />
-          ) : (
-            <RecurrenceMenu
-              anchor={task.dueDate ?? todayIso()}
-              onSubmit={async (spec) => {
-                focusSummaryRef.current = true
-                const failure = await onCreateRecurrence(taskId, spec)
-                if (failure !== null) {
-                  focusSummaryRef.current = false
-                }
-                return failure
-              }}
-            />
-          )}
+          <RecurrenceSummary
+            ref={summaryTriggerRef}
+            state={ruleState}
+            onClick={() => setDateMenuOpener('summary')}
+          />
         </div>
+      )}
+
+      {/* 只在開啟時掛載:關閉即卸載,草稿跟著消失。已完成的任務不傳 recurrence,選單只有日期 */}
+      {dateMenuOpener !== null && (
+        <DueDateDialog
+          dueDate={task.dueDate}
+          recurrence={task.completedAt === null ? { rule: ruleState } : undefined}
+          // 對話框已經 close(),背景不再 inert,觸發鈕才聚焦得到。先移焦點再存:
+          // 儲存時記錄的焦點位置才會是右欄,任務因此離開視圖時才找得到遞補列
+          onClose={(result) => {
+            const opener = dateMenuOpener === 'summary' ? summaryTriggerRef : dateTriggerRef
+            setDateMenuOpener(null)
+            opener.current?.focus()
+            if (result === null || dateSavePendingRef.current) {
+              return
+            }
+            // 內容沒變不送請求
+            const dueDate = result.dueDate !== task.dueDate ? result.dueDate : undefined
+            const recurrence = result.recurrence ?? undefined
+            if (dueDate === undefined && recurrence === undefined) {
+              return
+            }
+            dateSavePendingRef.current = true
+            void saveDate(dueDate, recurrence).finally(() => {
+              dateSavePendingRef.current = false
+            })
+          }}
+        />
       )}
 
       {/* 刪除放在最底部,和編輯欄位隔開 */}

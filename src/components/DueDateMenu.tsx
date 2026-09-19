@@ -1,15 +1,13 @@
 import { useRef, useState } from 'react'
-import CalendarIcon from './CalendarIcon'
 import DueDateDialog from './DueDateDialog'
-import { formatRelativeDate, isOverdue } from '@/lib/date'
-import styles from './DueDateMenu.module.css'
+import DueDateTrigger from './DueDateTrigger'
 
-// 只吃日期字串,不認得 task;和 PriorityMenu 對稱,新增列與右欄共用
+// 只吃日期字串,不認得 task。目前只有新增列用:任務還不存在,沒有重複設定。
+// 右欄的截止日由 TaskDetail 自己組(同一個觸發鈕與對話框,加上重複設定)
 type Props = {
   value: string | null
   // 月曆彈窗按確定才呼叫;選好按確定才存是截止日的儲存時機
   onSelect: (dueDate: string | null) => void
-  // 右欄要讀得出目前狀態,空值顯示淡色「無」;新增列空值是預設,只放圖示
   showEmpty: boolean
 }
 
@@ -17,28 +15,14 @@ export default function DueDateMenu({ value, onSelect, showEmpty }: Props) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
-  const classNames = [styles.trigger]
-  if (value === null) {
-    classNames.push(styles.empty)
-  } else if (isOverdue(value)) {
-    classNames.push(styles.overdue)
-  }
-
-  const label = value === null ? '無' : formatRelativeDate(value)
-
   return (
     <>
-      <button
+      <DueDateTrigger
         ref={triggerRef}
-        type="button"
-        className={classNames.join(' ')}
+        value={value}
+        showEmpty={showEmpty}
         onClick={() => setOpen(true)}
-        aria-label={`截止日:${label}`}
-      >
-        <CalendarIcon />
-        {/* 相對描述;要看真正的日曆就開彈窗 */}
-        {(value !== null || showEmpty) && label}
-      </button>
+      />
 
       {/* 只在開啟時掛載:關閉即卸載,草稿跟著消失 */}
       {open && (
