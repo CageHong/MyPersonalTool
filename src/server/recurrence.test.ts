@@ -373,6 +373,7 @@ describe('createRuleFromTask', () => {
     const done = instanceOn(oldRule.id, '2026-09-19')!
     complete(done.id)
     stopRule(oldRule.id, TODAY)
+    const endedAt = ruleRow(oldRule.id).endedAt
 
     const newRule = createRuleFromTask(
       source.id,
@@ -385,12 +386,37 @@ describe('createRuleFromTask', () => {
     assert.equal(moved.recurrenceRuleId, newRule.id)
     assert.equal(moved.dueDate, '2026-09-21')
     assert.deepEqual(dates(newRule.id), ['2026-09-21'])
-    // 舊規則仍是已停止,已完成的實例還在
-    assert.notEqual(ruleRow(oldRule.id).endedAt, null)
+    // 舊規則仍是已停止,停止時間不變;已完成的實例還在
+    assert.notEqual(endedAt, null)
+    assert.equal(ruleRow(oldRule.id).endedAt, endedAt)
     assert.deepEqual(
       instances(oldRule.id).map((row) => row.id),
       [done.id],
     )
+  })
+
+  test("restarting anchors the new rule on the task's current due date", () => {
+    const oldRule = insertRule({ startDate: TODAY })
+    fillInstances(TODAY)
+    const source = instanceOn(oldRule.id, TODAY)!
+    stopRule(oldRule.id, TODAY)
+    // 停止後使用者把截止日改到別天;介面以選單裡的日期(= 任務目前的截止日)當錨點送出
+    updateTask(source.id, { dueDate: '2026-09-25' })
+    const current = db.select().from(task).where(eq(task.id, source.id)).get()!
+
+    const newRule = createRuleFromTask(
+      source.id,
+      { freq: 'daily', interval: 1, startDate: current.dueDate! },
+      TODAY,
+    )
+
+    // 伺服器用呼叫端給的 startDate,不自行換成截止日;送的是截止日,結果就對齊截止日
+    assert.equal(newRule.startDate, '2026-09-25')
+    const moved = db.select().from(task).where(eq(task.id, source.id)).get()!
+    assert.equal(moved.dueDate, '2026-09-25')
+    assert.equal(moved.occurrenceDate, '2026-09-25')
+    // 補齊終點是 today + 6 = 9/24,新規則在範圍內只有原任務
+    assert.deepEqual(dates(newRule.id), ['2026-09-25'])
   })
 
   test('a task whose rule is still active is rejected', () => {
