@@ -366,6 +366,47 @@ describe('createRuleFromTask', () => {
     return db.select().from(taskRecurrenceRule).all().length
   }
 
+  test('a task whose rule was stopped can start a new rule; the old records stay', () => {
+    const oldRule = insertRule({ startDate: TODAY })
+    fillInstances(TODAY)
+    const source = instanceOn(oldRule.id, TODAY)!
+    const done = instanceOn(oldRule.id, '2026-09-19')!
+    complete(done.id)
+    stopRule(oldRule.id, TODAY)
+
+    const newRule = createRuleFromTask(
+      source.id,
+      { freq: 'weekly', interval: 1, weekdays: 1 << 0, startDate: TODAY },
+      TODAY,
+    )
+
+    // 原任務改指向新規則,成為新規則的第一個實例(9/18 週五 → 9/21 週一)
+    const moved = db.select().from(task).where(eq(task.id, source.id)).get()!
+    assert.equal(moved.recurrenceRuleId, newRule.id)
+    assert.equal(moved.dueDate, '2026-09-21')
+    assert.deepEqual(dates(newRule.id), ['2026-09-21'])
+    // 舊規則仍是已停止,已完成的實例還在
+    assert.notEqual(ruleRow(oldRule.id).endedAt, null)
+    assert.deepEqual(
+      instances(oldRule.id).map((row) => row.id),
+      [done.id],
+    )
+  })
+
+  test('a task whose rule is still active is rejected', () => {
+    const rule = insertRule({ startDate: TODAY })
+    fillInstances(TODAY)
+    const source = instanceOn(rule.id, TODAY)!
+    const before = ruleCount()
+
+    assert.throws(
+      () => createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TODAY }, TODAY),
+      (error: unknown) =>
+        error instanceof ValidationError && error.fields.recurrenceRuleId === 'already_set',
+    )
+    assert.equal(ruleCount(), before)
+  })
+
   test('rejects a completed task', () => {
     const source = createTask({ title: 'done', dueDate: '2026-09-01' })
     complete(source.id)

@@ -220,7 +220,9 @@ export function createRuleFromTask(
     if (!source) {
       throw new NotFoundError(taskId)
     }
-    if (source.recurrenceRuleId !== null) {
+    // 停止重複可逆:舊規則已停止時可以建新規則,任務改指向新規則;
+    // 舊規則與它的其他實例不動,是紀錄。還在進行中的規則才拒絕
+    if (source.recurrenceRuleId !== null && selectRule(tx, source.recurrenceRuleId).endedAt === null) {
       throw new ValidationError({ recurrenceRuleId: 'already_set' })
     }
     if (source.completedAt !== null) {
