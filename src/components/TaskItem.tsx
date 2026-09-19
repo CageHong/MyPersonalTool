@@ -1,7 +1,7 @@
 import type { MouseEvent, TransitionEvent } from 'react'
 import Checkbox from './Checkbox'
 import RepeatIcon from './RepeatIcon'
-import { formatListDate, isOverdue } from '@/lib/date'
+import { formatListDate, formatListDay, isOverdue } from '@/lib/date'
 import { priorityLevel, type Task } from '@/lib/tasks'
 import type { ApiError } from '@/lib/errors'
 import styles from './TaskItem.module.css'
@@ -123,6 +123,12 @@ export default function TaskItem({
             {formatListDate(task.dueDate)}
           </span>
         )}
+        {/* 被「只改這一次」移動過的實例:原本規則排的那天 */}
+        {task.dueDate !== null &&
+          task.occurrenceDate !== null &&
+          task.dueDate !== task.occurrenceDate && (
+            <span className={styles.movedFrom}>（原定 {formatListDay(task.occurrenceDate)}）</span>
+          )}
       </div>
     </li>
   )

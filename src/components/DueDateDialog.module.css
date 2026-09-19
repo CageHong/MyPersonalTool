@@ -196,3 +196,36 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* 改實例日期的兩個選項:標題一行,下面是實際結果的說明 */
+.scopeChoices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.scopeChoice {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.scopeChoice:hover {
+  background: var(--color-calendar-hover-bg);
+}
+
+.scopeNote {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

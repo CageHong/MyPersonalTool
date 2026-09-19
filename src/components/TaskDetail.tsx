@@ -7,6 +7,7 @@ import RecurrenceSummary, { useRecurrenceRule } from './RecurrenceSummary'
 import TaskChecklist from './TaskChecklist'
 import TaskNotesField from './TaskNotesField'
 import TaskTitleField from './TaskTitleField'
+import { formatListDay } from '@/lib/date'
 import { fieldMessage, type ApiError, type FieldErrors } from '@/lib/errors'
 import type { RecurrenceRequest } from '@/lib/recurrenceDraft'
 import type { Task, TaskPatch } from '@/lib/tasks'
@@ -72,6 +73,9 @@ export default function TaskDetail({
 
   // 早退之後 task 一定存在;閉包裡用這個區域常數,型別才不會退回 undefined
   const taskId = task.id
+  // 實例被「只改這一次」移到別天:截止日與原定日不同
+  const occurrenceDate = task.occurrenceDate
+  const moved = task.dueDate !== null && occurrenceDate !== null && task.dueDate !== occurrenceDate
   const errorId = (field: string) => `${errorIdPrefix}-${field}`
 
   // 每個欄位各自送一次 PATCH:欄位錯誤留在這一層,成功或泛用錯誤就清掉這個欄位的訊息
@@ -103,6 +107,21 @@ export default function TaskDetail({
       return next
     })
     return failure
+  }
+
+  // 還原到原定日:經同一條寫入佇列,只改截止日。還原後這個按鈕會卸載,
+  // 先把焦點移到截止日觸發鈕,送出時記錄的焦點位置才會是右欄
+  function restoreDate() {
+    if (!moved || occurrenceDate === null || dateSavePendingRef.current) {
+      return
+    }
+    dateTriggerRef.current?.focus()
+    dateSavePendingRef.current = true
+    setSavingDate(true)
+    void saveDate(occurrenceDate, undefined).finally(() => {
+      dateSavePendingRef.current = false
+      setSavingDate(false)
+    })
   }
 
   function clearFieldError(field: string) {
@@ -198,6 +217,20 @@ export default function TaskDetail({
           showEmpty
           onClick={() => setDateMenuOpener('date')}
         />
+        {/* 移動過的實例(只改這一次):顯示原定日與還原 */}
+        {moved && (
+          <div className={styles.moved}>
+            <span>原定 {formatListDay(occurrenceDate)}</span>
+            <button
+              type="button"
+              className={styles.restore}
+              onClick={restoreDate}
+              aria-label={`還原到原定的 ${formatListDay(occurrenceDate)}`}
+            >
+              還原
+            </button>
+          </div>
+        )}
         {fieldError('dueDate')}
       </div>
 
@@ -227,7 +260,11 @@ export default function TaskDetail({
       {dateMenuOpener !== null && (
         <DueDateDialog
           dueDate={task.dueDate}
-          recurrence={task.completedAt === null ? { rule: dialogRuleState } : undefined}
+          recurrence={
+            task.completedAt === null
+              ? { rule: dialogRuleState, occurrenceDate: task.occurrenceDate }
+              : undefined
+          }
           // 對話框已經 close(),背景不再 inert,觸發鈕才聚焦得到。先移焦點再存:
           // 儲存時記錄的焦點位置才會是右欄,任務因此離開視圖時才找得到遞補列
           onClose={(result) => {

@@ -77,6 +77,12 @@
   white-space: nowrap;
 }
 
+.movedFrom {
+  color: var(--color-row-meta);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
 .overdue {
   color: var(--color-overdue);
 }

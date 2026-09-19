@@ -100,9 +100,14 @@ export function isOverdue(iso: string, today: string = todayIso()): boolean {
 // 中欄任務列與截止日觸發鈕的日期:日期永遠顯示(M.D,不是今年才補年份),
 // 今天到下週最後一天再加相對說法:今天、明天用專稱,本週內「週X」,下週「下週X」。
 // 逾期與更遠的只有日期(逾期的顏色由呼叫端處理)
-export function formatListDate(iso: string, today: string = todayIso()): string {
+// formatListDate 的日期部分:M.D,不是今年才補年份。「原定 M.D」等只要日期的地方也用它
+export function formatListDay(iso: string, today: string = todayIso()): string {
   const { year, month, day } = parseIso(iso)
-  const date = year === parseIso(today).year ? `${month}.${day}` : `${year}.${month}.${day}`
+  return year === parseIso(today).year ? `${month}.${day}` : `${year}.${month}.${day}`
+}
+
+export function formatListDate(iso: string, today: string = todayIso()): string {
+  const date = formatListDay(iso, today)
 
   const days = diffDays(today, iso)
   // 今天到本週最後一天(週日)還有幾天;一週的起始日見 WEEK_START

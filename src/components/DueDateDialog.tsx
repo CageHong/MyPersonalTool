@@ -18,6 +18,14 @@ import {
   type RecurrenceRequest,
   type RepeatChoice,
 } from '@/lib/recurrenceDraft'
+import {
+  movesInstance,
+  needsScopeQuestion,
+  onlyThisText,
+  WHOLE_RULE_NOTE,
+  wholeRuleChanges,
+  wholeRuleText,
+} from '@/lib/recurrenceMove'
 import type { DueDateDraft } from '@/lib/tasks'
 import styles from './DueDateDialog.module.css'
 
@@ -30,14 +38,22 @@ type Props = {
   onClose: (result: DueDateResult) => void
   // 有傳才顯示「重複」「結束」兩列。沒有規則時 rule 是 null;
   // 新增列(任務還不存在)與已完成的任務不傳
-  recurrence?: { rule: RuleState | null }
+  // occurrenceDate:實例原定的那一天;一般任務是 null。實例改日期時用它問「只改這一次/改整個規則」
+  recurrence?: { rule: RuleState | null; occurrenceDate: string | null }
 }
 
-// 同一個 <dialog> 裡的畫面:主畫面與三個第二層。不是巢狀 dialog
-type View = 'main' | 'repeat' | 'custom' | 'end'
+// 同一個 <dialog> 裡的畫面:主畫面與第二層(重複清單、自訂、結束、改實例日期的詢問)。不是巢狀 dialog
+type View = 'main' | 'repeat' | 'custom' | 'end' | 'scope'
 
 // 切換畫面後焦點要落的位置;切換的當下目標元素還沒掛載,由 effect 在提交後放
-type FocusTarget = 'repeatRow' | 'endRow' | 'repeatChoice' | 'customFirst' | 'endChoice'
+type FocusTarget =
+  | 'repeatRow'
+  | 'endRow'
+  | 'repeatChoice'
+  | 'customFirst'
+  | 'endChoice'
+  | 'scopeFirst'
+  | 'confirm'
 
 function formatUntil(iso: string): string {
   const { year, month, day } = parseIso(iso)
@@ -89,6 +105,8 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
   const repeatChoiceRef = useRef<HTMLButtonElement>(null)
   const customFirstRef = useRef<HTMLInputElement>(null)
   const endChoiceRef = useRef<HTMLInputElement>(null)
+  const scopeFirstRef = useRef<HTMLButtonElement>(null)
+  const confirmRef = useRef<HTMLButtonElement>(null)
 
   // showModal() 才有 Esc 關閉、焦點鎖在彈窗內、背景 inert。
   // 關閉後焦點由呼叫端在 close 事件裡明確移回觸發鈕,不靠瀏覽器自動歸還(各瀏覽器不一致)。
@@ -119,6 +137,8 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
       repeatChoice: repeatChoiceRef,
       customFirst: customFirstRef,
       endChoice: endChoiceRef,
+      scopeFirst: scopeFirstRef,
+      confirm: confirmRef,
     }
     refs[target].current?.focus()
   }, [screen])
@@ -148,10 +168,44 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
     ref.current?.close()
   }
 
+  const occurrenceDate = recurrence?.occurrenceDate ?? null
+
   function confirm() {
+    const ruleChange = repeatDraft === null ? null : recurrenceChanges(rule, spec)
+    // 實例改了日期、這次沒有同時改規則:先問只改這一次還是整個規則。不記住上次的選擇
+    const ask = needsScopeQuestion({
+      isInstance: occurrenceDate !== null,
+      ruleStopped: rule !== null && rule.endedAt !== null,
+      dateChanged: currentDate !== dueDate,
+      ruleChanged: ruleChange !== null,
+    })
+    if (ask) {
+      goTo('scope', 'scopeFirst')
+      return
+    }
+    closeWith({ dueDate: currentDate, recurrence: ruleChange })
+  }
+
+  // 只改這一次:只改截止日,occurrence_date 不動
+  function chooseOnlyThis() {
+    closeWith({ dueDate: currentDate, recurrence: null })
+  }
+
+  // 改整個重複規則:錨點改成新日期(每週只替換被移動的那一天)。
+  // 未來的實例先移再改規則(它會被刪掉重生,由自動改選接手);
+  // 今天或逾期的不移動,只改規則,否則新日期會出現兩筆
+  function chooseWholeRule() {
+    // 規則還沒就緒(載入中):不動作,不停用按鈕
+    if (rule === null || rule.endedAt !== null || occurrenceDate === null) {
+      return
+    }
     closeWith({
-      dueDate: currentDate,
-      recurrence: repeatDraft === null ? null : recurrenceChanges(rule, spec),
+      dueDate: movesInstance(occurrenceDate, today) ? currentDate : dueDate,
+      recurrence: {
+        kind: 'update',
+        ruleId: rule.id,
+        changes: wholeRuleChanges(rule, occurrenceDate, currentDate),
+      },
     })
   }
 
@@ -304,10 +358,49 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
           >
             清除
           </button>
-          <button type="button" className={styles.confirm} onClick={confirm}>
+          <button ref={confirmRef} type="button" className={styles.confirm} onClick={confirm}>
             確定
           </button>
         </div>
+      </>
+    )
+  }
+
+  function renderScope() {
+    const from = dueDate ?? occurrenceDate ?? currentDate
+    const ready = rule !== null && rule.endedAt === null && occurrenceDate !== null
+    return (
+      <>
+        <div className={styles.subheader}>
+          <span className={styles.settingLabel}>改變日期</span>
+          <button type="button" className={styles.back} onClick={() => goTo('main', 'confirm')}>
+            返回
+          </button>
+        </div>
+        <ul className={styles.scopeChoices}>
+          <li>
+            <button
+              ref={scopeFirstRef}
+              type="button"
+              className={styles.scopeChoice}
+              onClick={chooseOnlyThis}
+            >
+              <span>只改這一次</span>
+              <span className={styles.scopeNote}>
+                {ready ? onlyThisText(rule, from, currentDate, today) : '載入中…'}
+              </span>
+            </button>
+          </li>
+          <li>
+            <button type="button" className={styles.scopeChoice} onClick={chooseWholeRule}>
+              <span>改整個重複規則</span>
+              <span className={styles.scopeNote}>
+                {ready ? wholeRuleText(rule, occurrenceDate, from, currentDate, today) : '載入中…'}
+              </span>
+              {ready && <span className={styles.scopeNote}>{WHOLE_RULE_NOTE}</span>}
+            </button>
+          </li>
+        </ul>
       </>
     )
   }
@@ -453,6 +546,8 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
     repeat: 'repeatRow',
     custom: 'repeatRow',
     end: 'endRow',
+    // 詢問是按「確定」進來的,退回時焦點回確定鈕,不送出
+    scope: 'confirm',
   }
 
   return (
@@ -481,6 +576,7 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
         {view === 'repeat' && renderRepeatList()}
         {view === 'custom' && renderCustom()}
         {view === 'end' && renderEnd()}
+        {view === 'scope' && renderScope()}
       </div>
     </dialog>
   )

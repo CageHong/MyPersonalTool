@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { formatListDate, monthDays, weekdayHeaders } from './date'
+import { formatListDate, formatListDay, monthDays, weekdayHeaders } from './date'
 
 describe('formatListDate', () => {
   // 2026-09-19 是週六:本週只剩明天(週日),9/21–9/27 是下週
@@ -53,5 +53,13 @@ describe('calendar starts on Monday', () => {
     // 2026-11-01 是週日
     const cells = monthDays(2026, 11)
     assert.equal(cells.indexOf('2026-11-01'), 6)
+  })
+})
+
+describe('formatListDay', () => {
+  test('omits the year within this year and adds it otherwise', () => {
+    assert.equal(formatListDay('2026-09-23', '2026-09-19'), '9.23')
+    assert.equal(formatListDay('2027-01-05', '2026-09-19'), '2027.1.5')
+    assert.equal(formatListDay('2025-12-31', '2026-09-19'), '2025.12.31')
   })
 })

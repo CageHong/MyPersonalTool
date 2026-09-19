@@ -56,3 +56,21 @@
   color: var(--color-text-subtle);
   text-align: center;
 }
+
+/* 移動過的實例:原定日與還原,在截止日觸發鈕下方 */
+.moved {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.restore {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
