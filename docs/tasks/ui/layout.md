@@ -2,7 +2,7 @@
 
 三欄結構、網址狀態、欄位儲存時機、寫入佇列與焦點遞補、中欄過場。**動到 state、effect、焦點或資料流前讀這一份。**
 
-功能各自的行為另見 `docs/ui/checklist.md`、`docs/ui/recurrence.md`、`docs/ui/habits.md`。決策理由見 `docs/decisions.md` §4、§5。
+功能各自的行為另見 `docs/tasks/ui/checklist.md`、`docs/tasks/ui/recurrence.md`、`docs/tasks/ui/habits.md`。決策理由見 `docs/tasks/decisions.md` §4、§5。
 
 ## 三欄
 
@@ -12,7 +12,7 @@
 | 任務清單 | 頂端是新增列,下方是任務列;點任務列選取它 |
 | 編輯欄 | 顯示被選取的任務,各欄位可編輯 |
 
-本輪的智慧檢視只有查詢條件,沒有自訂清單表:今天、未來 7 天、全部未完成、已完成。另外有「習慣」(`view=habits`),中欄換成習慣清單、右欄換成習慣的編輯面板,見 `docs/ui/habits.md`。
+本輪的智慧檢視只有查詢條件,沒有自訂清單表:今天、未來 7 天、全部未完成、已完成。另外有「習慣」(`view=habits`),中欄換成習慣清單、右欄換成習慣的編輯面板,見 `docs/tasks/ui/habits.md`。
 
 **中欄頂端是標題列:清單名稱加分組與排序的選單**(`ViewSettingsMenu`)。選單有三組單選:分組(不分組 / 日期 / 優先級)、排序(建立時間 / 截止日 / 優先級 / 標題)、順序(兩個方向,說法跟著排序欄位走)。點選即存、選完不關;換排序欄位時方向回到該欄位的起始方向。每個清單各存一份,存在伺服器(`task_list_view`),寫入後重抓 `GET /api/tasks/list-views`,不做樂觀更新。
 

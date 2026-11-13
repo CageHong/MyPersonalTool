@@ -65,7 +65,7 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
 
   // 刪除後的焦點,清單空了都落到新增列:
   // - 刪除鈕(prefer: 'next'):遞補上來那一項;刪的是最後一項就退到前一項。
-  //   同任務刪除的規則(docs/decisions.md §5)
+  //   同任務刪除的規則(docs/tasks/decisions.md §5)
   // - 空白項目按 Backspace(prefer: 'previous'):上一項,游標在末尾,接著打;刪的是第一項就到下一項
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const addInputRef = useRef<HTMLInputElement>(null)

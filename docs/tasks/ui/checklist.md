@@ -1,10 +1,10 @@
 # UI:checklist
 
-任務底下的待辦項。資料形狀見 `docs/data-model.md`,決策理由見 `docs/decisions.md` §5。
+任務底下的待辦項。資料形狀見 `docs/tasks/data-model.md`,決策理由見 `docs/tasks/decisions.md` §5。
 
 **checklist 在右欄描述下方,由 `TaskChecklist` 自己載入與寫入。** 寫入排隊執行,每個動作等前一個(含重抓)完成才開始,期間**不停用**任何控制項:有焦點的元素被停用會把焦點丟到 body,編輯中直接點刪除鈕的 click 也會被吞掉。刪除後焦點落到遞補的那一項 → 前一項 → 新增列。
 
-**只有一個新增入口(底部新增列)**,不支援在項目內按 Enter 插入;順序用拖曳調整。在新增列貼上多行文字會跳確認框,確認後每一行成為一個項目、整批放在最後(`POST …/checklist-items/batch`);規則見 `docs/ui/layout.md` 的「批次貼上」。
+**只有一個新增入口(底部新增列)**,不支援在項目內按 Enter 插入;順序用拖曳調整。在新增列貼上多行文字會跳確認框,確認後每一行成為一個項目、整批放在最後(`POST …/checklist-items/batch`);規則見 `docs/tasks/ui/layout.md` 的「批次貼上」。
 
 **可拖曳排序(依賴 `@dnd-kit/core`、`@dnd-kit/sortable`、`@dnd-kit/utilities`)。** 只有每列左側的把手能啟動拖曳(滑鼠移動 5px 或鍵盤空白鍵/Enter);寫入排隊中不能開始拖曳,由感應器判斷,不用 `disabled`。放下後直接改 `items`(樂觀更新,全 app 兩個樂觀更新之一,另一個是習慣計數),再排入 `PUT …/order`,完成後照常重抓;失敗時重抓還原。放下後焦點留在把手上。朗讀文字為中文。
 

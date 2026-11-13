@@ -100,7 +100,7 @@ export function collapseRecurring(tasks: Task[], today: string): CollapsedView {
 // 只過濾不排序 —— 順序是 listTasks() 的 ORDER BY 決定的。
 // 先收合、後日期篩選:所有視圖共用同一個代表,代表不隨視圖而變。
 // 現有視圖的日期條件只有上限,兩種順序結果相同;有下限的視圖(某一天、「明天」)出現時,
-// 先篩選會在 9/17 未完成時把 9/18 選為代表(docs/decisions.md §6a)
+// 先篩選會在 9/17 未完成時把 9/18 選為代表(docs/tasks/decisions.md §6a)
 export function filterTasks(tasks: Task[], view: ViewId, today: string): CollapsedView {
   const { tasks: collapsed, overdueCounts } = collapseRecurring(tasks, today)
   return { tasks: filterByView(collapsed, view, today), overdueCounts }

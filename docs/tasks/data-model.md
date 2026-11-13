@@ -4,7 +4,7 @@
 
 事實來源是 `src/modules/tasks/db/schema.ts` 與 `src/modules/tasks/server/`;本檔與程式碼不一致時以程式碼為準,並在同一次修改裡更新本檔。
 
-決策理由見 `docs/decisions.md` §2、§6a、§6b。
+決策理由見 `docs/tasks/decisions.md` §2、§6a、§6b。
 
 ## `task`
 
@@ -30,11 +30,11 @@
 ### 時間處理規則
 
 - 絕對瞬間一律存 **Unix 秒數整數**(`createdAt`、`completedAt`、`scheduledAt`)。
-- `dueDate` 是**日曆日**,存文字 `YYYY-MM-DD`,不要轉成時間戳(理由見 `docs/decisions.md` §2)。
+- `dueDate` 是**日曆日**,存文字 `YYYY-MM-DD`,不要轉成時間戳(理由見 `docs/tasks/decisions.md` §2)。
 - `dueDate`、`startDate` 必須是真實存在的日曆日(`isCalendarDate`,在 `src/modules/tasks/server/validation.ts`);`2026-02-30` 這種形狀合法但不存在的日期回 `invalid_format`。
 - `dueTime` 與 `dueDate` 分開,因為「9/10 到期」和「9/10 15:00 到期」語意不同。
 - `durationMinutes` 是長度不是時刻,存分鐘數。
-- 完成狀態用 `completedAt` 判斷,**不要**加布林欄位(理由見 `docs/decisions.md` §2)。
+- 完成狀態用 `completedAt` 判斷,**不要**加布林欄位(理由見 `docs/tasks/decisions.md` §2)。
 - `createdAt` 在 schema 層**沒有**預設值,由 `src/modules/tasks/server/` 的建立函式填入 `Math.floor(Date.now() / 1000)`。理由:那是業務規則,不放資料層。
 
 ### 更新規則(`updateTask`)
@@ -57,7 +57,7 @@
 
 ## `task_list_view`
 
-清單的呈現設定(分組與排序),每個清單一列。它描述「現在想怎麼看這個清單」,不是任務的屬性(理由見 `docs/decisions.md` §6d)。
+清單的呈現設定(分組與排序),每個清單一列。它描述「現在想怎麼看這個清單」,不是任務的屬性(理由見 `docs/tasks/decisions.md` §6d)。
 
 | 欄位 | 型別 | 可空 | 說明 |
 |---|---|---|---|
@@ -146,7 +146,7 @@
 
 ## 習慣
 
-習慣是配額(每週期做幾次),和重複任務(日曆規則)是兩個獨立實體,不共用表(理由見 `docs/decisions.md` §6b)。純函式在 `src/modules/tasks/lib/habit.ts`(`periodStart`、`settingsAt`、`progressOf`、`streakOf`),業務邏輯在 `src/modules/tasks/server/habits.ts`。
+習慣是配額(每週期做幾次),和重複任務(日曆規則)是兩個獨立實體,不共用表(理由見 `docs/tasks/decisions.md` §6b)。純函式在 `src/modules/tasks/lib/habit.ts`(`periodStart`、`settingsAt`、`progressOf`、`streakOf`),業務邏輯在 `src/modules/tasks/server/habits.ts`。
 
 ### `habit`
 

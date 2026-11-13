@@ -1,6 +1,6 @@
 # UI:習慣(H2)
 
-習慣視圖、圈圈、樂觀計數、中欄小區塊、焦點。資料形狀與領域規則見 `docs/data-model.md`,決策理由見 `docs/decisions.md` §6b。
+習慣視圖、圈圈、樂觀計數、中欄小區塊、焦點。資料形狀與領域規則見 `docs/tasks/data-model.md`,決策理由見 `docs/tasks/decisions.md` §6b。
 
 ## 習慣視圖(`?view=habits&habit=ID`)
 

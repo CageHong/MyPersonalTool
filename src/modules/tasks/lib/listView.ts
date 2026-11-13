@@ -1,4 +1,4 @@
-// 清單的呈現:分組、排序、置頂(docs/decisions.md §6d)。
+// 清單的呈現:分組、排序、置頂(docs/tasks/decisions.md §6d)。
 // 前後端共用:伺服器用這裡的值域驗證設定,前端用 arrangeTasks 把篩選後的任務排成區塊。
 // 不碰資料庫,也不讀時鐘:「今天」由呼叫端傳入,和 views.ts 的日期篩選共用同一份
 import { addDays, WEEK_START, weekday } from './date'

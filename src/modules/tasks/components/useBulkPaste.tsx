@@ -20,7 +20,7 @@ type Pending = {
   end: number
 }
 
-// 批次貼上(docs/decisions.md §6f)。中欄新增列與 checklist 新增列共用:
+// 批次貼上(docs/tasks/decisions.md §6f)。中欄新增列與 checklist 新增列共用:
 // 貼上的純文字切出兩行以上時跳確認框,確認 = 每行建立一筆,取消 = 整段當成一個標題貼進去。
 // 單行貼上不攔,照瀏覽器原本的行為;超過上限也不攔,避免誤貼一整份文件時建出上百筆
 export function useBulkPaste({ noun, value, onChange, onCreateMany }: Options): {

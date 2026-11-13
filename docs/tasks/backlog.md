@@ -2,21 +2,21 @@
 
 還沒做的事,以及已知但暫時接受的問題。
 
-**這份是清單,不是規格。** 動手做某一項之前,先把它的規則寫進 `CLAUDE.md` 或對應的 `docs/` 檔,再實作;決策理由寫進 `docs/decisions.md`。
+**這份是清單,不是規格。** 動手做某一項之前,先把它的規則寫進 `.claude/rules/tasks.md` 或對應的 `docs/tasks/` 檔,再實作;決策理由寫進 `docs/tasks/decisions.md`。
 
-`CLAUDE.md` 只保留「之後才做」的項目名稱,細節在這裡。
+`.claude/rules/tasks.md` 只保留「之後才做」的項目名稱,細節在這裡。
 
 ## 開發順序
 
 1. checklist(已完成)
 2. 重複任務、習慣(資料層與 API 已完成;重複任務的 UI 已完成,習慣 UI 為 H2)
 3. 版面 session:三欄可拖拉欄寬、右欄先縮後隱藏、抽屜覆蓋
-4. 中欄的分組、排序、置頂(已完成,提前到版面 session 之前;決策見 `docs/decisions.md` §6d)
-5. 目標最小實體(決策見 `docs/decisions.md` §6e)
+4. 中欄的分組、排序、置頂(已完成,提前到版面 session 之前;決策見 `docs/tasks/decisions.md` §6d)
+5. 目標最小實體(決策見 `docs/tasks/decisions.md` §6e)
 6. 右欄的分類指派(需要 `list` 表與 `task.listId`)
 7. 標籤(多對多,牽動左欄篩選與分組)
 
-排程視圖(C1–C3,`docs/decisions.md` §6c)與習慣回顧視圖(H3)不在這條主線上,做完版面 session 後再決定插在哪裡。
+排程視圖(C1–C3,`docs/tasks/decisions.md` §6c)與習慣回顧視圖(H3)不在這條主線上,做完版面 session 後再決定插在哪裡。
 
 ## 之後才做的功能
 
@@ -24,12 +24,12 @@
 |---|---|
 | 自訂清單 | 需要 `list` 表與 `task.listId`;目前的智慧檢視只有查詢條件 |
 | 標籤 | 多對多(`tag` 表 + 關聯表),外加標籤管理介面與左欄篩選視圖;依標籤分組的重複呈現問題待決 |
-| 目標(goal) | 規則見 `docs/decisions.md` §6e;第一階段只做新增 / 列出 / 編輯 / 改狀態 |
+| 目標(goal) | 規則見 `docs/tasks/decisions.md` §6e;第一階段只做新增 / 列出 / 編輯 / 改狀態 |
 | 子任務 UI | 用既有的 `parentTaskId`;有自己的到期日與完成狀態,可被排程。排程做完後再評估 |
 | 習慣的回顧視圖與格子圖(H3) | |
-| 排程視圖(C1–C3) | `docs/decisions.md` §6c |
+| 排程視圖(C1–C3) | `docs/tasks/decisions.md` §6c |
 | 批量選取與批量刪除任務 | 下一階段的 UI |
-| 積分系統、Google Calendar 單向推送、共用設計系統、首頁 shell、使用者帳號、部署設定 | MVP 明確排除;提出前先問 |
+| 積分系統、Google Calendar 單向推送 | MVP 明確排除;提出前先問(平台層級不做的事見 `docs/platform/backlog.md`) |
 
 ## 已知問題
 
@@ -43,7 +43,7 @@
 
 ## 延後事項
 
-原 `docs/decisions.md` §8。
+原 `docs/tasks/decisions.md` §8。
 
 | 項目 | 回頭點 |
 |---|---|
