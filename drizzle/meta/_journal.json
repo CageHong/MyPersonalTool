@@ -36,6 +36,13 @@
       "when": 1789831697912,
       "tag": "0004_add_habits",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794398130235,
+      "tag": "0005_add_pinned_and_list_view",
+      "breakpoints": true
     }
   ]
 }

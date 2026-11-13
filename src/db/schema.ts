@@ -27,6 +27,8 @@ export const task = sqliteTable(
     ),
     // 日曆日,YYYY-MM-DD;這個實例對應規則展開出的哪一天。之後改 dueDate 也不變
     occurrenceDate: text('occurrence_date'),
+    // 置頂:全域語意,在任何清單看都置頂(decisions §6d)。狀態本身就是布林值,沒有「何時」要記
+    pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
   },
   // 同一規則同一天只有一個實例:補齊重跑或並發時靠它擋重複。NULL 彼此相異,一般任務不受影響
   (table) => [
@@ -54,6 +56,30 @@ export const taskChecklistItem = sqliteTable(
   },
   // 不設 unique:重新排序在 transaction 裡逐列寫,中途會有暫時重複的 position
   (table) => [index('task_checklist_item_task_position_idx').on(table.taskId, table.position)],
+)
+
+// 清單的呈現設定:分組與排序。描述的是「現在想怎麼看這個清單」,不是任務的屬性,
+// 所以每個清單各存一份(decisions §6d)。沒有對應的列 = 用預設值(src/lib/listView.ts)
+export const taskListView = sqliteTable(
+  'task_list_view',
+  {
+    // 清單的識別字。目前只有智慧檢視的 id(today / next7 / open / done);
+    // 之後自訂清單用另一種前綴,不必改表
+    listKey: text('list_key').primaryKey(),
+    groupBy: text('group_by', { enum: ['none', 'date', 'priority'] }).notNull(),
+    sortBy: text('sort_by', { enum: ['created', 'dueDate', 'priority', 'title'] }).notNull(),
+    sortDirection: text('sort_direction', { enum: ['asc', 'desc'] }).notNull(),
+    // Unix 秒;沒有 schema 預設值,由 src/server/ 填入(同 task.createdAt)
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    check('task_list_view_group_by_check', sql`${table.groupBy} IN ('none', 'date', 'priority')`),
+    check(
+      'task_list_view_sort_by_check',
+      sql`${table.sortBy} IN ('created', 'dueDate', 'priority', 'title')`,
+    ),
+    check('task_list_view_sort_direction_check', sql`${table.sortDirection} IN ('asc', 'desc')`),
+  ],
 )
 
 // 重複規則:日曆規則 + 範本內容。實例是一般的 task 列,以 recurrenceRuleId 指回

@@ -64,6 +64,13 @@
   transition-behavior: allow-discrete;
 }
 
+/* 非破壞性的確認(例:批次貼上):主要行動色。寫在 :disabled 之前,停用樣式仍然蓋得過 */
+.action {
+  border-color: var(--color-action-border);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+}
+
 .confirm:disabled {
   border-color: var(--color-action-disabled-bg);
   background: var(--color-action-disabled-bg);

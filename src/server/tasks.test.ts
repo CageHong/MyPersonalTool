@@ -7,7 +7,9 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { db } from '../db'
 import { task } from '../db/schema'
 import {
+  BATCH_MAX,
   createTask,
+  createTasks,
   NotFoundError,
   updateTask,
   ValidationError,
@@ -223,5 +225,95 @@ describe('dueDate must be a real calendar date', () => {
 
     assert.equal(created.dueDate, '2028-02-29')
     assert.equal(updateTask(created.id, { dueDate: '2028-02-29' }).dueDate, '2028-02-29')
+  })
+})
+
+describe('pinned', () => {
+  test('defaults to false and can be set on create', () => {
+    assert.equal(createTask({ title: 'task' }).pinned, false)
+    assert.equal(createTask({ title: 'task', pinned: true }).pinned, true)
+  })
+
+  test('update toggles it; the same value does not write', () => {
+    const { id } = createTask({ title: 'task' })
+
+    assert.equal(updateTask(id, { pinned: true }).pinned, true)
+    assert.equal(assertNoWrite(() => updateTask(id, { pinned: true })).pinned, true)
+    assert.equal(updateTask(id, { pinned: false }).pinned, false)
+  })
+
+  test('rejects non-boolean values', () => {
+    const { id } = createTask({ title: 'task' })
+    const rejected = (error: unknown) =>
+      error instanceof ValidationError && error.fields.pinned === 'invalid_value'
+
+    assert.throws(() => updateTask(id, { pinned: 1 } as unknown as UpdateTaskPatch), rejected)
+    assert.throws(
+      () => createTask({ title: 'task', pinned: 'yes' } as unknown as CreateTaskInput),
+      rejected,
+    )
+  })
+})
+
+describe('createTasks', () => {
+  function countTasks(): number {
+    return db.get<{ n: number }>(sql`select count(*) as n from task`).n
+  }
+
+  test('creates every task in order with shared fields applied per item', () => {
+    const created = createTasks([
+      { title: ' one ', dueDate: '2026-09-18', priority: 3 },
+      { title: 'two' },
+    ])
+
+    assert.deepEqual(
+      created.map((item) => [item.title, item.dueDate, item.priority]),
+      [
+        ['one', '2026-09-18', 3],
+        ['two', null, 0],
+      ],
+    )
+    assert.ok(created[0].id < created[1].id)
+    assert.equal(created[0].createdAt, created[1].createdAt)
+  })
+
+  test('one invalid item rejects the whole batch without writing', () => {
+    const before = countTasks()
+
+    assertNoWrite(() =>
+      assert.throws(
+        () => createTasks([{ title: 'ok' }, { title: '  ' }, { title: 'x', dueDate: 'nope' }]),
+        (error) =>
+          error instanceof ValidationError &&
+          error.fields['1.title'] === 'required' &&
+          error.fields['2.dueDate'] === 'invalid_format' &&
+          Object.keys(error.fields).length === 2,
+      ),
+    )
+    assert.equal(countTasks(), before)
+  })
+
+  test('rejects an empty batch, a non-array, and more than the limit', () => {
+    const coded = (code: string) => (error: unknown) =>
+      error instanceof ValidationError && error.fields.tasks === code
+
+    assert.throws(() => createTasks([]), coded('required'))
+    assert.throws(() => createTasks(undefined as unknown as CreateTaskInput[]), coded('required'))
+    assert.throws(
+      () => createTasks(Array.from({ length: BATCH_MAX + 1 }, () => ({ title: 't' }))),
+      coded('too_many'),
+    )
+  })
+
+  test('accepts exactly the limit', () => {
+    const created = createTasks(Array.from({ length: BATCH_MAX }, (_, i) => ({ title: `t${i}` })))
+    assert.equal(created.length, BATCH_MAX)
+  })
+
+  test('rejects items that are not objects', () => {
+    assert.throws(
+      () => createTasks(['a'] as unknown as CreateTaskInput[]),
+      (error) => error instanceof ValidationError && error.fields['0'] === 'invalid_value',
+    )
   })
 })

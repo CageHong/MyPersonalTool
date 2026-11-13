@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import DueDateMenu from './DueDateMenu'
 import PriorityMenu from './PriorityMenu'
+import { useBulkPaste } from './useBulkPaste'
 import type { ApiError } from '@/lib/errors'
 import type { NewTask } from '@/lib/tasks'
 import styles from './NewTaskForm.module.css'
@@ -8,12 +9,14 @@ import styles from './NewTaskForm.module.css'
 type Props = {
   // 新增列的錯誤走泛用路徑,顯示在中欄新增列正下方,不做欄位標示
   onCreate: (input: NewTask) => Promise<ApiError | null>
+  // 批次貼上:每一行一筆,整批成功才建立
+  onCreateMany: (inputs: NewTask[]) => Promise<ApiError | null>
 }
 
 // 整列是一個草稿單位,送出成功後一次清掉;形狀就是 POST 要送的那三個欄位
 const EMPTY: NewTask = { title: '', dueDate: null, priority: 0 }
 
-export default function NewTaskForm({ onCreate }: Props) {
+export default function NewTaskForm({ onCreate, onCreateMany }: Props) {
   const [draft, setDraft] = useState<NewTask>(EMPTY)
   // 自己送出的請求還沒回來時擋掉第二次送出(同 NewChecklistItemForm)。
   // 不停用也不設 readOnly:使用者可以接著打下一筆。
@@ -45,34 +48,57 @@ export default function NewTaskForm({ onCreate }: Props) {
     }
   }
 
+  // 貼上多行:每一行建立一筆,日期與優先級套用新增列目前的草稿;成功後草稿的這兩項清掉,
+  // 輸入框裡原本打的字不動(它不是這一批的一部分)
+  const bulk = useBulkPaste({
+    noun: '任務',
+    value: draft.title,
+    onChange: (title) => setDraft((current) => ({ ...current, title })),
+    onCreateMany: async (titles) => {
+      const { dueDate, priority } = draft
+      const failure = await onCreateMany(titles.map((title) => ({ title, dueDate, priority })))
+      if (failure === null) {
+        setDraft((current) => ({
+          title: current.title,
+          dueDate: current.dueDate === dueDate ? EMPTY.dueDate : current.dueDate,
+          priority: current.priority === priority ? EMPTY.priority : current.priority,
+        }))
+      }
+    },
+  })
+
   return (
-    <form className={styles.form} onSubmit={handleSubmit}>
-      {/* 單列版面沒有可見標籤的位置,改用 aria-label */}
-      <input
-        className={styles.input}
-        type="text"
-        value={draft.title}
-        onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-        aria-label="標題"
-        placeholder="新增任務"
-      />
+    <>
+      <form className={styles.form} onSubmit={handleSubmit}>
+        {/* 單列版面沒有可見標籤的位置,改用 aria-label */}
+        <input
+          className={styles.input}
+          type="text"
+          value={draft.title}
+          onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+          onPaste={bulk.onPaste}
+          aria-label="標題"
+          placeholder="新增任務"
+        />
 
-      {/* 日期與優先級都是草稿,只寫回 draft,不送 PATCH */}
-      <DueDateMenu
-        value={draft.dueDate}
-        onSelect={(dueDate) => setDraft((current) => ({ ...current, dueDate }))}
-        showEmpty={false}
-      />
+        {/* 日期與優先級都是草稿,只寫回 draft,不送 PATCH */}
+        <DueDateMenu
+          value={draft.dueDate}
+          onSelect={(dueDate) => setDraft((current) => ({ ...current, dueDate }))}
+          showEmpty={false}
+        />
 
-      <PriorityMenu
-        value={draft.priority}
-        onSelect={(priority) => setDraft((current) => ({ ...current, priority }))}
-        showValue={false}
-      />
+        <PriorityMenu
+          value={draft.priority}
+          onSelect={(priority) => setDraft((current) => ({ ...current, priority }))}
+          showValue={false}
+        />
 
-      <button className={styles.submit} type="submit">
-        新增
-      </button>
-    </form>
+        <button className={styles.submit} type="submit">
+          新增
+        </button>
+      </form>
+      {bulk.dialog}
+    </>
   )
 }

@@ -2,10 +2,12 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import NewTaskForm from './NewTaskForm'
 import TaskItem from './TaskItem'
 import TaskListSkeleton from './TaskListSkeleton'
+import ViewSettingsMenu from './ViewSettingsMenu'
 import styles from './TaskList.module.css'
 import type { ApiError } from '@/lib/errors'
+import type { Section, ViewSettings } from '@/lib/listView'
 import type { NewTask, Task } from '@/lib/tasks'
-import type { ViewId } from '@/lib/views'
+import { VIEWS, type ViewId } from '@/lib/views'
 
 // 空清單的三種情況,語氣不同:沒東西可看 vs 這個檢視沒東西 vs 還沒完成過任何事
 function emptyMessage(totalCount: number, view: ViewId): string {
@@ -30,19 +32,51 @@ function signature(tasks: Task[]): string {
   return tasks.map((task) => task.id).join(',')
 }
 
+type Row = { task: Task; exiting: boolean }
+
 // 退場列插回原本的索引,和目前的列合成畫面上的順序
-function withExiting(tasks: Task[], exiting: Exiting[]) {
-  const rows: { task: Task; exiting: boolean }[] = tasks.map((task) => ({ task, exiting: false }))
+function withExiting(tasks: Task[], exiting: Exiting[]): Row[] {
+  const rows: Row[] = tasks.map((task) => ({ task, exiting: false }))
   for (const { task, index } of [...exiting].sort((a, b) => a.index - b.index)) {
     rows.splice(Math.min(index, rows.length), 0, { task, exiting: true })
   }
   return rows
 }
 
+// 畫面上的一塊:一個區塊的標題加它底下的列。section 為 null 的是開頭只有退場列的那一塊
+type Block = { section: Section | null; rows: Row[] }
+
+// 把攤平的列切回區塊。退場列已經不屬於任何區塊,留在它原本位置所在的那一塊裡收掉;
+// 遇到屬於下一個區塊的列才開新的一塊
+function toBlocks(rows: Row[], sections: Section[]): Block[] {
+  const sectionOf = new Map<number, Section>()
+  for (const section of sections) {
+    for (const task of section.tasks) {
+      sectionOf.set(task.id, section)
+    }
+  }
+
+  const blocks: Block[] = []
+  for (const row of rows) {
+    const section = row.exiting ? null : (sectionOf.get(row.task.id) ?? null)
+    const last = blocks.at(-1)
+    if (last === undefined || (section !== null && section !== last.section)) {
+      blocks.push({ section, rows: [row] })
+    } else {
+      last.rows.push(row)
+    }
+  }
+  return blocks
+}
+
 // 資料與寫入都在 ThreeColumnLayout,這裡只負責畫清單
 type Props = {
-  // 已經照目前檢視篩選過,重複實例已收合成每條規則一個代表
-  tasks: Task[]
+  // 已經照目前檢視篩選過、重複實例已收合成每條規則一個代表,再依清單設定排成區塊(置頂、分組、排序)。
+  // 區塊由上到下攤平就是畫面上的列順序
+  sections: Section[]
+  // 目前清單的分組與排序設定;改動時整份交回去存
+  settings: ViewSettings
+  onChangeSettings: (next: ViewSettings) => void
   // 代表的 id → 同規則還有幾個逾期的實例
   overdueCounts: Map<number, number>
   // 篩選前的全部任務:空狀態要分辨「一筆都沒有」和「這個檢視是空的」;
@@ -54,13 +88,16 @@ type Props = {
   selectedId: number | null
   onSelect: (id: number) => void
   onCreate: (input: NewTask) => Promise<ApiError | null>
+  onCreateMany: (inputs: NewTask[]) => Promise<ApiError | null>
   onToggle: (task: Task) => Promise<ApiError | null>
   // 今天與全部未完成時,ThreeColumnLayout 傳進來的習慣小區塊;畫在新增列與錯誤之後、任務清單之前
   habitBlock?: ReactNode
 }
 
 export default function TaskList({
-  tasks,
+  sections,
+  settings,
+  onChangeSettings,
   overdueCounts,
   allTasks,
   view,
@@ -69,16 +106,19 @@ export default function TaskList({
   selectedId,
   onSelect,
   onCreate,
+  onCreateMany,
   onToggle,
   habitBlock,
 }: Props) {
+  const tasks = sections.flatMap((section) => section.tasks)
   // 上一次畫出來的列,用來算出這次誰離開、誰進來。「prop 變了就調整 state」的寫法:
   // 在渲染中比對並 setState,退場列和新清單在同一次提交裡出現,
   // ThreeColumnLayout 在 flushSync 之後立刻移焦點時,DOM 已經是最終的樣子
   const [previous, setPrevious] = useState({ tasks, view, key: signature(tasks) })
   const [exiting, setExiting] = useState<Exiting[]>([])
   const [enteringIds, setEnteringIds] = useState<ReadonlySet<number>>(new Set())
-  const listRef = useRef<HTMLUListElement>(null)
+  // 各區塊各有一個 <ul>,退場列散在其中;從包住全部區塊的這一層找
+  const listRef = useRef<HTMLDivElement>(null)
 
   const key = signature(tasks)
   if (key !== previous.key || view !== previous.view) {
@@ -116,11 +156,18 @@ export default function TaskList({
   }
 
   const latestById = new Map(allTasks.map((task) => [task.id, task]))
-  const rows = withExiting(tasks, exiting)
+  const blocks = toBlocks(withExiting(tasks, exiting), sections)
+  const viewLabel = VIEWS.find((item) => item.id === view)?.label ?? ''
 
   return (
     <div className={styles.container}>
-      <NewTaskForm onCreate={onCreate} />
+      {/* 標題列:這一欄現在看的是哪個清單,右端是它的分組與排序 */}
+      <header className={styles.toolbar}>
+        <h2 className={styles.viewTitle}>{viewLabel}</h2>
+        <ViewSettingsMenu settings={settings} onChange={onChangeSettings} />
+      </header>
+
+      <NewTaskForm onCreate={onCreate} onCreateMany={onCreateMany} />
 
       {error !== null && (
         <p className={styles.error} role="alert">
@@ -138,34 +185,51 @@ export default function TaskList({
         <p className={styles.status}>{emptyMessage(allTasks.length, view)}</p>
       )}
 
-      {rows.length > 0 && (
-        <ul ref={listRef} className={styles.list}>
-          {rows.map(({ task, exiting: leaving }) =>
-            leaving ? (
-              // 退場列:key 和一般列不同,任務若馬上回來也不會沿用這個收到 0 高的節點
-              <TaskItem
-                key={`exiting-${task.id}`}
-                task={latestById.get(task.id) ?? task}
-                overdueCount={0}
-                selected={false}
-                onSelect={onSelect}
-                onToggle={onToggle}
-                motion="exiting"
-                onExited={() => handleExited(task.id)}
-              />
-            ) : (
-              <TaskItem
-                key={task.id}
-                task={task}
-                overdueCount={overdueCounts.get(task.id) ?? 0}
-                selected={task.id === selectedId}
-                onSelect={onSelect}
-                onToggle={onToggle}
-                motion={enteringIds.has(task.id) ? 'entering' : undefined}
-              />
-            ),
-          )}
-        </ul>
+      {blocks.length > 0 && (
+        <div ref={listRef} className={styles.sections}>
+          {blocks.map((block, blockIndex) => (
+            <section
+              // 只有退場列的那一塊沒有區塊可以當 key;它最多一塊(在最前面)
+              key={block.section?.key ?? `exiting-${blockIndex}`}
+              className={styles.section}
+            >
+              {/* 筆數是區塊裡現有的任務數:置頂的已經抽走,退場中的不算 */}
+              {block.section !== null && block.section.label !== null && (
+                <h3 className={styles.sectionTitle}>
+                  <span className={styles.sectionName}>{block.section.label}</span>
+                  <span>{block.section.tasks.length}</span>
+                </h3>
+              )}
+              <ul className={styles.list}>
+                {block.rows.map(({ task, exiting: leaving }) =>
+                  leaving ? (
+                    // 退場列:key 和一般列不同,任務若馬上回來也不會沿用這個收到 0 高的節點
+                    <TaskItem
+                      key={`exiting-${task.id}`}
+                      task={latestById.get(task.id) ?? task}
+                      overdueCount={0}
+                      selected={false}
+                      onSelect={onSelect}
+                      onToggle={onToggle}
+                      motion="exiting"
+                      onExited={() => handleExited(task.id)}
+                    />
+                  ) : (
+                    <TaskItem
+                      key={task.id}
+                      task={task}
+                      overdueCount={overdueCounts.get(task.id) ?? 0}
+                      selected={task.id === selectedId}
+                      onSelect={onSelect}
+                      onToggle={onToggle}
+                      motion={enteringIds.has(task.id) ? 'entering' : undefined}
+                    />
+                  ),
+                )}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
     </div>
   )

@@ -6,6 +6,10 @@ export type Task = {
   dueDate: string | null
   priority: number
   completedAt: number | null
+  // Unix 秒;排序的決勝鍵
+  createdAt: number
+  // 置頂:在任何清單都固定在最上方的獨立區塊
+  pinned: boolean
   // 重複規則產生的實例才有;有值時右欄顯示規則摘要,不顯示「重複」按鈕
   recurrenceRuleId: number | null
   occurrenceDate: string | null
@@ -46,6 +50,7 @@ export type TaskPatch = {
   notes?: string | null
   priority?: number
   dueDate?: string | null
+  pinned?: boolean
 }
 
 // 截止日彈窗的草稿。之後要加 dueTime 與重複規則,所以是物件不是單一字串

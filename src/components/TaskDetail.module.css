@@ -74,3 +74,20 @@
   font: inherit;
   cursor: pointer;
 }
+
+/* 置頂的開關:外觀同其他觸發鈕;按下的狀態用底色表示,文字同時寫明 */
+.toggle {
+  width: fit-content;
+  padding: var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.toggle[aria-pressed='true'] {
+  background: var(--color-field-selected-bg);
+  color: var(--color-text);
+}

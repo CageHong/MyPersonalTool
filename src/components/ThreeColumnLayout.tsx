@@ -20,6 +20,13 @@ import {
   type ApiError,
 } from '@/lib/errors'
 import { countOf, stepCounts, type HabitItem, type HabitPatch, type PeriodCount } from '@/lib/habitView'
+import {
+  arrangeTasks,
+  listKeyOf,
+  settingsFor,
+  type StoredViewSettings,
+  type ViewSettings,
+} from '@/lib/listView'
 import type { RecurrenceRequest } from '@/lib/recurrenceDraft'
 import { earliestIncomplete, filterTasks, parseView, type ViewId } from '@/lib/views'
 import type { NewTask, Task, TaskPatch } from '@/lib/tasks'
@@ -160,6 +167,10 @@ export default function ThreeColumnLayout() {
   // 只靠 tasks 的內容看不出規則變了
   const [tasksVersion, setTasksVersion] = useState(0)
   const [loading, setLoading] = useState(true)
+  // 各清單存過的分組與排序(伺服器的資料整份替換);沒存過的清單用預設值。
+  // 載入完成前不畫清單:先用預設順序畫、設定到了再重排,列會跳一次
+  const [viewSettings, setViewSettings] = useState<StoredViewSettings[]>([])
+  const [viewSettingsLoading, setViewSettingsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // 寫入排隊:每個動作等前一個(含重抓)結束才開始,所以不必停用任何控制項。
   // 有焦點的元素被停用時瀏覽器會把焦點移到 body;停用也會吞掉寫入期間的點擊。
@@ -189,6 +200,13 @@ export default function ThreeColumnLayout() {
   // 篩選在前端做,GET /api/tasks 照舊拿全部。重複實例每條規則只剩一個代表,
   // 非代表的實例不在 visibleTasks 裡,所以也選不到(網址上的 task 會被下面的 effect 清掉)
   const { tasks: visibleTasks, overdueCounts } = filterTasks(tasks, view, today)
+
+  // 分組、排序、置頂只決定畫面上的區塊與順序,不改變「看得到哪些任務」;選取仍從 visibleTasks 找
+  const listKey = listKeyOf(view)
+  const settings = listKey === null ? null : settingsFor(viewSettings, listKey)
+  // 設定還沒載入時先不排:TaskList 這時畫骨架,設定到了才第一次畫出清單(首次出現不播過場)
+  const sections =
+    settings === null || viewSettingsLoading ? [] : arrangeTasks(visibleTasks, settings, today)
 
   const selectedId = parseSelectedId(searchParams.get('task'))
   // 從看得到的那些裡面找:選取的任務被檢視濾掉時,下面的 effect 會清掉 task 參數
@@ -241,6 +259,31 @@ export default function ThreeColumnLayout() {
     })
     return null
   }, [])
+
+  const refetchViewSettings = useCallback(async (): Promise<ApiError | null> => {
+    const response = await fetch('/api/list-views')
+    if (!response.ok) {
+      return await readApiError(response)
+    }
+    setViewSettings((await response.json()) as StoredViewSettings[])
+    return null
+  }, [])
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const failure = await refetchViewSettings()
+        if (failure !== null) {
+          setError(toGeneralMessage(failure))
+        }
+      } catch {
+        setError(generalMessage('NETWORK'))
+      } finally {
+        // 失敗也放行:清單照預設的分組與排序畫,不因為設定讀不到就整欄空白
+        setViewSettingsLoading(false)
+      }
+    })()
+  }, [refetchViewSettings])
 
   const refetchHabits = useCallback(async (): Promise<ApiError | null> => {
     const response = await fetch('/api/habits')
@@ -379,6 +422,47 @@ export default function ThreeColumnLayout() {
         }),
       ),
     [mutate],
+  )
+
+  // 批次貼上:一個請求、一個 transaction,整批成功才出現在清單裡
+  const handleCreateMany = useCallback(
+    (inputs: NewTask[]) =>
+      mutate(() =>
+        fetch('/api/tasks/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks: inputs }),
+        }),
+      ),
+    [mutate],
+  )
+
+  // 目前清單的分組與排序:整份 PUT,成功後重抓設定(同任務:不拿回應更新 state,不做樂觀更新)。
+  // 排進同一條佇列;任務本身沒變,不重抓任務
+  const handleChangeSettings = useCallback(
+    (next: ViewSettings) => {
+      if (listKey === null) {
+        return
+      }
+      void enqueue(async () => {
+        try {
+          const response = await fetch(`/api/list-views/${listKey}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(next),
+          })
+          if (!response.ok) {
+            setError(toGeneralMessage(await readApiError(response)))
+            return
+          }
+          const refetchFailure = await refetchViewSettings()
+          setError(refetchFailure === null ? null : toGeneralMessage(refetchFailure))
+        } catch {
+          setError(generalMessage('NETWORK'))
+        }
+      })
+    },
+    [enqueue, listKey, refetchViewSettings],
   )
 
   // 完成狀態只由 completedAt 表示,沒有布林欄位;
@@ -649,15 +733,19 @@ export default function ThreeColumnLayout() {
           />
         ) : (
           <TaskList
-            tasks={visibleTasks}
+            sections={sections}
+            // 走到這裡 view 一定是任務的清單,settings 不會是 null;型別上補一個預設
+            settings={settings ?? settingsFor([], 'open')}
+            onChangeSettings={handleChangeSettings}
             overdueCounts={overdueCounts}
             allTasks={tasks}
             view={view}
-            loading={loading}
+            loading={loading || viewSettingsLoading}
             error={error}
             selectedId={selectedId}
             onSelect={handleSelect}
             onCreate={handleCreate}
+            onCreateMany={handleCreateMany}
             onToggle={handleToggle}
             habitBlock={habitBlock}
           />

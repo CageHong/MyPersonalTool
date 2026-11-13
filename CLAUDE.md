@@ -12,7 +12,7 @@
 |---|---|
 | schema、migration、欄位語意、時間處理、伺服器端計算 | `docs/data-model.md` |
 | 新增或修改 API、回傳順序 | `docs/api.md` |
-| 三欄版面、網址狀態、欄位儲存、焦點、過場 | `docs/ui/layout.md` |
+| 三欄版面、網址狀態、欄位儲存、焦點、過場、分組排序置頂的 UI、批次貼上 | `docs/ui/layout.md` |
 | checklist | `docs/ui/checklist.md` |
 | 重複任務、日期選單 | `docs/ui/recurrence.md` |
 | 習慣 | `docs/ui/habits.md` |
@@ -111,9 +111,9 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 ## 之後才做(現在不要提出實作)
 
-自訂清單、中欄的分組 / 排序 / 置頂、標籤、目標(goal)、批次貼上新增、子任務 UI、習慣的回顧視圖與格子圖(H3)、排程視圖(C1–C3)、批量選取與刪除。
+自訂清單、標籤、目標(goal)、子任務 UI、習慣的回顧視圖與格子圖(H3)、排程視圖(C1–C3)、批量選取與刪除。
 
-細節與開發順序見 `docs/backlog.md`,決策見 `docs/decisions.md` §6c–§6f。
+細節與開發順序見 `docs/backlog.md`,決策見 `docs/decisions.md` §6c、§6e。
 
 ## 工作流程:依風險分級
 

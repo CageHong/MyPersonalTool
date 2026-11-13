@@ -8,11 +8,12 @@ import { db } from '../db'
 import { task, taskChecklistItem } from '../db/schema'
 import {
   createChecklistItem,
+  createChecklistItems,
   listChecklistItems,
   reorderChecklistItems,
   updateChecklistItem,
 } from './checklist'
-import { createTask, deleteTask, ValidationError } from './tasks'
+import { createTask, deleteTask, NotFoundError, ValidationError } from './tasks'
 
 before(() => {
   // 保險:萬一 test/setup 沒先載入,不在真的資料庫上跑 migration 與寫入
@@ -107,5 +108,48 @@ describe('updateChecklistItem done', () => {
 
     assert.equal(result.completedAt, old)
     assert.equal(result.updatedAt, old)
+  })
+})
+
+describe('createChecklistItems', () => {
+  test('appends the whole batch after existing items, in order', () => {
+    const { taskId } = setupTaskWithItems(2)
+
+    createChecklistItems(taskId, [' a ', 'b', 'c'])
+
+    assert.deepEqual(
+      listChecklistItems(taskId).map((item) => item.title),
+      ['item 0', 'item 1', 'a', 'b', 'c'],
+    )
+  })
+
+  test('one blank title rejects the whole batch', () => {
+    const { taskId } = setupTaskWithItems(1)
+
+    assert.throws(
+      () => createChecklistItems(taskId, ['a', '  ', 'c']),
+      (error) =>
+        error instanceof ValidationError &&
+        error.fields['1.title'] === 'required' &&
+        Object.keys(error.fields).length === 1,
+    )
+    assert.equal(rowsForTask(taskId).length, 1)
+  })
+
+  test('rejects an empty batch and more than 100', () => {
+    const { taskId } = setupTaskWithItems(0)
+
+    assert.throws(
+      () => createChecklistItems(taskId, []),
+      (error) => error instanceof ValidationError && error.fields.titles === 'required',
+    )
+    assert.throws(
+      () => createChecklistItems(taskId, Array.from({ length: 101 }, () => 'x')),
+      (error) => error instanceof ValidationError && error.fields.titles === 'too_many',
+    )
+  })
+
+  test('unknown task is not found, not a foreign key failure', () => {
+    assert.throws(() => createChecklistItems(999_999, ['a']), NotFoundError)
   })
 })

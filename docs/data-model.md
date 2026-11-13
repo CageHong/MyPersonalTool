@@ -25,6 +25,7 @@
 | `parentTaskId` | integer FK → `task.id` | 是 | 子任務;本輪不做 UI |
 | `recurrenceRuleId` | integer FK → `task_recurrence_rule.id`,ON DELETE SET NULL | 是 | 重複規則產生的實例才有 |
 | `occurrenceDate` | text `YYYY-MM-DD` | 是 | 這個實例對應規則展開的哪一天;`(recurrenceRuleId, occurrenceDate)` UNIQUE |
+| `pinned` | integer(布林)預設 false | 否 | 置頂,全域語意:在任何清單都進最上方的置頂區塊。只收布林值 |
 
 ### 時間處理規則
 
@@ -48,6 +49,38 @@
 - 刻意留空隙(2、4 不用),之後插一級不需要改既有資料。
 - 資料庫欄位是 NOT NULL DEFAULT 0。應用層接受 null,但在 `src/server/` 正規化成 0 再寫入;`createTask` 未傳時同樣填 0。
 
+### 批次建立(`createTasks`)
+
+- 收 `CreateTaskInput[]`,1 到 100 筆(`BATCH_MAX`,與 `src/lib/bulk.ts` 的 `BULK_MAX_LINES` 同值);空陣列或不是陣列 → `tasks: required`,超過 → `tasks: too_many`。
+- 驗證在寫入前全部做完,錯誤的 key 是「索引.欄位」(例:`1.title: required`)。
+- 整批在一個 transaction 裡寫入,共用同一個 `createdAt`;順序靠 id 遞增保住。
+
+## `task_list_view`
+
+清單的呈現設定(分組與排序),每個清單一列。它描述「現在想怎麼看這個清單」,不是任務的屬性(理由見 `docs/decisions.md` §6d)。
+
+| 欄位 | 型別 | 可空 | 說明 |
+|---|---|---|---|
+| `listKey` | text PK | 否 | 清單的識別字;目前只有智慧檢視的 id:`today` / `next7` / `open` / `done` |
+| `groupBy` | text | 否 | `none` / `date` / `priority`,CHECK |
+| `sortBy` | text | 否 | `created` / `dueDate` / `priority` / `title`,CHECK |
+| `sortDirection` | text | 否 | `asc` / `desc`,CHECK |
+| `updatedAt` | integer (Unix 秒) | 否 | |
+
+- 沒有對應的列 = 用預設值。預設值在 `src/lib/listView.ts` 的 `defaultSettings`,**不落地**:今天與未來 7 天預設依日期分組,其餘不分組;排序一律預設建立時間升冪。
+- `saveViewSettings(listKey, settings)` 是整份替換(upsert),三個欄位都要給;`listKey` 不是上面四個之一 → `listKey: invalid_value`。
+- 值域(`GROUP_BY_VALUES` 等)定義在 `src/lib/listView.ts`,伺服器與前端共用同一份。
+
+### 分組、排序、置頂的計算(`arrangeTasks`)
+
+純函式,在 `src/lib/listView.ts`,前端在篩選(`filterTasks`)之後呼叫;「今天」以參數傳入。
+
+- 先排序、再抽出置頂、再分組。回傳由上到下的區塊(`Section[]`),攤平就是畫面上的列順序。
+- 排序的決勝鍵固定是 `createdAt` 再 `id`。空值沉底:依截止日排序時沒有日期的、依優先級排序時無優先級的,不論方向都排最後。標題用 `Intl.Collator('zh-Hant', { numeric: true })`。
+- 依日期分組的桶:逾期 / 今天 / 明天 / 本週 / 更晚 / 無日期,相對今天計算(本週的最後一天依 `WEEK_START`);「明天」優先於「本週」。依優先級:高 / 中 / 低 / 無優先級。桶的順序固定,不跟排序方向走;空的桶不出現。
+- 置頂區塊只收未完成的置頂任務,它們從原本的分組抽離;各分組的筆數因此不含置頂的。區塊內沿用同一個排序。
+- 不分組且有置頂區塊時,剩下的那一區標題是「其他」;不分組也沒有置頂時只有一區、沒有標題。
+
 ## `task_checklist_item`
 
 任務底下的待辦項,**不是**任務——沒有截止日、不排程、不出現在任務清單查詢裡。
@@ -67,6 +100,8 @@
 - 未勾時收到 `done: true` → 寫入當下時間;已勾時收到 `done: true` → 保留原值。
 - `done: false` → `null`;已經是 `null` 就不變。
 - 狀態沒有實際變化時,不更新 `updatedAt`。
+
+`createChecklistItems(taskId, titles)`:批次新增,1 到 100 筆,整批放在最後、照陣列順序,一個 transaction;任一標題空白整批拒絕(`索引.title: required`)。
 
 ## 重複任務
 

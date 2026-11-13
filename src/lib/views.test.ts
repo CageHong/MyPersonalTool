@@ -15,6 +15,8 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     dueDate: null,
     priority: 0,
     completedAt: null,
+    createdAt: 0,
+    pinned: false,
     recurrenceRuleId: null,
     occurrenceDate: null,
     ...overrides,

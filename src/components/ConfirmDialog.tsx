@@ -7,6 +7,10 @@ type Props = {
   title: string
   description: string
   confirmLabel: string
+  // 取消鈕的字;取消在呼叫端有具體結果時換掉(例:批次貼上的「貼成一行」)
+  cancelLabel?: string
+  // 確認鈕的樣式:破壞性動作(刪除)用紅色實底,一般的主要行動用行動色
+  tone?: 'destructive' | 'action'
   onConfirm: () => void | Promise<unknown>
   onCancel: () => void
   // 關閉後焦點回到這裡。確認成功後觸發鈕通常跟著卸載(例:刪除),那時不會有 close 事件,
@@ -19,6 +23,8 @@ export default function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  cancelLabel = '取消',
+  tone = 'destructive',
   onConfirm,
   onCancel,
   triggerRef,
@@ -102,11 +108,11 @@ export default function ConfirmDialog({
             className={styles.cancel}
             onClick={() => ref.current?.close()}
           >
-            取消
+            {cancelLabel}
           </button>
           <button
             type="button"
-            className={styles.confirm}
+            className={tone === 'action' ? `${styles.confirm} ${styles.action}` : styles.confirm}
             onClick={() => void handleConfirm()}
             disabled={pending}
           >

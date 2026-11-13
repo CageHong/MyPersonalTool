@@ -1,6 +1,7 @@
 import { asc, eq, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db'
 import { task } from '../db/schema'
+import { BULK_MAX_LINES } from '../lib/bulk'
 import { todayIso } from '../lib/date'
 import { NotFoundError, ValidationError } from './errors'
 import { fillInstances } from './recurrence'
@@ -21,6 +22,7 @@ export type CreateTaskInput = {
   durationMinutes?: number | null
   priority?: number | null
   parentTaskId?: number | null
+  pinned?: boolean
 }
 
 // key 不存在 = 不改;值為 null = 設成 null。
@@ -34,6 +36,7 @@ export type UpdateTaskPatch = {
   durationMinutes?: number | null
   priority?: number | null
   parentTaskId?: number | null
+  pinned?: boolean
   done?: boolean
 }
 
@@ -48,6 +51,7 @@ const UPDATABLE_KEYS = [
   'durationMinutes',
   'priority',
   'parentTaskId',
+  'pinned',
 ] as const
 
 function collectErrors(
@@ -77,6 +81,11 @@ function collectErrors(
   // null 與 0 同義,寫入前才正規化
   if (input.priority != null && !PRIORITY_VALUES.includes(input.priority)) {
     fields.priority = 'invalid_value'
+  }
+
+  // 只收布林值;不接受 0 / 1,存進資料庫的形狀由這一層決定
+  if (input.pinned !== undefined && typeof input.pinned !== 'boolean') {
+    fields.pinned = 'invalid_value'
   }
 
   // 重複實例的歸屬只由 src/server/recurrence.ts 設定;明確拒絕,不默默忽略
@@ -136,11 +145,65 @@ export function createTask(input: CreateTaskInput): Task {
       completedAt: null,
       createdAt: Math.floor(Date.now() / 1000),
       parentTaskId: input.parentTaskId ?? null,
+      pinned: input.pinned ?? false,
     })
     .returning()
     .all()
 
   return created
+}
+
+// 批次貼上的上限,與 src/lib/bulk.ts 的 BULK_MAX_LINES 同值:避免誤貼一整份文件
+export const BATCH_MAX = BULK_MAX_LINES
+
+// 整批包在一個 transaction:要麼全部建立,要麼全部不寫入(decisions §6f)。
+// 驗證在寫入之前全部做完;錯誤的 key 是「索引.欄位」,例如 { '2.title': 'required' }
+export function createTasks(inputs: CreateTaskInput[]): Task[] {
+  if (!Array.isArray(inputs) || inputs.length === 0) {
+    throw new ValidationError({ tasks: 'required' })
+  }
+  if (inputs.length > BATCH_MAX) {
+    throw new ValidationError({ tasks: 'too_many' })
+  }
+
+  const fields: Record<string, string> = {}
+  inputs.forEach((input, index) => {
+    if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+      fields[`${index}`] = 'invalid_value'
+      return
+    }
+    for (const [field, code] of Object.entries(collectErrors(input, true))) {
+      fields[`${index}.${field}`] = code
+    }
+  })
+  if (Object.keys(fields).length > 0) {
+    throw new ValidationError(fields)
+  }
+
+  // 同一批用同一個建立時間;順序靠 id 的遞增保住(排序的決勝鍵是 createdAt 再 id)
+  const createdAt = Math.floor(Date.now() / 1000)
+  return db.transaction((tx) =>
+    inputs.map((input) => {
+      const [created] = tx
+        .insert(task)
+        .values({
+          title: input.title.trim(),
+          notes: input.notes ?? null,
+          dueDate: input.dueDate ?? null,
+          dueTime: input.dueTime ?? null,
+          scheduledAt: input.scheduledAt ?? null,
+          durationMinutes: input.durationMinutes ?? null,
+          priority: input.priority ?? 0,
+          completedAt: null,
+          createdAt,
+          parentTaskId: input.parentTaskId ?? null,
+          pinned: input.pinned ?? false,
+        })
+        .returning()
+        .all()
+      return created
+    }),
+  )
 }
 
 export function updateTask(id: number, patch: UpdateTaskPatch): Task {

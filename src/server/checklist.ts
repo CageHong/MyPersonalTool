@@ -1,6 +1,7 @@
 import { asc, eq, max } from 'drizzle-orm'
 import { db } from '../db'
 import { task, taskChecklistItem } from '../db/schema'
+import { BULK_MAX_LINES } from '../lib/bulk'
 import { NotFoundError, ValidationError } from './tasks'
 
 export type ChecklistItem = typeof taskChecklistItem.$inferSelect
@@ -79,6 +80,53 @@ export function createChecklistItem(taskId: number, title: string): ChecklistIte
       .all()
 
     return created
+  })
+}
+
+// 批次貼上:整批放在最後,照陣列順序;一個 transaction,全部建立或全部不寫入(decisions §6f)
+export function createChecklistItems(taskId: number, titles: string[]): ChecklistItem[] {
+  if (!Array.isArray(titles) || titles.length === 0) {
+    throw new ValidationError({ titles: 'required' })
+  }
+  if (titles.length > BULK_MAX_LINES) {
+    throw new ValidationError({ titles: 'too_many' })
+  }
+  const fields: Record<string, string> = {}
+  titles.forEach((title, index) => {
+    if (typeof title !== 'string' || title.trim() === '') {
+      fields[`${index}.title`] = 'required'
+    }
+  })
+  if (Object.keys(fields).length > 0) {
+    throw new ValidationError(fields)
+  }
+
+  return db.transaction((tx) => {
+    assertTaskExists(tx, taskId)
+
+    const [{ last }] = tx
+      .select({ last: max(taskChecklistItem.position) })
+      .from(taskChecklistItem)
+      .where(eq(taskChecklistItem.taskId, taskId))
+      .all()
+    const start = last === null ? 0 : last + 1
+
+    const timestamp = now()
+    return titles.map((title, index) => {
+      const [created] = tx
+        .insert(taskChecklistItem)
+        .values({
+          taskId,
+          title: title.trim(),
+          position: start + index,
+          completedAt: null,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        .returning()
+        .all()
+      return created
+    })
   })
 }
 

@@ -166,6 +166,19 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
     )
   }
 
+  // 批次貼上:一個請求、一個 transaction,整批成功才出現在清單裡
+  function handleCreateMany(titles: string[]) {
+    return write(
+      () =>
+        fetch(`/api/tasks/${taskId}/checklist-items/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ titles }),
+        }),
+      'task',
+    )
+  }
+
   async function deleteItem(
     item: ChecklistItem,
     prefer: 'next' | 'previous',
@@ -353,6 +366,7 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
       {!loading && !loadFailed && (
         <NewChecklistItemForm
           onCreate={handleCreate}
+          onCreateMany={handleCreateMany}
           inputRef={addInputRef}
           errorId={`${errorIdPrefix}-new`}
         />

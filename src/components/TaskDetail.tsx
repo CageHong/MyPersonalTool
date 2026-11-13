@@ -244,6 +244,21 @@ export default function TaskDetail({
         {fieldError('priority')}
       </div>
 
+      {/* 點選即存(同優先級)。置頂是全域的:在任何清單都固定在最上方的「置頂」區塊。
+          任務還在視圖裡、只是換區塊,右欄不重新掛載,焦點留在這顆按鈕上 */}
+      <div className={`${styles.field} ${styles.menuField}`}>
+        <span className={styles.fieldLabel}>置頂</span>
+        <button
+          type="button"
+          className={styles.toggle}
+          aria-pressed={task.pinned}
+          aria-label="置頂"
+          onClick={() => void saveField('pinned', { pinned: !task.pinned })}
+        >
+          {task.pinned ? '已置頂' : '未置頂'}
+        </button>
+      </div>
+
       {/* 實例才有這一列:目前的規則摘要,點它開啟日期選單(重複設定在那裡改) */}
       {ruleState !== null && (
         <div className={`${styles.field} ${styles.menuField}`}>

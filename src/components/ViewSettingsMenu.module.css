@@ -1,0 +1,63 @@
+/* 選單貼著觸發鈕定位,包裝層是定位原點(同 PriorityMenu) */
+.wrapper {
+  position: relative;
+  display: flex;
+  width: fit-content;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.menu {
+  position: absolute;
+  /* 觸發鈕在中欄標題列的右端,選單從右緣往左展開,才不會被欄的 overflow 裁掉 */
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 9rem;
+  padding: var(--space-2);
+  border: 1px solid var(--color-menu-border);
+  border-radius: var(--radius);
+  background: var(--color-menu-bg);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.heading {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-field-label);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.option {
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.option[aria-checked='true'] {
+  background: var(--color-field-selected-bg);
+}
