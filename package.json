@@ -2,12 +2,15 @@
   "name": "personal-tools",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test 'src/**/*.test.ts'",
+    "test": "node --import tsx --test 'src/**/*.test.ts' 'packages/*/src/**/*.test.ts'",
     "tasks:db:generate": "drizzle-kit generate --config src/modules/tasks/drizzle.config.ts",
     "tasks:db:migrate": "drizzle-kit migrate --config src/modules/tasks/drizzle.config.ts",
     "finance:db:generate": "drizzle-kit generate --config src/modules/finance/drizzle.config.ts",

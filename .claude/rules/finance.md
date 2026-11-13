@@ -52,8 +52,9 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 
 ## 對帳單解析(`packages/statement-parsers/`)
 
-- npm workspaces 的套件,還沒建(里程碑 b 的第一項)。
-- 全部是純函式,依賴裡沒有資料庫套件。內容:各來源解析器、統一的「待匯入交易」型別、來源偵測、去重 key(有來源 ID 用 ID,沒有用 日期 + 金額 + 幣別)。
+- npm workspaces 的套件 `@personal-tools/statement-parsers`;套件自己的規則在 `packages/statement-parsers/CLAUDE.md`,動它之前先讀。目前的來源:Wise CSV。
+- 全部是純函式,沒有依賴。內容:各來源解析器、統一的「待匯入交易」型別、來源偵測、去重 key(有來源 ID 用 ID,沒有用 日期 + 金額 + 幣別)。
+- 套件輸出的金額是十進位字串、帳戶是來源自己的代號(例:`wise:EUR`)。換成最小貨幣單位的整數(用 `finance_currencies.exponent`)、對應到帳本的帳戶與收款人,在 finance 的 `import` 模組做。
 - 預覽確認、比對既有交易、寫入留在 finance(經過 ledger)。
 
 ## 測試與資料

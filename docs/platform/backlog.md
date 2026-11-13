@@ -8,7 +8,7 @@
 
 ## 待做
 
-- **`packages/` 與 npm workspaces**:第一個套件(`statement-parsers`)建立時一起建,不建空殼。同時把 `npm test` 的範圍(目前是 `src/**/*.test.ts`)擴到 `packages/`。
+- **`next.config.ts` 的 `transpilePackages`**:`packages/` 的套件直接匯出 TypeScript 原始碼。Next.js 的程式(頁面、route handler、它們匯入的模組)第一次匯入某個套件時,把套件名稱加進 `transpilePackages`。目前只有測試與命令列工具(tsx)會用到套件,還不需要。
 
 ## 明確不做(提出前先問)
 

@@ -55,6 +55,7 @@ finance 的畫面怎麼套用這一層還沒定,見 `docs/platform/backlog.md`�
 | 資料庫放在 repo 外:`PERSONAL_TOOLS_DATA_DIR`(預設 repo 旁邊的 `personal-tools-data/`),每個工具一個子資料夾。取代原本 repo 內的 `data/` | finance 的資料是財務資料,資料與程式實體分開比靠 `.gitignore` 穩;兩個工具用同一條規則。位置由 `src/platform/dataDir.ts` 推算 |
 | 不屬於任何一個工具的共用程式放 `src/platform/`;模組可以匯入 platform,platform 不匯入模組 | 依賴單向。共用設計系統仍然不做,這裡只放沒有畫面的基礎設施 |
 | finance(原本的 PACR)搬進 `src/modules/finance/`:schema 與 migration、ledger(收款人、餘額)、fx、從 PACR v2 匯入的工具。還沒有頁面與 API | 地基先在 `CageHong/pacr` 獨立做完才併入。finance 的決策紀錄與進度檔含個人財務資料,留在 repo 外,不放進這個 repo |
+| `packages/<套件>/` 用 npm workspaces(根 `package.json` 的 `workspaces: ["packages/*"]`),套件名稱 `@personal-tools/<套件>`;套件的 `exports` 直接指向 `src/index.ts`,不編譯;套件不匯入 `src/` | 套件是「沒有資料庫、沒有畫面、可以單獨測試」的純函式(第一個是 `statement-parsers`),用套件邊界保證它不會依賴到模組。不編譯:不需要建置步驟與 `dist/`,tsx 與 tsc 直接讀原始碼;代價是 Next.js 的程式匯入時要加 `transpilePackages`(`docs/platform/backlog.md`)。名稱加前綴:不會跟 npm 上的公開套件撞名。2026-11-13 |
 
 ## 5. 規則與文件的分層
 

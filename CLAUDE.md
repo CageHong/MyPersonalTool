@@ -39,7 +39,7 @@
 - Next.js App Router + TypeScript
 - Drizzle ORM + Drizzle Kit + better-sqlite3
 - CSS Modules + CSS 變數(**不用 Tailwind**)
-- 測試:`node --import tsx --test`(`npm test`),檔名 `*.test.ts`,放在被測的檔案旁邊
+- 測試:`node --import tsx --test`(`npm test`,範圍是 `src/` 與 `packages/*/src/`),檔名 `*.test.ts`,放在被測的檔案旁邊
 
 Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 `02-pages/` 是舊的 Pages Router,本專案不使用,不要參考。
@@ -58,7 +58,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
   - `drizzle/` — migration 檔(進版控);設定在 `drizzle.config.ts`,用 `npm run <工具>:db:generate` 產生
   - 工具額外的資料夾寫在工具規則檔
 - `src/platform/` — 各工具共用、不屬於任何一個工具的程式(目前只有資料夾位置 `dataDir.ts`)
-- `packages/` — npm workspaces 的套件(還沒建,第一個是 `statement-parsers`)
+- `packages/<套件>/` — npm workspaces 的套件(目前有 `statement-parsers`):不匯入 `src/` 的任何東西;`src/` 的程式從套件名稱 `@personal-tools/<套件>` 匯入
 - 資料庫不在 repo 裡:`<資料夾>/<工具>/`,資料夾由 `PERSONAL_TOOLS_DATA_DIR` 指定,預設是 repo 旁邊的 `personal-tools-data/`
 
 **依賴方向**:模組可以匯入 `src/platform/`,`src/platform/` 不匯入模組。模組之間不互相匯入(schema、server 函式、型別都不行);共用的東西放 `src/platform/`。每個工具自己一個 SQLite 檔,表名加工具前綴。
