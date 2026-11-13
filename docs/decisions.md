@@ -272,3 +272,4 @@
 | 根路徑 `/` 只轉址到 `/tasks`,不做首頁 | 首頁 shell 仍然列為不做(`docs/backlog.md`);之後要做再換掉這一頁 |
 | 資料庫放在 repo 外:`PERSONAL_TOOLS_DATA_DIR`(預設 repo 旁邊的 `personal-tools-data/`),每個工具一個子資料夾。取代原本 repo 內的 `data/` | finance 的資料是財務資料,資料與程式實體分開比靠 `.gitignore` 穩;兩個工具用同一條規則。位置由 `src/platform/dataDir.ts` 推算 |
 | 不屬於任何一個工具的共用程式放 `src/platform/`;模組可以匯入 platform,platform 不匯入模組 | 依賴單向。共用設計系統仍然不做,這裡只放沒有畫面的基礎設施 |
+| finance(原本的 PACR)搬進 `src/modules/finance/`:schema 與 migration、ledger(收款人、餘額)、fx、從 PACR v2 匯入的工具。還沒有頁面與 API | 地基先在 `CageHong/pacr` 獨立做完才併入(那邊的 D37–D42)。finance 的決策紀錄與進度檔含個人財務資料,留在 repo 外,不放進這個 repo |

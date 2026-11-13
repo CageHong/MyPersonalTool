@@ -4,6 +4,8 @@
 
 個人任務管理系統。這是「personal-tools」平台的第一個工具,之後會有 media tracker、Fog of World 整合、PACR(複式簿記記帳)並存。
 
+這個 repo 同時是平台本身:每個工具在 `src/modules/<工具>/`(決策見 `docs/decisions.md` §9)。本檔與 `docs/` 目前寫的都是任務管理(`src/modules/tasks/`)的規則。finance(`src/modules/finance/`)的規則、決策與進度在 repo 外的工作文件裡,動 finance 之前先問那些文件在哪。
+
 ## 文件分工
 
 本檔只放**動手之前必須先知道、否則會做錯的規則與契約**。會隨程式碼變動的描述(欄位表、端點表、各功能的互動細節)拆在 `docs/`,動到對應區域時才讀。
