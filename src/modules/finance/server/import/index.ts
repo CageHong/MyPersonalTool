@@ -157,6 +157,7 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
 
     // 補對象:入帳的交易,帳本現在的對象其實是收款的那一方(帳戶持有人自己),而檔案裡有匯款人
     let payeeFix: { from: string; to: string } | null = null
+    // 匯款人透過別名對到的收款人就是帳本現在的對象時(例:持有人自己的另一種寫法)不用補
     const holder = pending.raw['Target name'] ?? ''
     const sender = pending.counterparty
     if (
@@ -164,6 +165,7 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
       sender !== null &&
       existing.payeeId !== null &&
       existing.payeeId === findPayeeByText(db, holder, options.payeeSuffixes) &&
+      existing.payeeId !== findPayeeByText(db, sender, options.payeeSuffixes) &&
       normalizePayeeText(sender, options.payeeSuffixes) !==
         normalizePayeeText(holder, options.payeeSuffixes)
     ) {
@@ -183,6 +185,61 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
     (row) => row.source === parsed.source && !seen.has(row.externalId!),
   ).length
   return plan
+}
+
+export type MergeConflict = { externalId: string; lines: { file: number; line: number }[] }
+
+// 同一個來源的多份解析結果合成一份(例:分段匯出、期間重疊的檔案)。
+// 同一個 ID 出現在多份檔案:內容相同就留第一份的;內容不同(金額、手續費、對方、時間、種類)列為衝突,
+// 兩筆都不留,由使用者決定。不同來源不能合併。
+export function mergeParseResults(results: readonly ParseResult[]): {
+  merged: ParseResult
+  conflicts: MergeConflict[]
+} {
+  if (!results.length) throw new Error('沒有任何解析結果')
+  const source = results[0].source
+  if (results.some((result) => result.source !== source)) {
+    throw new Error('不同來源的檔案不能一起匯入')
+  }
+  const signature = (tx: PendingTransaction) =>
+    JSON.stringify([tx.kind, tx.occurredAt, tx.movements, tx.fee, tx.counterparty])
+  const kept = new Map<string, { tx: PendingTransaction; file: number }>()
+  const conflicts = new Map<string, MergeConflict>()
+  const withoutId: PendingTransaction[] = []
+  results.forEach((result, file) => {
+    for (const tx of result.transactions) {
+      if (tx.externalId === null) {
+        withoutId.push(tx)
+        continue
+      }
+      const conflict = conflicts.get(tx.externalId)
+      if (conflict) {
+        conflict.lines.push({ file, line: tx.line })
+        continue
+      }
+      const first = kept.get(tx.externalId)
+      if (!first) {
+        kept.set(tx.externalId, { tx, file })
+      } else if (signature(first.tx) !== signature(tx)) {
+        kept.delete(tx.externalId)
+        conflicts.set(tx.externalId, {
+          externalId: tx.externalId,
+          lines: [
+            { file: first.file, line: first.tx.line },
+            { file, line: tx.line },
+          ],
+        })
+      }
+    }
+  })
+  return {
+    merged: {
+      source,
+      transactions: [...[...kept.values()].map((entry) => entry.tx), ...withoutId],
+      skipped: results.flatMap((result) => result.skipped),
+    },
+    conflicts: [...conflicts.values()],
+  }
 }
 
 export class ImportBlockedError extends Error {

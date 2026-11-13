@@ -143,9 +143,25 @@ function main() {
         aliasSeen.add(alias)
       }
     }
+    // payeeMerges 的寫法在 v2 的資料裡沒出現過時(例:對帳單匯入才會看到的寫法)也建別名,
+    // 讓之後的匯入對到同一個收款人。into 必須是 v2 的資料裡有的對象
+    let extraAliases = 0
+    for (const merge of config.payeeMerges ?? []) {
+      const key = norm(merge.into)
+      if (!payeeIdOf.has(key)) {
+        fail(`import-v2.json 的 payeeMerges:into「${merge.into}」在 v2 的資料裡沒有出現過`)
+      }
+      for (const alias of merge.from.map(norm)) {
+        if (aliasSeen.has(alias)) continue
+        tx.insert(t.financePayeeAliases).values({ alias, payeeId: payeeIdOf.get(key)! }).run()
+        aliasSeen.add(alias)
+        extraAliases++
+      }
+    }
     const payeeIdOfRaw = (raw: string | null) =>
       raw === null || raw.trim() === '' ? null : payeeIdOf.get(canonical(raw))!
-    stats['收款人'] = `${rawPayees.length} 種寫法 → ${payeeIdOf.size} 個(別名 ${aliasSeen.size} 條)`
+    stats['收款人'] =
+      `${rawPayees.length} 種寫法 → ${payeeIdOf.size} 個(別名 ${aliasSeen.size} 條,其中 ${extraAliases} 條只來自 payeeMerges)`
 
     // ── 週期項目:比對對象從子字串改成收款人 ─────────────────────
     for (const s of rows('SELECT * FROM finance_scheduled_transactions ORDER BY id')) {

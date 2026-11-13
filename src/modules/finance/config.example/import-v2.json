@@ -1,5 +1,5 @@
 {
-  "_說明": "從 v2 的 finance.db 匯入時用的設定,放在 <PERSONAL_TOOLS_DATA_DIR>/finance/import-v2.json。payeeSuffixes:對象文字結尾要去掉的付款處理商後綴。payeeMerges:寫法不同但其實是同一個對象時,把 from 併進 into(into 會成為顯示名稱)。accountGroups:帳戶群組與成員(用帳戶名稱),沒列到的帳戶不分組。",
+  "_說明": "從 v2 的 finance.db 匯入時用的設定,放在 <PERSONAL_TOOLS_DATA_DIR>/finance/import-v2.json。payeeSuffixes:對象文字結尾要去掉的付款處理商後綴。payeeMerges:寫法不同但其實是同一個對象時,把 from 併進 into(into 會成為顯示名稱,必須是 v2 的資料裡有的寫法)。from 可以是 v2 的資料裡沒出現過的寫法(例:對帳單上的寫法),一樣會建別名,讓對帳單匯入對到同一個收款人。accountGroups:帳戶群組與成員(用帳戶名稱),沒列到的帳戶不分組。",
   "payeeSuffixes": ["via Processor"],
   "payeeMerges": [
     { "into": "Some Service", "from": ["Some Company Some Service Subscription"] }

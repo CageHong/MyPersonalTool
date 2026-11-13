@@ -145,6 +145,20 @@ const aliasOk = [...oldPayee.values()].every((raw) => {
   return aliases.some((a) => a.payee_id === want && a.alias === withoutSuffix(fold(raw)))
 })
 check('每種寫法都有一條別名指到它的收款人', aliasOk, `${aliases.length} 條`)
+// payeeMerges 的每一種寫法(v2 的資料裡沒出現過的也算)都有別名,指到 into 那個寫法的收款人
+const aliasTarget = new Map(aliases.map((a) => [String(a.alias), a.payee_id]))
+const mergeAliasOk = (config.payeeMerges ?? []).every((merge) => {
+  const target = aliasTarget.get(withoutSuffix(fold(merge.into)))
+  return (
+    target !== undefined &&
+    merge.from.every((from) => aliasTarget.get(withoutSuffix(fold(from))) === target)
+  )
+})
+check(
+  'payeeMerges 的每一種寫法都有別名指到 into 的收款人',
+  mergeAliasOk,
+  `${(config.payeeMerges ?? []).reduce((n, m) => n + m.from.length, 0)} 種寫法`,
+)
 
 // 4. 週期項目 ─────────────────────────────────────────────────────
 const sameScheduled =

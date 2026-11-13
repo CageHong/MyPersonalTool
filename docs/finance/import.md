@@ -11,7 +11,9 @@
             └─ server/import  applyImport → 經過 ledger 寫入
 ```
 
-命令列:`npm run finance:import-statement -- <檔案> [--apply]`。不加 `--apply` 是試跑,只印報告。套用前把資料庫複製到 `finance.db.before-import`(每次覆蓋)。
+命令列:`npm run finance:import-statement -- <檔案> [<檔案> …] [--apply]`。不加 `--apply` 是試跑,只印報告。套用前把資料庫複製到 `finance.db.before-import`(每次覆蓋)。
+
+多個檔案(分段匯出、期間重疊)先用 `mergeParseResults` 合成一份:同一個 ID 內容相同只留一筆;內容不同(種類、時間、金額、手續費、對方)列為衝突,兩筆都不匯入,有衝突就不能套用。只差在其他原始欄位的不算衝突。
 
 ## 待匯入交易 → 分錄(`server/import/draft.ts`)
 
@@ -23,7 +25,7 @@
 
 - 來源的帳戶代號對到帳戶的 `legacy_id`:`wise:EUR` → `WISE_EUR`。帳本沒有對應的帳戶時,那一列列為「無法處理」,不自動建帳戶。
 - 十進位字串用 `finance_currencies.exponent` 換成整數;小數位數超過時列為「無法處理」,不四捨五入。
-- 對象的原始文字:對方的名稱,沒有就用備註欄(Reference);經過 `ledger/payees.ts` 的 `resolvePayee` 對到收款人。後綴清單目前讀 `<資料夾>/finance/import-v2.json` 的 `payeeSuffixes`。
+- 對象的原始文字:對方的名稱,沒有就用備註欄(Reference);經過 `ledger/payees.ts` 的 `resolvePayee` 對到收款人。後綴清單目前讀 `<資料夾>/finance/import-v2.json` 的 `payeeSuffixes`。同一個對象的不同寫法靠別名表:目前由 `finance:import-v2` 依同一份設定的 `payeeMerges` 寫入(v2 的資料裡沒出現過的寫法也會建)。
 - `import_meta`:`payee_original`、`source_category`、`row`(那一列所有欄位的原文)。
 - 分類一律先進「未分類」/「未分類收入」。
 
@@ -35,7 +37,7 @@
 |---|---|---|
 | 新的 | 帳本沒有這個 ID | 新增交易 |
 | 已經有的 | 帳本有這個 ID | 不覆蓋 |
-| └ 要補對象 | 入帳;帳本現在的對象等於那一列的 `Target name`(帳戶持有人);檔案裡的匯款人不是持有人 | 對象換成匯款人,其他不動 |
+| └ 要補對象 | 入帳;帳本現在的對象等於那一列的 `Target name`(帳戶持有人);檔案裡的匯款人不是持有人(寫法不同、也沒有透過別名對到同一個收款人) | 對象換成匯款人(有別名就用別名指到的收款人),其他不動 |
 | └ 金額不同 | 來源帳戶那一側(每個帳戶的合計)跟檔案算出來的不同 | 只列在報告,不改 |
 | 無法處理 | 沒有 ID、檔案裡 ID 重複、沒有對應的帳戶或幣別、小數位數不對 | 有任何一筆就整份不能套用 |
 

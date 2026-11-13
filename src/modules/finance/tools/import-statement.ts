@@ -1,12 +1,15 @@
 // 匯入對帳單(目前支援 Wise 的交易紀錄 CSV)。
 //
-//   npm run finance:import-statement -- <檔案>            試跑:只印報告,資料庫不變
-//   npm run finance:import-statement -- <檔案> --apply    套用:新增帳本沒有的交易、補入帳交易的對象
+//   npm run finance:import-statement -- <檔案> [<檔案> …]            試跑:只印報告,資料庫不變
+//   npm run finance:import-statement -- <檔案> [<檔案> …] --apply    套用:新增帳本沒有的交易、補入帳交易的對象
+//
+// 可以一次給多個檔案(分段匯出、期間重疊都可以):同一個 ID 只算一次;同一個 ID 內容不同時列為衝突,不能套用。
 //
 // 已經在帳本裡的交易(用來源的 ID 判斷)不會被覆蓋:只有「入帳、對象是帳戶持有人自己」的會換成匯款人;
 // 金額跟帳本不同的只列在報告裡。同一份檔案可以重複套用。
 // 套用前會把資料庫複製一份到 finance.db.before-import(每次覆蓋)。
-// 對象的後綴清單沿用 <資料夾>/finance/import-v2.json 的 payeeSuffixes,跟從 v2 匯入時用同一份。
+// 對象的後綴清單沿用 <資料夾>/finance/import-v2.json 的 payeeSuffixes,跟從 v2 匯入時用同一份;
+// 同一個對象的不同寫法(payeeMerges)由 finance:import-v2 寫進別名表,這裡經過別名表對到收款人。
 import { copyFileSync, existsSync, readFileSync } from 'node:fs'
 import { sql } from 'drizzle-orm'
 import { parseStatement, StatementFormatError } from '@personal-tools/statement-parsers'
@@ -14,7 +17,7 @@ import type { PendingTransaction } from '@personal-tools/statement-parsers'
 import { toolDataPath } from '../../../platform/dataDir'
 import { openDb } from '../db/index'
 import { DB_PATH } from '../db/path'
-import { applyImport, planImport } from '../server/import/index'
+import { applyImport, mergeParseResults, planImport } from '../server/import/index'
 import type { AccountAmount, PlanItem } from '../server/import/index'
 import { getAccountBalances } from '../server/ledger/balances'
 
@@ -35,19 +38,28 @@ function section<T>(title: string, rows: T[], line: (row: T) => string) {
 function main() {
   const args = process.argv.slice(2)
   const apply = args.includes('--apply')
-  const file = args.find((arg) => !arg.startsWith('--'))
-  if (!file) fail('要指定對帳單檔案:npm run finance:import-statement -- <檔案> [--apply]')
-  if (!existsSync(file)) fail(`找不到 ${file}`)
+  const files = args.filter((arg) => !arg.startsWith('--'))
+  if (!files.length) fail('要指定對帳單檔案:npm run finance:import-statement -- <檔案> [<檔案> …] [--apply]')
+  for (const file of files) if (!existsSync(file)) fail(`找不到 ${file}`)
   if (!existsSync(DB_PATH)) fail(`找不到資料庫 ${DB_PATH}`)
 
-  let parsed
+  const results = files.map((file) => {
+    try {
+      const result = parseStatement(readFileSync(file, 'utf-8'))
+      if (!result) fail(`${file}:認不出這個檔案的來源(目前支援:Wise 交易紀錄 CSV)`)
+      return result
+    } catch (error) {
+      if (error instanceof StatementFormatError) fail(`${file}:${error.message}`)
+      throw error
+    }
+  })
+  let merged
   try {
-    parsed = parseStatement(readFileSync(file, 'utf-8'))
+    merged = mergeParseResults(results)
   } catch (error) {
-    if (error instanceof StatementFormatError) fail(error.message)
-    throw error
+    fail(error instanceof Error ? error.message : String(error))
   }
-  if (!parsed) fail('認不出這個檔案的來源(目前支援:Wise 交易紀錄 CSV)')
+  const { merged: parsed, conflicts } = merged
 
   const configPath = toolDataPath('finance', 'import-v2.json')
   const config: { payeeSuffixes?: string[] } = existsSync(configPath)
@@ -87,8 +99,13 @@ function main() {
   const amountDiffs = existing.filter((item) => item.amountDiff)
   const incomingKept = existing.filter((item) => item.pending.kind === 'in' && !item.payeeFix)
 
-  console.log(`檔案:${file}(來源:${plan.source})`)
-  console.log(`讀到 ${parsed.transactions.length} 筆交易,略過 ${plan.skipped.length} 列`)
+  files.forEach((file, index) =>
+    console.log(`檔案 ${index + 1}:${file}(${results[index].transactions.length} 筆)`),
+  )
+  console.log(`來源:${plan.source}`)
+  console.log(
+    `合計 ${parsed.transactions.length} 筆交易(重複的 ID 只算一次),略過 ${plan.skipped.length} 列`,
+  )
   console.log(`  新的:${fresh.length}`)
   console.log(
     `  已經在帳本裡:${existing.length}(要補對象 ${payeeFixes.length}、金額不同 ${amountDiffs.length})`,
@@ -96,6 +113,7 @@ function main() {
   console.log(`  入帳、對象不用補:${incomingKept.length}`)
   console.log(`  帳本有、檔案沒有:${plan.missingFromFile}`)
   console.log(`  無法處理:${plan.errors.length}`)
+  if (files.length > 1) console.log(`  檔案之間同一個 ID 內容不同:${conflicts.length}`)
 
   const skipCounts = new Map<string, number>()
   for (const row of plan.skipped) {
@@ -103,6 +121,11 @@ function main() {
     skipCounts.set(key, (skipCounts.get(key) ?? 0) + 1)
   }
   section('略過的列,依原因', [...skipCounts], ([key, count]) => `${key}:${count}`)
+  section(
+    '檔案之間同一個 ID 內容不同(兩筆都不匯入)',
+    conflicts,
+    (c) => `${c.externalId}  ${c.lines.map((l) => `檔案 ${l.file + 1} 第 ${l.line} 行`).join('、')}`,
+  )
   section('無法處理', plan.errors, (e) => `第 ${e.line} 行  ${e.externalId ?? ''}  ${e.message}`)
   section(
     '要補對象',
@@ -131,6 +154,7 @@ function main() {
     return
   }
   if (plan.errors.length) fail('有無法處理的列,沒有套用')
+  if (conflicts.length) fail('檔案之間有內容不同的同一個 ID,沒有套用')
 
   const backupPath = `${DB_PATH}.before-import`
   db.run(sql`PRAGMA wal_checkpoint(TRUNCATE)`)

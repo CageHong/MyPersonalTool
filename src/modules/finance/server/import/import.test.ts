@@ -6,7 +6,7 @@ import type { FinanceDb } from '../../db/index'
 import { resolvePayee } from '../ledger/payees'
 import { createTransaction } from '../ledger/transactions'
 import { ACCOUNTS, AT, freshLedger } from '../testing'
-import { applyImport, ImportBlockedError, planImport } from './index'
+import { applyImport, ImportBlockedError, mergeParseResults, planImport } from './index'
 
 const options = { payeeSuffixes: ['via Processor'] }
 
@@ -320,4 +320,63 @@ test('套用到一半失敗時整份復原', () => {
   assert.throws(() => applyImport(db, plan, options))
   assert.equal(db.all(sql`SELECT * FROM finance_transactions`).length, 1)
   assert.equal(db.all(sql`SELECT * FROM finance_payees`).length, 0)
+})
+
+test('匯款人透過別名對到帳本現在的對象(持有人自己的另一種寫法)時不補', () => {
+  const db = freshLedger()
+  seedOldIncoming(db)
+  db.run(sql`INSERT INTO finance_payee_aliases (alias, payee_id)
+             SELECT 'alex-example', payee_id FROM finance_transactions WHERE external_id = 'TRANSFER-1'`)
+  const plan = planImport(db, statement([incoming({ 'Source name': 'ALEX-EXAMPLE' })]), options)
+  assert.ok(plan.items[0].status === 'existing' && plan.items[0].payeeFix === null)
+})
+
+test('補對象時,匯款人的寫法有別名就用別名指到的收款人', () => {
+  const db = freshLedger()
+  seedOldIncoming(db)
+  const known = resolvePayee(db, 'Jordan Q Sample', options.payeeSuffixes)
+  db.run(sql`INSERT INTO finance_payee_aliases (alias, payee_id) VALUES ('sample jordan', ${known})`)
+  applyImport(db, planImport(db, statement([incoming({ 'Source name': 'SAMPLE JORDAN' })]), options), options)
+  assert.equal(payeeOf(db, 'TRANSFER-1'), 'Jordan Q Sample')
+})
+
+test('mergeParseResults:重疊的檔案,同一個 ID 只留一筆;略過的列都保留', () => {
+  const a = statement([{ ID: 'CARD-1' }, { ID: 'CARD-2' }, { ID: 'CARD-9', Status: 'CANCELLED' }])
+  const b = statement([{ ID: 'CARD-2' }, { ID: 'CARD-3' }])
+  const { merged, conflicts } = mergeParseResults([a, b])
+  assert.deepEqual(conflicts, [])
+  assert.deepEqual(
+    merged.transactions.map((tx) => tx.externalId),
+    ['CARD-1', 'CARD-2', 'CARD-3'],
+  )
+  assert.equal(merged.skipped.length, 1)
+  const db = freshLedger()
+  const plan = planImport(db, merged, options)
+  assert.deepEqual(plan.errors, [])
+  assert.equal(applyImport(db, plan, options).created, 3)
+})
+
+test('mergeParseResults:同一個 ID 內容不同時列為衝突,兩筆都不留', () => {
+  const a = statement([{ ID: 'CARD-1' }, { ID: 'CARD-2' }])
+  const b = statement([{ ID: 'CARD-1', 'Source amount (after fees)': '99.00' }])
+  const { merged, conflicts } = mergeParseResults([a, b])
+  assert.deepEqual(conflicts, [
+    {
+      externalId: 'CARD-1',
+      lines: [
+        { file: 0, line: 2 },
+        { file: 1, line: 2 },
+      ],
+    },
+  ])
+  assert.deepEqual(
+    merged.transactions.map((tx) => tx.externalId),
+    ['CARD-2'],
+  )
+})
+
+test('mergeParseResults:只差在 raw 的欄位(例:完成時間)不算衝突', () => {
+  const a = statement([{ ID: 'CARD-1', Reference: 'a' }])
+  const b = statement([{ ID: 'CARD-1', Reference: 'a', Category: 'Other' }])
+  assert.deepEqual(mergeParseResults([a, b]).conflicts, [])
 })
