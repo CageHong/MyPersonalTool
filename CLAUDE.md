@@ -48,7 +48,8 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 - `src/modules/tasks/components/` — UI 元件
 - `src/modules/tasks/lib/` — 前後端共用的純函式與型別(不碰資料庫與檔案系統)
 - `src/modules/tasks/drizzle/` — migration 檔(進版控);設定在 `src/modules/tasks/drizzle.config.ts`,用 `npm run tasks:db:generate` 產生
-- `data/` — SQLite 檔(不進版控)
+- `src/platform/` — 各工具共用、不屬於任何一個工具的程式(目前只有資料夾位置 `dataDir.ts`)
+- 資料庫不在 repo 裡:`<資料夾>/tasks/tasks.db`,資料夾由 `PERSONAL_TOOLS_DATA_DIR` 指定,預設是 repo 旁邊的 `personal-tools-data/`
 
 ## 錯誤與驗證契約
 
@@ -133,7 +134,7 @@ MVP 只有三種錯誤碼,不要自行增加:
 ## 紀律
 
 1. **業務邏輯一律寫在 `src/modules/tasks/server/` 的純函式。** route handler 只做三件事:解析請求、呼叫 `src/modules/tasks/server/` 的函式、回傳 JSON。不要在 route handler 裡寫任何邏輯或直接碰資料庫。理由見 `docs/decisions.md` §1。
-2. `data/` 必須在 `.gitignore` 裡。
+2. repo 裡不放任何資料;資料庫的位置只在 `src/modules/tasks/db/path.ts` 定義。`.gitignore` 的 `/data` 只是保險。
 3. 一次只做一個垂直切片,結束時必須是跑得起來、可以 commit 的狀態。
 4. 改了行為就在同一次修改裡更新對應的 `docs/` 檔;新定案的決策追加到 `docs/decisions.md`。
 

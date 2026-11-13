@@ -2,14 +2,11 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { DB_PATH } from './path'
 import * as schema from './schema'
 
-// 與 drizzle.config.ts 的 dbCredentials.url 一致。
-// TASKS_DB_PATH 只給測試用(':memory:'),正常執行不設
-const DB_PATH = process.env.TASKS_DB_PATH ?? './data/tasks.db'
-
 function createDb() {
-  // data/ 不進版控,clone 下來時不存在
+  // 資料夾在 repo 外,第一次執行時不存在
   const dir = dirname(DB_PATH)
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })

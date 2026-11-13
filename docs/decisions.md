@@ -270,3 +270,5 @@
 | 每個工具自己的 Drizzle 設定檔與 migration 資料夾,指令加工具前綴(`npm run tasks:db:generate`) | 各工具分開 SQLite 檔,migration 的紀錄也要分開 |
 | 每個工具的頁面在 `/<工具>`,API 在 `/api/<工具>/…`;任務管理是 `/tasks` 與 `/api/tasks/…`,任務這個資源因此是 `/api/tasks/tasks` | 規則只有一條、沒有例外。放棄「任務維持 `/api/tasks/:id`,其他資源搬到 `/api/tasks/` 底下」:同一層會同時有任務 id 與其他資源的名稱 |
 | 根路徑 `/` 只轉址到 `/tasks`,不做首頁 | 首頁 shell 仍然列為不做(`docs/backlog.md`);之後要做再換掉這一頁 |
+| 資料庫放在 repo 外:`PERSONAL_TOOLS_DATA_DIR`(預設 repo 旁邊的 `personal-tools-data/`),每個工具一個子資料夾。取代原本 repo 內的 `data/` | finance 的資料是財務資料,資料與程式實體分開比靠 `.gitignore` 穩;兩個工具用同一條規則。位置由 `src/platform/dataDir.ts` 推算 |
+| 不屬於任何一個工具的共用程式放 `src/platform/`;模組可以匯入 platform,platform 不匯入模組 | 依賴單向。共用設計系統仍然不做,這裡只放沒有畫面的基礎設施 |
