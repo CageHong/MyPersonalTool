@@ -1,4 +1,4 @@
-import { createChecklistItems } from '@/server/checklist'
+import { createChecklistItems } from '@/modules/tasks/server/checklist'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 // 批次新增:body { titles: [...] },整批放在最後,整批成功才寫入

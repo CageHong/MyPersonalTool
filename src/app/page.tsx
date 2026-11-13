@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
-import PageSkeleton from '@/components/PageSkeleton'
-import ThreeColumnLayout from '@/components/ThreeColumnLayout'
+import PageSkeleton from '@/modules/tasks/components/PageSkeleton'
+import ThreeColumnLayout from '@/modules/tasks/components/ThreeColumnLayout'
 
 export default function Home() {
   // ThreeColumnLayout 讀 useSearchParams,預先渲染時要有 Suspense 邊界;

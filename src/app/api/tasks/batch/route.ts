@@ -1,4 +1,4 @@
-import { createTasks, type CreateTaskInput } from '@/server/tasks'
+import { createTasks, type CreateTaskInput } from '@/modules/tasks/server/tasks'
 import { errorResponse, handleError, readJsonObject } from '@/app/api/_lib/http'
 
 // 批次建立:body { tasks: [...] },整批成功才寫入

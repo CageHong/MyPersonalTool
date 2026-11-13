@@ -51,12 +51,12 @@
 | 抽屜:是否出現只看網址有無 `task`;關閉鈕 = 移除 `task`;寬度沿用右欄 | 版面 session |
 | 載入字型檔 | 手機或 Windows 筆電常用時,與共用設計系統一起 |
 | Google Calendar 單向推送(Task → GCal) | task manager 功能穩定後 |
-| `NotFoundError` 帶資源類型(`ValidationError` / `NotFoundError` 搬到 `src/server/errors.ts` 已在 R1 完成) | 有第二個工具的 server 模組時 |
+| `NotFoundError` 帶資源類型(`ValidationError` / `NotFoundError` 搬到 `src/modules/tasks/server/errors.ts` 已在 R1 完成) | 有第二個工具的 server 模組時 |
 | 虛擬實例可操作(寫入 EXDATE 式的例外紀錄) | 做日曆視圖時 |
 | 規則加時間欄位(`dueTime`、`scheduledAt`、duration 的對應),實例從規則複製 | 做日曆視圖時 |
 | `createRuleFromTask` 對有 `scheduledAt` 的任務目前拒絕;改成平移或由規則決定時刻 | 做日曆視圖時 |
 | 改規則時,新規則在今天剛好有一次而舊規則沒有,今天不補 | 實際遇到時 |
-| 前端 `PRIORITY_LEVELS` / `PRIORITY_OPTIONS` 與伺服器 `PRIORITY_VALUES` 共用一份值域(放 `src/lib/`,伺服器 import) | 值域要改時 |
+| 前端 `PRIORITY_LEVELS` / `PRIORITY_OPTIONS` 與伺服器 `PRIORITY_VALUES` 共用一份值域(放 `src/modules/tasks/lib/`,伺服器 import) | 值域要改時 |
 | 今天與未來七天要不要顯示區間內已完成的任務 | 分組已完成,這一項還沒決定 |
 | 區塊標題可收合 | 收合狀態存哪裡要先決定 |
 | 依清單、依標籤分組 | 自訂清單與標籤做完後,加進 `GROUP_BY_VALUES` |

@@ -1,4 +1,4 @@
-import { createTask, listTasks, type CreateTaskInput } from '@/server/tasks'
+import { createTask, listTasks, type CreateTaskInput } from '@/modules/tasks/server/tasks'
 import { errorResponse, handleError, readJsonObject } from '@/app/api/_lib/http'
 
 export async function GET(): Promise<Response> {

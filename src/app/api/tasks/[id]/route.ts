@@ -1,4 +1,4 @@
-import { deleteTask, updateTask, type UpdateTaskPatch } from '@/server/tasks'
+import { deleteTask, updateTask, type UpdateTaskPatch } from '@/modules/tasks/server/tasks'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function PATCH(

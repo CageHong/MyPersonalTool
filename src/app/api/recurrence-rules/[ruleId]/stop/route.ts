@@ -1,5 +1,5 @@
-import { stopRule } from '@/server/recurrence'
-import { todayIso } from '@/lib/date'
+import { stopRule } from '@/modules/tasks/server/recurrence'
+import { todayIso } from '@/modules/tasks/lib/date'
 import { handleError, parseId } from '@/app/api/_lib/http'
 
 // 停止重複是動作,不是欄位更新,所以用 POST 子路徑而不是 PATCH endedAt。冪等,沒有 body

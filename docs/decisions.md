@@ -10,10 +10,10 @@
 | 決策 | 理由 |
 |---|---|
 | 單一 Next.js app,不拆獨立 API server | 一個 process,部署最簡單;長期要搬家的需求由下一條紀律保證 |
-| 業務邏輯一律寫在 `src/server/` 的純函式;route handler 只解析請求、呼叫函式、回傳 JSON | API 之後要搬到獨立伺服器,邏輯不綁框架,搬家時只換入口 |
-| 驗證邏輯(如標題不可為空)放 `src/server/`;協定層解析(如網址 id 不是數字)放 route handler | 純函式是唯一入口:之後重複任務的產生邏輯或匯入 script 直接呼叫 `src/server/` 時,驗證不會被繞過。協定層解析則是 HTTP 才有的問題,搬家時會跟著入口一起換掉 |
-| 驗證失敗時 throw 自訂錯誤類別(帶 `fields`),定義在 `src/server/`;route handler 用 `instanceof` 對映到狀態碼 | `src/server/` 不可以知道 HTTP 的存在 |
-| 前端不從 `src/server/` import 任何東西,包括型別 | `import type` 雖不會被打包,但搬家時仍是要拆的相依 |
+| 業務邏輯一律寫在 `src/modules/tasks/server/` 的純函式;route handler 只解析請求、呼叫函式、回傳 JSON | API 之後要搬到獨立伺服器,邏輯不綁框架,搬家時只換入口 |
+| 驗證邏輯(如標題不可為空)放 `src/modules/tasks/server/`;協定層解析(如網址 id 不是數字)放 route handler | 純函式是唯一入口:之後重複任務的產生邏輯或匯入 script 直接呼叫 `src/modules/tasks/server/` 時,驗證不會被繞過。協定層解析則是 HTTP 才有的問題,搬家時會跟著入口一起換掉 |
+| 驗證失敗時 throw 自訂錯誤類別(帶 `fields`),定義在 `src/modules/tasks/server/`;route handler 用 `instanceof` 對映到狀態碼 | `src/modules/tasks/server/` 不可以知道 HTTP 的存在 |
+| 前端不從 `src/modules/tasks/server/` import 任何東西,包括型別 | `import type` 雖不會被打包,但搬家時仍是要拆的相依 |
 | 技術棧:TypeScript、Drizzle + better-sqlite3、SQLite、CSS Modules | 已定案,不提替代方案(Prisma、Tailwind、Postgres 等) |
 | 各工具分開 SQLite 檔,表名保留前綴 | 工具之間資料獨立,首頁摘要另行處理 |
 | 登入暫不做,身分檢查獨立成中介層 | 只在 Tailscale 網內使用 |
@@ -23,9 +23,9 @@
 | 決策 | 理由 |
 |---|---|
 | 日曆日期存 `YYYY-MM-DD` 文字;絕對時刻存 Unix 整數秒 | 截止日是「哪一天」,不是時刻,存成時刻會有時區偏移問題 |
-| 完成狀態用 `completedAt` 時間戳,不用布林值。寫入時對外收 `done: boolean`,時間由 `src/server/` 寫入,且冪等:未完成收到完成 → 寫當下時間;已完成收到完成 → 保留原值;收到未完成 → `null`(已是 `null` 不變)。適用於所有有完成狀態的實體(任務、checklist 項目,以及之後的新實體) | 同時記錄「有沒有完成」與「何時完成」,之後回顧需要;冪等讓重複送出(重試、連點)不會改寫原本的完成時間,「何時完成」才可靠 |
+| 完成狀態用 `completedAt` 時間戳,不用布林值。寫入時對外收 `done: boolean`,時間由 `src/modules/tasks/server/` 寫入,且冪等:未完成收到完成 → 寫當下時間;已完成收到完成 → 保留原值;收到未完成 → `null`(已是 `null` 不變)。適用於所有有完成狀態的實體(任務、checklist 項目,以及之後的新實體) | 同時記錄「有沒有完成」與「何時完成」,之後回顧需要;冪等讓重複送出(重試、連點)不會改寫原本的完成時間,「何時完成」才可靠 |
 | `task` 表保留 `parentTaskId` | 預留子任務 |
-| `priority` 值域 0 / 1 / 3 / 5(無/低/中/高),越大越重要 | 留間隔供之後插入新等級;`null` 在 `src/server/` 正規化成 0 |
+| `priority` 值域 0 / 1 / 3 / 5(無/低/中/高),越大越重要 | 留間隔供之後插入新等級;`null` 在 `src/modules/tasks/server/` 正規化成 0 |
 | 目前硬刪除 | MVP 測試階段沒有真實資料;加軟刪除前刪掉的資料不可復原,這點已知並接受 |
 | 預設排序:未完成在前、已完成在後,組內依 `createdAt` 升冪;排序在 SQL 層做 | 參考 TickTick;SQL 排序為之後的分頁鋪路 |
 
@@ -182,7 +182,7 @@
 
 | 決策 | 理由 |
 |---|---|
-| 分組、排序、置頂在前端算(`src/lib/listView.ts` 的 `arrangeTasks`),不走 SQL `ORDER BY`、不加 `?sort=`。取代本節「`ORDER BY` 最後一層」的字面做法:決勝鍵的規則不變,改由比較函式實作 | 篩選本來就在前端(`filterTasks`),`GET /api/tasks` 一次拿全部、各清單共用同一份;分組的日期桶又是相對今天算的,只能在篩選之後做。排序若放伺服器,換清單與每次寫入後的重抓都要帶排序參數,換清單時還會先看到舊順序。純函式放 `src/lib/`,伺服器之後要分頁時可以直接呼叫同一份 |
+| 分組、排序、置頂在前端算(`src/modules/tasks/lib/listView.ts` 的 `arrangeTasks`),不走 SQL `ORDER BY`、不加 `?sort=`。取代本節「`ORDER BY` 最後一層」的字面做法:決勝鍵的規則不變,改由比較函式實作 | 篩選本來就在前端(`filterTasks`),`GET /api/tasks` 一次拿全部、各清單共用同一份;分組的日期桶又是相對今天算的,只能在篩選之後做。排序若放伺服器,換清單與每次寫入後的重抓都要帶排序參數,換清單時還會先看到舊順序。純函式放 `src/modules/tasks/lib/`,伺服器之後要分頁時可以直接呼叫同一份 |
 | 設定表 `task_list_view` 以 `listKey`(文字)為主鍵,目前的值是智慧檢視的 id | 智慧檢視沒有資料列可以掛外鍵;自訂清單出現時用另一種前綴,不必改表 |
 | 預設值不落地:沒有列就用 `defaultSettings`。今天與未來 7 天預設依日期分組,其餘不分組 | 之後改預設時,沒動過設定的清單跟著變。今天與未來 7 天混著逾期與未到期的,預設就該分得開(併掉 backlog 的「逾期 / 今天 / 之後的區段標題」) |
 | 排序欄位:建立時間、截止日、優先級、標題;方向可切換,換欄位時回到該欄位的起始方向(日期近的在前、優先級高的在前) | 從「標題 Z → A」換到優先級時沿用降冪剛好對,從「截止日近的在前」換過去沿用升冪就會變成低的在前;方向的意義跟著欄位,不能直接沿用 |
@@ -224,7 +224,7 @@
 | 確認框的「取消」語意是把整段文字當成一個標題貼進去 | 因此不能在跳出前就先改寫輸入框內容 |
 | 逐行正規化:剝掉開頭的清單標記(`-`、`*`、`•`、`1.`、`1)`、`[ ]`、`[x]`)與縮排空白 / tab,再 trim | 貼進來的通常是別處的清單 |
 | **不做**「無標記的首行當父任務、有標記的當子項」 | TickTick 沒有這個行為;它要猜使用者的意圖,猜錯的代價是建出錯誤的結構 |
-| 解析寫成純函式 `parseBulkLines(text): string[]`(放 `src/lib/`),中欄新增列與 checklist 新增列共用;差別只在輸出端 | 兩邊的解析規則完全相同,分開寫一定會漂移 |
+| 解析寫成純函式 `parseBulkLines(text): string[]`(放 `src/modules/tasks/lib/`),中欄新增列與 checklist 新增列共用;差別只在輸出端 | 兩邊的解析規則完全相同,分開寫一定會漂移 |
 | 伺服器端提供接受陣列的批次建立端點,整批包在一個 transaction 裡 | 要麼全部建立成功,要麼全部不寫入;中途失敗留下半套資料比失敗更難處理 |
 | 設行數上限(100) | 避免誤貼一整份文件 |
 
@@ -256,3 +256,15 @@
 ## 8. 延後事項
 
 已移到 `docs/backlog.md`,與 `CLAUDE.md` 原本的「之後才做」「待處理事項」合併。本檔只放已定案的決策與理由。
+
+## 9. 平台結構(personal-tools)
+
+第二個工具(finance,原本的 PACR)要進來,所以先把「平台」和「工具」分開。2026-11-13 定案。
+
+| 決策 | 理由 |
+|---|---|
+| 這個 repo 就是 personal-tools 的 repo;單一 repo、一條歷史,不用 submodule 或 subtree | 單一 Next.js app(§1)之下工具不自足:頁面入口與套件版本在平台這一層,拆成多個 repo 一個改動要兩邊各 commit 一次。看單一工具的歷史用路徑篩選(`git log -- src/modules/tasks`),commit 訊息加工具前綴 |
+| 目錄用工具優先:每個工具一個資料夾 `src/modules/<工具>/`,裡面是 `server/`、`db/`、`components/`、`lib/`、`drizzle/` | 一個工具的東西集中在一處,每加一個工具只多一個資料夾。放棄層優先(`src/server/<工具>/`):工具的東西會分散在四個地方 |
+| 頁面與 route handler 仍在 `src/app/` 底下 | App Router 規定路由在 `src/app/`;route handler 只解析請求、呼叫模組的函式(§1 不變) |
+| 模組之間不直接匯入對方的 schema 或 server 函式 | 工具之間資料獨立(§1「各工具分開 SQLite 檔」的延伸) |
+| 每個工具自己的 Drizzle 設定檔與 migration 資料夾,指令加工具前綴(`npm run tasks:db:generate`) | 各工具分開 SQLite 檔,migration 的紀錄也要分開 |

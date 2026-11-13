@@ -42,11 +42,11 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 
 - `src/app/` — 頁面與路由
 - `src/app/api/` — route handler
-- `src/server/` — 業務邏輯(純函式)
-- `src/db/` — Drizzle schema 與連線
-- `src/components/` — UI 元件
-- `src/lib/` — 前後端共用的純函式與型別(不碰資料庫與檔案系統)
-- `drizzle/` — migration 檔(進版控)
+- `src/modules/tasks/server/` — 業務邏輯(純函式)
+- `src/modules/tasks/db/` — Drizzle schema 與連線
+- `src/modules/tasks/components/` — UI 元件
+- `src/modules/tasks/lib/` — 前後端共用的純函式與型別(不碰資料庫與檔案系統)
+- `src/modules/tasks/drizzle/` — migration 檔(進版控);設定在 `src/modules/tasks/drizzle.config.ts`,用 `npm run tasks:db:generate` 產生
 - `data/` — SQLite 檔(不進版控)
 
 ## 錯誤與驗證契約
@@ -69,18 +69,18 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 驗證的位置:
 
-- 驗證邏輯寫在 `src/server/` 的函式裡,不寫在 route handler(理由見 `docs/decisions.md` §1)。
-- 驗證失敗時 throw 自訂錯誤類別(帶 `fields` 資訊),定義在 `src/server/`。
-- route handler 用 `instanceof` 判斷錯誤類別,對映到狀態碼。`src/server/` 不可以知道 HTTP 的存在——不 import Next.js 的任何東西,不回傳 Response。
+- 驗證邏輯寫在 `src/modules/tasks/server/` 的函式裡,不寫在 route handler(理由見 `docs/decisions.md` §1)。
+- 驗證失敗時 throw 自訂錯誤類別(帶 `fields` 資訊),定義在 `src/modules/tasks/server/`。
+- route handler 用 `instanceof` 判斷錯誤類別,對映到狀態碼。`src/modules/tasks/server/` 不可以知道 HTTP 的存在——不 import Next.js 的任何東西,不回傳 Response。
 
 驗證 vs 解析的判準:這條規則在**非 HTTP 的呼叫路徑**上還成立嗎?
 
-- 成立(例:title 不能為空)→ 業務驗證,寫在 `src/server/`
+- 成立(例:title 不能為空)→ 業務驗證,寫在 `src/modules/tasks/server/`
 - 不成立(例:網址上的 id 是 "abc"、body 不是合法 JSON)→ 協定層解析,寫在 route handler,同樣回 `VALIDATION_FAILED`
 
 ## 前端
 
-**資料一律走 HTTP。** 畫面用 Client Component,以 `fetch('/api/tasks')` 取資料。不要在頁面或元件直接 import `src/server/`(型別也不行),不要用 Server Action。理由見 `docs/decisions.md` §4。
+**資料一律走 HTTP。** 畫面用 Client Component,以 `fetch('/api/tasks')` 取資料。不要在頁面或元件直接 import `src/modules/tasks/server/`(型別也不行),不要用 Server Action。理由見 `docs/decisions.md` §4。
 
 **畫面更新一律重新抓。** 任何寫入操作(POST / PATCH / DELETE)成功後,重新 `GET /api/tasks`,用回傳結果整份替換 state。不要拿回應的物件去局部更新 state,不要做樂觀更新。習慣的寫入同理,重抓的是 `GET /api/habits`。例外只有三個,都已定案,不要再增加:編輯中的輸入框、checklist 拖曳排序、習慣計數。
 
@@ -97,7 +97,7 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 **元件只能引用語意層**,不得引用 `--palette-*`。需要新顏色時先看語意層有沒有合適的名字;沒有就新增語意變數指向既有色票,新增色票要先問。間距只能用 `--space-1` 到 `--space-5`,字級只能用 `--text-xs` 到 `--text-lg`。過場的時長與曲線只能用 `--motion-duration`、`--motion-easing`。
 
-**錯誤訊息一律中文。** 錯誤代碼在 `src/lib/errors.ts` 轉成中文,對應不到的代碼也要有中文 fallback,不要把 API 的英文訊息漏到畫面上。
+**錯誤訊息一律中文。** 錯誤代碼在 `src/modules/tasks/lib/errors.ts` 轉成中文,對應不到的代碼也要有中文 fallback,不要把 API 的英文訊息漏到畫面上。
 
 現階段不做深色模式,不做共用設計系統。
 
@@ -131,7 +131,7 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 ## 紀律
 
-1. **業務邏輯一律寫在 `src/server/` 的純函式。** route handler 只做三件事:解析請求、呼叫 `src/server/` 的函式、回傳 JSON。不要在 route handler 裡寫任何邏輯或直接碰資料庫。理由見 `docs/decisions.md` §1。
+1. **業務邏輯一律寫在 `src/modules/tasks/server/` 的純函式。** route handler 只做三件事:解析請求、呼叫 `src/modules/tasks/server/` 的函式、回傳 JSON。不要在 route handler 裡寫任何邏輯或直接碰資料庫。理由見 `docs/decisions.md` §1。
 2. `data/` 必須在 `.gitignore` 裡。
 3. 一次只做一個垂直切片,結束時必須是跑得起來、可以 commit 的狀態。
 4. 改了行為就在同一次修改裡更新對應的 `docs/` 檔;新定案的決策追加到 `docs/decisions.md`。

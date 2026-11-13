@@ -2,7 +2,7 @@ import {
   deleteChecklistItem,
   updateChecklistItem,
   type UpdateChecklistItemPatch,
-} from '@/server/checklist'
+} from '@/modules/tasks/server/checklist'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function PATCH(

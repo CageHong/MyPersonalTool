@@ -1,4 +1,4 @@
-import { listViewSettings } from '@/server/listViews'
+import { listViewSettings } from '@/modules/tasks/server/listViews'
 import { errorResponse } from '@/app/api/_lib/http'
 
 export async function GET(): Promise<Response> {

@@ -1,5 +1,5 @@
-import { deleteHabit, updateHabit, type UpdateHabitPatch } from '@/server/habits'
-import { todayIso } from '@/lib/date'
+import { deleteHabit, updateHabit, type UpdateHabitPatch } from '@/modules/tasks/server/habits'
+import { todayIso } from '@/modules/tasks/lib/date'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function PATCH(

@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test 'src/**/*.test.ts'"
+    "test": "node --import tsx --test 'src/**/*.test.ts'",
+    "tasks:db:generate": "drizzle-kit generate --config src/modules/tasks/drizzle.config.ts",
+    "tasks:db:migrate": "drizzle-kit migrate --config src/modules/tasks/drizzle.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

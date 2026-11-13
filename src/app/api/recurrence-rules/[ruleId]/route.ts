@@ -1,5 +1,5 @@
-import { getRule, updateRule, type UpdateRuleChanges } from '@/server/recurrence'
-import { todayIso } from '@/lib/date'
+import { getRule, updateRule, type UpdateRuleChanges } from '@/modules/tasks/server/recurrence'
+import { todayIso } from '@/modules/tasks/lib/date'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function GET(

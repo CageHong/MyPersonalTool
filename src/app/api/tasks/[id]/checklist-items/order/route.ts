@@ -1,4 +1,4 @@
-import { reorderChecklistItems } from '@/server/checklist'
+import { reorderChecklistItems } from '@/modules/tasks/server/checklist'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function PUT(

@@ -1,4 +1,4 @@
-import { createChecklistItem, listChecklistItems } from '@/server/checklist'
+import { createChecklistItem, listChecklistItems } from '@/modules/tasks/server/checklist'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function GET(

@@ -12,7 +12,7 @@
 
 ## 圈圈
 
-`HabitCircles`,習慣視圖與中欄共用;畫面模型是 `src/lib/habitView.ts` 的 `circleModel`。
+`HabitCircles`,習慣視圖與中欄共用;畫面模型是 `src/modules/tasks/lib/habitView.ts` 的 `circleModel`。
 
 - 有目標且 target <= 6 才用圈圈;target > 6 顯示 `count/target` 加 −/+;紀錄型顯示次數加 +。count 0 時的 − 不動作,用 `aria-disabled`,不用 `disabled`。
 - 四種狀態:已勾(實心深色)、下一顆(空心、邊框明顯)、尚未輪到(空心淡色)、超額(接在目標之後,只有外框)。深淺編碼已勾與未勾,不是位置。

@@ -1,8 +1,8 @@
 # 資料模型
 
-欄位表、時間處理規則,以及伺服器端的領域規則。**動到 schema、migration 或 `src/server/` 的計算邏輯前讀這一份。**
+欄位表、時間處理規則,以及伺服器端的領域規則。**動到 schema、migration 或 `src/modules/tasks/server/` 的計算邏輯前讀這一份。**
 
-事實來源是 `src/db/schema.ts` 與 `src/server/`;本檔與程式碼不一致時以程式碼為準,並在同一次修改裡更新本檔。
+事實來源是 `src/modules/tasks/db/schema.ts` 與 `src/modules/tasks/server/`;本檔與程式碼不一致時以程式碼為準,並在同一次修改裡更新本檔。
 
 決策理由見 `docs/decisions.md` §2、§6a、§6b。
 
@@ -31,11 +31,11 @@
 
 - 絕對瞬間一律存 **Unix 秒數整數**(`createdAt`、`completedAt`、`scheduledAt`)。
 - `dueDate` 是**日曆日**,存文字 `YYYY-MM-DD`,不要轉成時間戳(理由見 `docs/decisions.md` §2)。
-- `dueDate`、`startDate` 必須是真實存在的日曆日(`isCalendarDate`,在 `src/server/validation.ts`);`2026-02-30` 這種形狀合法但不存在的日期回 `invalid_format`。
+- `dueDate`、`startDate` 必須是真實存在的日曆日(`isCalendarDate`,在 `src/modules/tasks/server/validation.ts`);`2026-02-30` 這種形狀合法但不存在的日期回 `invalid_format`。
 - `dueTime` 與 `dueDate` 分開,因為「9/10 到期」和「9/10 15:00 到期」語意不同。
 - `durationMinutes` 是長度不是時刻,存分鐘數。
 - 完成狀態用 `completedAt` 判斷,**不要**加布林欄位(理由見 `docs/decisions.md` §2)。
-- `createdAt` 在 schema 層**沒有**預設值,由 `src/server/` 的建立函式填入 `Math.floor(Date.now() / 1000)`。理由:那是業務規則,不放資料層。
+- `createdAt` 在 schema 層**沒有**預設值,由 `src/modules/tasks/server/` 的建立函式填入 `Math.floor(Date.now() / 1000)`。理由:那是業務規則,不放資料層。
 
 ### 更新規則(`updateTask`)
 
@@ -47,11 +47,11 @@
 
 - 值域固定為 0 / 1 / 3 / 5,對映 無 / 低 / 中 / 高。數字大 = 重要。
 - 刻意留空隙(2、4 不用),之後插一級不需要改既有資料。
-- 資料庫欄位是 NOT NULL DEFAULT 0。應用層接受 null,但在 `src/server/` 正規化成 0 再寫入;`createTask` 未傳時同樣填 0。
+- 資料庫欄位是 NOT NULL DEFAULT 0。應用層接受 null,但在 `src/modules/tasks/server/` 正規化成 0 再寫入;`createTask` 未傳時同樣填 0。
 
 ### 批次建立(`createTasks`)
 
-- 收 `CreateTaskInput[]`,1 到 100 筆(`BATCH_MAX`,與 `src/lib/bulk.ts` 的 `BULK_MAX_LINES` 同值);空陣列或不是陣列 → `tasks: required`,超過 → `tasks: too_many`。
+- 收 `CreateTaskInput[]`,1 到 100 筆(`BATCH_MAX`,與 `src/modules/tasks/lib/bulk.ts` 的 `BULK_MAX_LINES` 同值);空陣列或不是陣列 → `tasks: required`,超過 → `tasks: too_many`。
 - 驗證在寫入前全部做完,錯誤的 key 是「索引.欄位」(例:`1.title: required`)。
 - 整批在一個 transaction 裡寫入,共用同一個 `createdAt`;順序靠 id 遞增保住。
 
@@ -67,13 +67,13 @@
 | `sortDirection` | text | 否 | `asc` / `desc`,CHECK |
 | `updatedAt` | integer (Unix 秒) | 否 | |
 
-- 沒有對應的列 = 用預設值。預設值在 `src/lib/listView.ts` 的 `defaultSettings`,**不落地**:今天與未來 7 天預設依日期分組,其餘不分組;排序一律預設建立時間升冪。
+- 沒有對應的列 = 用預設值。預設值在 `src/modules/tasks/lib/listView.ts` 的 `defaultSettings`,**不落地**:今天與未來 7 天預設依日期分組,其餘不分組;排序一律預設建立時間升冪。
 - `saveViewSettings(listKey, settings)` 是整份替換(upsert),三個欄位都要給;`listKey` 不是上面四個之一 → `listKey: invalid_value`。
-- 值域(`GROUP_BY_VALUES` 等)定義在 `src/lib/listView.ts`,伺服器與前端共用同一份。
+- 值域(`GROUP_BY_VALUES` 等)定義在 `src/modules/tasks/lib/listView.ts`,伺服器與前端共用同一份。
 
 ### 分組、排序、置頂的計算(`arrangeTasks`)
 
-純函式,在 `src/lib/listView.ts`,前端在篩選(`filterTasks`)之後呼叫;「今天」以參數傳入。
+純函式,在 `src/modules/tasks/lib/listView.ts`,前端在篩選(`filterTasks`)之後呼叫;「今天」以參數傳入。
 
 - 先排序、再抽出置頂、再分組。回傳由上到下的區塊(`Section[]`),攤平就是畫面上的列順序。
 - 排序的決勝鍵固定是 `createdAt` 再 `id`。空值沉底:依截止日排序時沒有日期的、依優先級排序時無優先級的,不論方向都排最後。標題用 `Intl.Collator('zh-Hant', { numeric: true })`。
@@ -95,7 +95,7 @@
 | `createdAt` | integer (Unix 秒) | 否 | |
 | `updatedAt` | integer (Unix 秒) | 否 | |
 
-完成狀態的冪等規則(函式收 `done: boolean`,只在 `src/server/` 轉換):
+完成狀態的冪等規則(函式收 `done: boolean`,只在 `src/modules/tasks/server/` 轉換):
 
 - 未勾時收到 `done: true` → 寫入當下時間;已勾時收到 `done: true` → 保留原值。
 - `done: false` → `null`;已經是 `null` 就不變。
@@ -136,7 +136,7 @@
 
 ### 領域規則
 
-函式在 `src/server/recurrence.ts`,日期展開 `expandRule` 在 `src/lib/recurrence.ts`。
+函式在 `src/modules/tasks/server/recurrence.ts`,日期展開 `expandRule` 在 `src/modules/tasks/lib/recurrence.ts`。
 
 - 用到「今天」的函式都以參數接收 `today`,不在函式內讀時鐘;`listTasks()` 查詢前以伺服器本地時區的今天呼叫 `fillInstances`。
 - 補齊終點 = 今天 + 6(含),對上「未來 7 天」檢視。
@@ -146,7 +146,7 @@
 
 ## 習慣
 
-習慣是配額(每週期做幾次),和重複任務(日曆規則)是兩個獨立實體,不共用表(理由見 `docs/decisions.md` §6b)。純函式在 `src/lib/habit.ts`(`periodStart`、`settingsAt`、`progressOf`、`streakOf`),業務邏輯在 `src/server/habits.ts`。
+習慣是配額(每週期做幾次),和重複任務(日曆規則)是兩個獨立實體,不共用表(理由見 `docs/decisions.md` §6b)。純函式在 `src/modules/tasks/lib/habit.ts`(`periodStart`、`settingsAt`、`progressOf`、`streakOf`),業務邏輯在 `src/modules/tasks/server/habits.ts`。
 
 ### `habit`
 

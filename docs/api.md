@@ -45,5 +45,5 @@
 
 - 排序在 `listTasks()` 裡用 SQL `ORDER BY` 完成,route handler 與前端不排序。
 - 順序:未完成在前(`completedAt IS NULL`),已完成在後;同一組內 `createdAt` 升冪,再以 `id` 升冪打破平手。
-- 這是 API 的預設順序。畫面上各清單的分組、排序、置頂由前端的 `arrangeTasks`(`src/lib/listView.ts`)在篩選之後計算,不走 `?sort=`(理由見 `docs/decisions.md` §6d)。
+- 這是 API 的預設順序。畫面上各清單的分組、排序、置頂由前端的 `arrangeTasks`(`src/modules/tasks/lib/listView.ts`)在篩選之後計算,不走 `?sort=`(理由見 `docs/decisions.md` §6d)。
 - `listTasks()` 仍接受排序選項參數,`ORDER BY` 從白名單組出;現在只有一種選項(上述預設)。

@@ -1,5 +1,5 @@
-import { addLog, removeLog, setLogCount } from '@/server/habits'
-import { todayIso } from '@/lib/date'
+import { addLog, removeLog, setLogCount } from '@/modules/tasks/server/habits'
+import { todayIso } from '@/modules/tasks/lib/date'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function POST(

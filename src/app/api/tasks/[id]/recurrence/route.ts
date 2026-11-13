@@ -1,5 +1,5 @@
-import { createRuleFromTask, type RuleSpecInput } from '@/server/recurrence'
-import { todayIso } from '@/lib/date'
+import { createRuleFromTask, type RuleSpecInput } from '@/modules/tasks/server/recurrence'
+import { todayIso } from '@/modules/tasks/lib/date'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 // 把任務變成重複規則的第一個實例。「今天」與 listTasks 相同:伺服器本地時區
