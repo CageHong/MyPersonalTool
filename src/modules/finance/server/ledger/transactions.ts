@@ -7,6 +7,7 @@ import {
   financeAccounts,
   financePayees,
   financePostings,
+  financeScheduledTransactions,
   financeTransactions,
   financeUnbalanced,
 } from '../../db/schema'
@@ -30,6 +31,8 @@ export type NewTransaction = {
   // 匯入時的原始值;存成 JSON
   importMeta?: Record<string, unknown> | null
   categorySource?: (typeof financeTransactions.$inferInsert)['categorySource']
+  // 配對到的週期項目
+  scheduledId?: number | null
   postings: NewPosting[]
 }
 
@@ -84,6 +87,14 @@ function validate(db: FinanceConn, input: NewTransaction): Record<string, string
       .all()
     if (!payee.length) fields.payeeId = 'not_found'
   }
+  if (input.scheduledId != null) {
+    const item = db
+      .select({ id: financeScheduledTransactions.id })
+      .from(financeScheduledTransactions)
+      .where(eq(financeScheduledTransactions.id, input.scheduledId))
+      .all()
+    if (!item.length) fields.scheduledId = 'not_found'
+  }
   if (input.externalId != null) {
     const existing = db
       .select({ id: financeTransactions.id })
@@ -115,6 +126,7 @@ export function createTransaction(
         externalId: input.externalId ?? null,
         importMeta: input.importMeta ? JSON.stringify(input.importMeta) : null,
         categorySource: input.categorySource ?? null,
+        scheduledId: input.scheduledId ?? null,
         createdAt: now,
         updatedAt: now,
       })

@@ -107,6 +107,13 @@ function main() {
     `合計 ${parsed.transactions.length} 筆交易(重複的 ID 只算一次),略過 ${plan.skipped.length} 列`,
   )
   console.log(`  新的:${fresh.length}`)
+  const classifiable = fresh.filter((item) => item.pending.kind !== 'exchange')
+  const bySource = (source: string | null) =>
+    classifiable.filter((item) => item.classification.categorySource === source).length
+  console.log(
+    `    分類(換匯除外 ${classifiable.length} 筆):週期項目 ${bySource('scheduled')}、對象規則 ${bySource('rule')}、` +
+      `對象歷史 ${bySource('payee_history')}、來源分類 ${bySource('source_category')}、未分類 ${bySource(null)}`,
+  )
   console.log(
     `  已經在帳本裡:${existing.length}(要補對象 ${payeeFixes.length}、金額不同 ${amountDiffs.length})`,
   )
@@ -144,9 +151,21 @@ function main() {
     parsed.transactions.filter((tx) => /[1-9]/.test(tx.raw['Target fee amount'] ?? '')),
     (tx) => `${head(tx)}  ${tx.raw['Target fee amount']} ${tx.raw['Target fee currency'] ?? ''}`,
   )
+  section(
+    '週期項目同時符合兩個以上(沒有配對)',
+    fresh.filter((item) => item.classification.ambiguousScheduled.length),
+    (item) => `${head(item.pending)}  項目 id:${item.classification.ambiguousScheduled.join('、')}`,
+  )
   section('新的', fresh, (item) => {
     const moved = item.pending.movements.map((m) => `${m.amount} ${m.currency}`).join(' / ')
-    return `${head(item.pending)}  ${moved}  ${item.pending.counterparty ?? ''}`
+    const { accountId, categorySource } = item.classification
+    const category =
+      item.pending.kind === 'exchange'
+        ? '換匯'
+        : accountId === null
+          ? '未分類'
+          : `${accountNames.get(accountId)}(${categorySource})`
+    return `${head(item.pending)}  ${moved}  ${item.pending.counterparty ?? ''}  → ${category}`
   })
 
   if (!apply) {

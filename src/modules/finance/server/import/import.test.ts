@@ -380,3 +380,98 @@ test('mergeParseResults:只差在 raw 的欄位(例:完成時間)不算衝突', 
   const b = statement([{ ID: 'CARD-1', Reference: 'a', Category: 'Other' }])
   assert.deepEqual(mergeParseResults([a, b]).conflicts, [])
 })
+
+// ── 自動分類 ──────────────────────────────────────────────────────
+
+function headerOf(db: FinanceDb, externalId: string) {
+  return db.all<{ category_source: string | null; scheduled_id: number | null }>(
+    sql`SELECT category_source, scheduled_id FROM finance_transactions WHERE external_id = ${externalId}`,
+  )[0]
+}
+
+test('新交易匯入時直接記到決定的分類,連同分類來源;試跑的計畫就看得到', () => {
+  const db = freshLedger()
+  db.run(sql`INSERT INTO finance_rules (match_field, match_value, assign_account_id, created_at)
+             VALUES ('source_category', 'Groceries', ${ACCOUNTS.food}, ${AT})`)
+  const plan = planImport(
+    db,
+    statement([{ Category: 'Groceries', 'Source fee amount': '0.50' }, { ID: 'CARD-2', Category: 'General' }]),
+    options,
+  )
+  const [first, second] = plan.items
+  assert.ok(first.status === 'new' && second.status === 'new')
+  assert.equal(first.classification.categorySource, 'source_category')
+  assert.equal(second.classification.accountId, null)
+
+  applyImport(db, plan, options, AT)
+  assert.deepEqual(postingsOf(db, 'CARD-1'), [
+    { account_id: ACCOUNTS.wiseEur, amount: -1280, currency: 'EUR' },
+    { account_id: ACCOUNTS.food, amount: 1230, currency: 'EUR' },
+    { account_id: ACCOUNTS.fee, amount: 50, currency: 'EUR' },
+  ])
+  assert.deepEqual(headerOf(db, 'CARD-1'), { category_source: 'source_category', scheduled_id: null })
+  assert.equal(postingsOf(db, 'CARD-2')[1].account_id, ACCOUNTS.uncategorized)
+  assert.deepEqual(headerOf(db, 'CARD-2'), { category_source: null, scheduled_id: null })
+  assert.deepEqual(unbalanced(db), [])
+})
+
+test('週期項目:配對到的交易連結項目、記到項目的分類', () => {
+  const db = freshLedger()
+  const shop = resolvePayee(db, 'Some Shop BV', options.payeeSuffixes, AT)
+  db.run(sql`INSERT INTO finance_scheduled_transactions
+             (id, name, account_id, payee_id, amount_min, amount_max, currency, frequency, created_at)
+             VALUES (4, 'Weekly box', ${ACCOUNTS.food}, ${shop}, 1000, 1500, 'EUR', 'weekly', ${AT})`)
+  applyImport(db, planImport(db, statement([{}]), options), options, AT)
+  assert.deepEqual(headerOf(db, 'CARD-1'), { category_source: 'scheduled', scheduled_id: 4 })
+  assert.equal(postingsOf(db, 'CARD-1')[1].account_id, ACCOUNTS.food)
+})
+
+test('對象歷史:收款人第一次以新的寫法出現,但同名的收款人已經有歷史', () => {
+  const db = freshLedger()
+  // 帳本裡已經有同名的收款人(沒有這個寫法的別名),而且使用者把它分類過
+  db.run(sql`INSERT INTO finance_payees (id, name, created_at) VALUES (40, 'Some Shop BV', ${AT})`)
+  createTransaction(
+    db,
+    {
+      occurredAt: '2030-01-01T00:00:00+00:00',
+      source: 'manual',
+      payeeId: 40,
+      categorySource: 'legacy',
+      postings: [
+        { accountId: ACCOUNTS.wiseEur, amount: -500, currency: 'EUR' },
+        { accountId: ACCOUNTS.food, amount: 500, currency: 'EUR' },
+      ],
+    },
+    AT,
+  )
+  const plan = planImport(db, statement([{}]), options)
+  assert.ok(plan.items[0].status === 'new')
+  assert.equal(plan.items[0].classification.categorySource, 'payee_history')
+  applyImport(db, plan, options, AT)
+  assert.equal(postingsOf(db, 'CARD-1')[1].account_id, ACCOUNTS.food)
+  assert.equal(payeeOf(db, 'CARD-1'), 'Some Shop BV')
+})
+
+test('入帳:來源分類指到支出分類 = 沖銷;換匯不分類;既有交易的分類不動', () => {
+  const db = freshLedger()
+  db.run(sql`INSERT INTO finance_rules (match_field, match_value, assign_account_id, created_at)
+             VALUES ('source_category', 'Groceries', ${ACCOUNTS.food}, ${AT})`)
+  seedOldIncoming(db)
+  const refund = incoming({
+    ID: 'TRANSFER-2',
+    'Source currency': 'EUR',
+    'Source amount (after fees)': '4.00',
+    'Target amount (after fees)': '4.00',
+    Category: 'Groceries',
+  })
+  const plan = planImport(db, statement([refund, exchange, incoming({ Category: 'Groceries' })]), options)
+  applyImport(db, plan, options, AT)
+  assert.deepEqual(postingsOf(db, 'TRANSFER-2'), [
+    { account_id: ACCOUNTS.wiseEur, amount: 400, currency: 'EUR' },
+    { account_id: ACCOUNTS.food, amount: -400, currency: 'EUR' },
+  ])
+  assert.deepEqual(headerOf(db, 'BALANCE-1'), { category_source: null, scheduled_id: null })
+  // TRANSFER-1 是既有的:仍在未分類收入
+  assert.equal(postingsOf(db, 'TRANSFER-1')[1].account_id, ACCOUNTS.uncategorizedIncome)
+  assert.deepEqual(unbalanced(db), [])
+})

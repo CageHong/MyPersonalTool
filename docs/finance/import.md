@@ -7,7 +7,7 @@
 ```
 對帳單檔案
   └─ packages/statement-parsers   parseStatement → 待匯入交易(金額是十進位字串、帳戶是來源的代號)+ 略過的列
-       └─ server/import  planImport   → 匯入計畫(只讀)
+       └─ server/import  planImport   → 匯入計畫(只讀;新交易的分類由 server/classify 決定)
             └─ server/import  applyImport → 經過 ledger 寫入
 ```
 
@@ -27,7 +27,7 @@
 - 十進位字串用 `finance_currencies.exponent` 換成整數;小數位數超過時列為「無法處理」,不四捨五入。
 - 對象的原始文字:對方的名稱,沒有就用備註欄(Reference);經過 `ledger/payees.ts` 的 `resolvePayee` 對到收款人。後綴清單目前讀 `<資料夾>/finance/import-v2.json` 的 `payeeSuffixes`。同一個對象的不同寫法靠別名表:目前由 `finance:import-v2` 依同一份設定的 `payeeMerges` 寫入(v2 的資料裡沒出現過的寫法也會建)。
 - `import_meta`:`payee_original`、`source_category`、`row`(那一列所有欄位的原文)。
-- 分類一律先進「未分類」/「未分類收入」。
+- 草稿的分類一律是「未分類」/「未分類收入」;`planImport` 再用 `server/classify` 決定新交易的分類,把那一側的分錄換成決定的帳戶(換匯不分類)。決定的順序見 `docs/finance/classify.md`。
 
 ## 匯入計畫(`planImport`)
 
@@ -35,12 +35,14 @@
 
 | 狀態 | 條件 | 套用時 |
 |---|---|---|
-| 新的 | 帳本沒有這個 ID | 新增交易 |
+| 新的 | 帳本沒有這個 ID | 新增交易,分錄已經套用分類;連同 `category_source`、`scheduled_id` 寫入 |
 | 已經有的 | 帳本有這個 ID | 不覆蓋 |
 | └ 要補對象 | 入帳;帳本現在的對象等於那一列的 `Target name`(帳戶持有人);檔案裡的匯款人不是持有人(寫法不同、也沒有透過別名對到同一個收款人) | 對象換成匯款人(有別名就用別名指到的收款人),其他不動 |
 | └ 金額不同 | 來源帳戶那一側(每個帳戶的合計)跟檔案算出來的不同 | 只列在報告,不改 |
 | 無法處理 | 沒有 ID、檔案裡 ID 重複、沒有對應的帳戶或幣別、小數位數不對 | 有任何一筆就整份不能套用 |
 
-另外回報:略過的列(解析器給的原因)、帳本有而檔案沒有的筆數。
+另外回報:略過的列(解析器給的原因)、帳本有而檔案沒有的筆數、新交易依分類來源的筆數、週期項目同時符合兩個以上(沒有配對)的交易。
+
+已經在帳本裡的交易不重新分類。
 
 套用包在一個 DB transaction:任何一筆失敗,整份不寫。同一份檔案套用兩次,第二次不寫任何東西。

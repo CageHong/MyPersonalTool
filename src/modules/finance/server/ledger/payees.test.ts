@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { sql } from 'drizzle-orm'
 import { AT, freshLedger } from '../testing'
-import { findPayeeByText, normalizePayeeText, payeeDisplayName, resolvePayee } from './payees'
+import { findPayeeByText, lookupPayee, normalizePayeeText, payeeDisplayName, resolvePayee } from './payees'
 
 const suffixes = ['via Processor']
 
@@ -51,4 +51,15 @@ test('resolvePayee:空白文字回傳 null,不新增', () => {
   const db = freshLedger()
   assert.equal(resolvePayee(db, '   ', suffixes), null)
   assert.equal(db.all(sql`SELECT * FROM finance_payees`).length, 0)
+})
+
+test('lookupPayee:只查不寫;別名優先,沒有別名就找同名的收款人', () => {
+  const db = freshLedger()
+  const shop = resolvePayee(db, 'Some Shop via Processor', suffixes, AT)
+  db.run(sql`INSERT INTO finance_payees (id, name, created_at) VALUES (50, 'Corner Cafe', ${AT})`)
+  assert.equal(lookupPayee(db, 'SOME SHOP', suffixes), shop)
+  assert.equal(lookupPayee(db, 'Corner Cafe', suffixes), 50)
+  assert.equal(lookupPayee(db, 'corner cafe', suffixes), null) // 顯示名稱保留大小寫,跟 resolvePayee 一樣
+  assert.equal(lookupPayee(db, 'Nobody', suffixes), null)
+  assert.equal(db.all(sql`SELECT * FROM finance_payee_aliases`).length, 1)
 })

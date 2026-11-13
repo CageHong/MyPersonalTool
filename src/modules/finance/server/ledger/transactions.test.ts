@@ -177,3 +177,19 @@ test('setTransactionPayee:交易或收款人不存在', () => {
   assert.throws(() => setTransactionPayee(db, 999, null), NotFoundError)
   assert.equal(fieldsOf(() => setTransactionPayee(db, id, 42)).payeeId, 'not_found')
 })
+
+test('週期項目:寫入 scheduledId;項目不存在時是驗證錯誤', () => {
+  const db = freshLedger()
+  db.run(sql`INSERT INTO finance_payees (id, name, created_at) VALUES (1, 'Landlord', ${AT})`)
+  db.run(sql`INSERT INTO finance_scheduled_transactions
+             (id, name, account_id, payee_id, amount_min, amount_max, currency, frequency, created_at)
+             VALUES (3, 'Rent', ${ACCOUNTS.food}, 1, 0, 100000, 'EUR', 'monthly', ${AT})`)
+  const id = createTransaction(db, expense({ scheduledId: 3, categorySource: 'scheduled' }), AT)
+  assert.deepEqual(
+    db.all(sql`SELECT scheduled_id, category_source FROM finance_transactions WHERE id = ${id}`),
+    [{ scheduled_id: 3, category_source: 'scheduled' }],
+  )
+  assert.deepEqual(fieldsOf(() => createTransaction(db, expense({ scheduledId: 99 }), AT)), {
+    scheduledId: 'not_found',
+  })
+})

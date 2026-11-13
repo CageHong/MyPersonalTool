@@ -1,8 +1,9 @@
 // 對帳單匯入:解析結果(statement-parsers 的輸出)→ 匯入計畫 → 寫入。
 //
 // planImport 只讀:把每一筆待匯入交易跟帳本比對,分成「新的」與「已經有的」;
-// 已經有的再看要不要補對象、來源帳戶那一側的金額有沒有不同。
-// applyImport 經過 ledger 寫入:新增「新的」、補對象。金額不同的只在計畫裡列出來,不改。
+// 新的用 classify 決定分類(草稿裡的「未分類」換成決定的帳戶);
+// 已經有的再看要不要補對象、來源帳戶那一側的金額有沒有不同(分類不動)。
+// applyImport 經過 ledger 寫入:新增「新的」(連同分類來源與週期項目)、補對象。金額不同的只在計畫裡列出來,不改。
 // 同一份檔案套用兩次,第二次不會再寫任何東西。
 import { eq, isNotNull, like, sql } from 'drizzle-orm'
 import type { ParseResult, PendingTransaction, SkippedRow } from '@personal-tools/statement-parsers'
@@ -14,8 +15,11 @@ import {
   financePostings,
   financeTransactions,
 } from '../../db/schema'
+import { decide, loadClassifyContext } from '../classify/index'
+import type { Classification, ClassifyContext } from '../classify/index'
 import { getAccountsWithLegacyId, getSystemAccounts } from '../ledger/accounts'
-import { findPayeeByText, normalizePayeeText, resolvePayee } from '../ledger/payees'
+import type { SystemAccounts } from '../ledger/accounts'
+import { findPayeeByText, lookupPayee, normalizePayeeText, resolvePayee } from '../ledger/payees'
 import { createTransaction, setTransactionPayee } from '../ledger/transactions'
 import { buildDraft, DraftError } from './draft'
 import type { DraftLookups, DraftTransaction } from './draft'
@@ -28,7 +32,13 @@ const SOURCE_ACCOUNT_PREFIX: Record<ParseResult['source'], { code: string; legac
 export type AccountAmount = { accountId: number; currency: string; amount: number }
 
 export type PlanItem =
-  | { status: 'new'; pending: PendingTransaction; draft: DraftTransaction }
+  | {
+      status: 'new'
+      pending: PendingTransaction
+      // 分錄已經套用分類;沒有分類的維持「未分類」/「未分類收入」
+      draft: DraftTransaction
+      classification: Classification
+    }
   | {
       status: 'existing'
       pending: PendingTransaction
@@ -52,6 +62,50 @@ export type ImportPlan = {
 export type ImportOptions = {
   // 對象文字結尾要去掉的付款處理商後綴
   payeeSuffixes: readonly string[]
+}
+
+const UNCLASSIFIED: Classification = {
+  accountId: null,
+  categorySource: null,
+  scheduledId: null,
+  ambiguousScheduled: [],
+}
+
+// 決定新交易的分類,並把草稿裡「未分類」那一側的分錄換成決定的帳戶。換匯不分類
+function classifyDraft(
+  db: FinanceConn,
+  pending: PendingTransaction,
+  draft: DraftTransaction,
+  ctx: ClassifyContext,
+  system: SystemAccounts,
+  options: ImportOptions,
+): { draft: DraftTransaction; classification: Classification } {
+  if (pending.kind === 'exchange') return { draft, classification: UNCLASSIFIED }
+  const placeholder =
+    pending.kind === 'out' ? system.uncategorizedExpense : system.uncategorizedIncome
+  const classification = decide(
+    {
+      kind: pending.kind,
+      payeeId: draft.payeeText ? lookupPayee(db, draft.payeeText, options.payeeSuffixes) : null,
+      sourceCategory: pending.sourceCategory,
+      occurredAt: draft.occurredAt,
+      amounts: draft.postings
+        .filter((posting) => posting.accountId === placeholder)
+        .map(({ currency, amount }) => ({ currency, amount: Math.abs(amount) })),
+    },
+    ctx,
+  )
+  if (classification.accountId === null) return { draft, classification }
+
+  const postings: DraftTransaction['postings'] = []
+  for (const posting of draft.postings) {
+    const accountId = posting.accountId === placeholder ? classification.accountId : posting.accountId
+    // 決定的帳戶剛好已經在草稿裡(同幣別)時合成一條
+    const same = postings.find((p) => p.accountId === accountId && p.currency === posting.currency)
+    if (same) same.amount += posting.amount
+    else postings.push({ ...posting, accountId })
+  }
+  return { draft: { ...draft, postings: postings.filter((p) => p.amount !== 0) }, classification }
 }
 
 function sameAmounts(a: AccountAmount[], b: AccountAmount[]): boolean {
@@ -86,6 +140,7 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
     ),
     system: getSystemAccounts(db),
   }
+  const classifyContext = loadClassifyContext(db)
 
   const existingRows = db
     .select({
@@ -151,7 +206,11 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
 
     const existing = existingById.get(pending.externalId)
     if (!existing) {
-      plan.items.push({ status: 'new', pending, draft })
+      plan.items.push({
+        status: 'new',
+        pending,
+        ...classifyDraft(db, pending, draft, classifyContext, lookups.system, options),
+      })
       continue
     }
 
@@ -263,7 +322,7 @@ export function applyImport(
     const outcome: ImportOutcome = { created: 0, payeesFixed: 0 }
     for (const item of plan.items) {
       if (item.status === 'new') {
-        const { draft } = item
+        const { draft, classification } = item
         createTransaction(
           tx,
           {
@@ -275,6 +334,8 @@ export function applyImport(
             source: draft.source,
             externalId: draft.externalId,
             importMeta: draft.importMeta,
+            categorySource: classification.categorySource,
+            scheduledId: classification.scheduledId,
             postings: draft.postings,
           },
           now,

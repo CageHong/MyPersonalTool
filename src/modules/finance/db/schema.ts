@@ -176,9 +176,11 @@ export const financeTransactions = sqliteTable(
     ),
     // JSON:匯入時的原始值(對象、分類、標籤、來源分類、匯率、手續費)。只供還原與稽核,不拿來比對
     importMeta: text('import_meta'),
-    // 支出交易的分類是怎麼決定的;NULL = 未分類或不是支出
+    // 分類(支出或收入那一側)是怎麼決定的;NULL = 未分類,或沒有分類(轉帳、換匯)。
+    // legacy:舊版使用者給的;scheduled:週期項目;rule:對象規則;payee_history:對象歷史;
+    // source_category:來源分類規則;correction:人工更正
     categorySource: text('category_source', {
-      enum: ['legacy', 'scheduled', 'payee_history', 'source_category', 'correction'],
+      enum: ['legacy', 'scheduled', 'rule', 'payee_history', 'source_category', 'correction'],
     }),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
@@ -190,7 +192,7 @@ export const financeTransactions = sqliteTable(
     ),
     check(
       'finance_transactions_category_source_ck',
-      sql`${table.categorySource} IN ('legacy','scheduled','payee_history','source_category','correction')`,
+      sql`${table.categorySource} IN ('legacy','scheduled','rule','payee_history','source_category','correction')`,
     ),
     index('finance_transactions_occurred_idx').on(table.occurredAt),
     index('finance_transactions_payee_idx').on(table.payeeId),

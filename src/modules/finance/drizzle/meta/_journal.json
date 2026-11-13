@@ -15,6 +15,13 @@
       "when": 1794553523515,
       "tag": "0001_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794609938965,
+      "tag": "0002_category_source_rule",
+      "breakpoints": true
     }
   ]
 }

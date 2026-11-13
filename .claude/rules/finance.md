@@ -22,7 +22,7 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 
 - 資料:`<資料夾>/finance/`(`finance.db`、匯入設定 `import-v2.json`);資料庫位置只在 `src/modules/finance/db/path.ts` 定義(`FINANCE_DB_PATH` 只給測試用)
 - `src/modules/finance/tools/`:命令列工具(從 v2 匯入、匯入驗證、匯率更新、對帳單匯入)
-- `docs/finance/`:描述性文件。動對帳單匯入之前先讀 `docs/finance/import.md`
+- `docs/finance/`:描述性文件。動對帳單匯入之前先讀 `docs/finance/import.md`,動自動分類之前先讀 `docs/finance/classify.md`
 - `src/modules/finance/config.example/`:設定檔範例;新增設定欄位時同步更新
 - 指令(repo 根目錄):`finance:import-v2`(要設 `PACR_DATA_DIR`,或把 v2 的 `finance.db` 路徑當參數)、`finance:import-statement`(對帳單檔案當參數;不加 `--apply` 只試跑)、`finance:fx-update`、`finance:db:generate`、`finance:db:migrate`
 
@@ -35,6 +35,7 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 分類是帳戶(`expense` / `income`),交易上不加 category 欄位。標籤掛在交易上。
 - 先付出去、之後會回來的錢(保證金、代墊)記在資產帳戶,不記成支出;收回時沖減該帳戶。
 - 「之後」的功能(貸款明細、持股、標的、價格歷史)不預先建表,用到時再加 migration。
+- **產生 migration 後一定要看 SQL**:SQLite 改 CHECK、改欄位要重建資料表,Drizzle Kit 會產生「`PRAGMA foreign_keys=OFF` → 建新表 → DROP 舊表 → 改名」。migration 包在 transaction 裡,`PRAGMA foreign_keys` 在 transaction 裡不生效,DROP 有 `ON DELETE CASCADE` 子表的資料表(`finance_transactions`、`finance_accounts` 等)會把子表的資料一起刪掉。遇到時改成手寫:子表一起重建、外鍵先指向新表,再刪舊表、改名(範例:`drizzle/0002_category_source_rule.sql`)。snapshot 仍用產生的。任何重建資料表的 migration 都要在真實資料庫的複本上跑過,比對每張表的筆數。
 
 ## 寫入規則
 
@@ -42,13 +43,15 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 寫入交易與分錄只經過 `ledger/transactions.ts`(`createTransaction` 等);它收 `FinanceConn`,可以被包在外層的 DB transaction 裡。業務錯誤用 `server/errors.ts` 的 `ValidationError`(帶 `fields`)、`NotFoundError`。
 - 匯入不覆蓋帳本裡已經有的交易(用來源的 ID 判斷):分類、標籤、拆分、分錄都不動。唯一自動做的修正是「入帳、對象是帳戶持有人自己」的換成匯款人;金額不同只回報。
 - 匯入要能重複執行:同一份檔案套用兩次,第二次不寫任何東西。
-- 自動分類只補未分類的交易,不覆蓋使用者給過的分類。
+- 自動分類只補未分類的交易,不覆蓋使用者給過的分類。目前只用在匯入的新交易:匯入時直接寫成決定的分類,不先寫未分類再搬。
+- 自動分類的順序(付出):週期項目 → 對象規則 → 對象歷史 → 來源分類規則;入帳只看來源分類規則(指到支出分類 = 沖銷);換匯不分類。對象歷史只算使用者給的分類(`legacy`、`correction`、之後的手動編輯),不算自動分類的結果。細節在 `docs/finance/classify.md`。
 - 針對個別交易的人工更正(拆分、收回、轉帳到自己的帳戶、對帳調整)是 ledger 的編輯操作,不靠設定檔。
 
 ## 模組切分(`src/modules/finance/server/`)
 
 - **拆分的標準**:會因為不同的原因改動、依賴外部的東西、可以替換、可以單獨測試,符合任一條就拆。共用同一條不變量(表頭與分錄同一個 transaction、每個幣別加總為零)的東西不拆。
-- **模組**:`ledger`(帳本核心,唯一寫入交易的地方;收款人與別名、帳戶群組也在這裡)、`import`、`fx`、`classify`、`recurring`、`tags`(含旅行)、`budgets`、`reports`(含匯出 CSV)、`audit`(稽核)。目前已有 `ledger`、`fx`、`import`。
+- **模組**:`ledger`(帳本核心,唯一寫入交易的地方;收款人與別名、帳戶群組也在這裡)、`import`、`fx`、`classify`、`recurring`、`tags`(含旅行)、`budgets`、`reports`(含匯出 CSV)、`audit`(稽核)。目前已有 `ledger`、`fx`、`import`、`classify`、`recurring`。
+- `classify` 只決定不寫入(讀取 + 純函式);週期項目的配對在 `recurring`,`classify` 呼叫它。
 - **寫入一律經過 ledger 的函式**;其他模組不直接寫交易相關的表。`reports`、`budgets`、`tags`、`audit` 只讀。
 - **帳戶餘額一律經過 `ledger/balances.ts`**(`getAccountBalance`、`getAccountBalances`)。系統帳戶(未分類、未分類收入、手續費、換匯)的 id 一律經過 `ledger/accounts.ts` 的 `getSystemAccounts`,不在別處寫名稱或 id。側欄、群組合計、淨值、可動用資金、信用卡可用餘額、報表都呼叫它,不自己寫分錄加總。原因:之後投資帳戶的市值是「持股 × 價格」,股價變動不產生分錄,屆時只改這個函式。
 - **fx 要能直接搬到平台層**:不匯入 finance 的其他程式、只透過公開函式(取匯率、換算、更新)使用、匯率表不跟其他表互相參照。要抓哪些幣別、從哪天開始,由 `tools/` 查好傳進去。來源轉接(`frankfurter.ts`)與查詢 / 換算 / 寫入(`index.ts`)分開,換來源只換前者。`convert` 回傳目標幣別最小單位的浮點數,多筆先加總再取整數。

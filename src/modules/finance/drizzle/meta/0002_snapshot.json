@@ -1,0 +1,1391 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "3406b60d-677f-42bc-a28d-7800149aa476",
+  "prevId": "ae956008-c722-4aa7-8aba-34aca843a67d",
+  "tables": {
+    "finance_account_groups": {
+      "name": "finance_account_groups",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "finance_account_groups_name_unique": {
+          "name": "finance_account_groups_name_unique",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "finance_account_groups_currency_finance_currencies_code_fk": {
+          "name": "finance_account_groups_currency_finance_currencies_code_fk",
+          "tableFrom": "finance_account_groups",
+          "tableTo": "finance_currencies",
+          "columnsFrom": [
+            "currency"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "finance_accounts": {
+      "name": "finance_accounts",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "subtype": {
+          "name": "subtype",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "is_system": {
+          "name": "is_system",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "legacy_id": {
+          "name": "legacy_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "finance_accounts_legacy_id_unique": {
+          "name": "finance_accounts_legacy_id_unique",
+          "columns": [
+            "legacy_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "finance_accounts_parent_id_finance_accounts_id_fk": {
+          "name": "finance_accounts_parent_id_finance_accounts_id_fk",
+          "tableFrom": "finance_accounts",
+          "tableTo": "finance_accounts",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "finance_accounts_currency_finance_currencies_code_fk": {
+          "name": "finance_accounts_currency_finance_currencies_code_fk",
+          "tableFrom": "finance_accounts",
+          "tableTo": "finance_currencies",
+          "columnsFrom": [
+            "currency"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "finance_accounts_group_id_finance_account_groups_id_fk": {
+          "name": "finance_accounts_group_id_finance_account_groups_id_fk",
+          "tableFrom": "finance_accounts",
+          "tableTo": "finance_account_groups",
+          "columnsFrom": [
+            "group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_accounts_type_ck": {
+          "name": "finance_accounts_type_ck",
+          "value": "\"finance_accounts\".\"type\" IN ('asset','liability','equity','income','expense')"
+        },
+        "finance_accounts_currency_ck": {
+          "name": "finance_accounts_currency_ck",
+          "value": "\"finance_accounts\".\"type\" NOT IN ('asset','liability') OR \"finance_accounts\".\"currency\" IS NOT NULL"
+        },
+        "finance_accounts_group_ck": {
+          "name": "finance_accounts_group_ck",
+          "value": "\"finance_accounts\".\"group_id\" IS NULL OR \"finance_accounts\".\"type\" IN ('asset','liability')"
+        },
+        "finance_accounts_is_active_ck": {
+          "name": "finance_accounts_is_active_ck",
+          "value": "\"finance_accounts\".\"is_active\" IN (0,1)"
+        },
+        "finance_accounts_is_system_ck": {
+          "name": "finance_accounts_is_system_ck",
+          "value": "\"finance_accounts\".\"is_system\" IN (0,1)"
+        }
+      }
+    },
+    "finance_credit_card_details": {
+      "name": "finance_credit_card_details",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "credit_limit": {
+          "name": "credit_limit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "balance_display": {
+          "name": "balance_display",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'balance'"
+        },
+        "statement_day": {
+          "name": "statement_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "due_day": {
+          "name": "due_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "due_days_after_statement": {
+          "name": "due_days_after_statement",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "finance_credit_card_details_account_id_finance_accounts_id_fk": {
+          "name": "finance_credit_card_details_account_id_finance_accounts_id_fk",
+          "tableFrom": "finance_credit_card_details",
+          "tableTo": "finance_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_credit_card_details_limit_ck": {
+          "name": "finance_credit_card_details_limit_ck",
+          "value": "\"finance_credit_card_details\".\"credit_limit\" > 0"
+        },
+        "finance_credit_card_details_display_ck": {
+          "name": "finance_credit_card_details_display_ck",
+          "value": "\"finance_credit_card_details\".\"balance_display\" IN ('balance','available')"
+        },
+        "finance_credit_card_details_statement_ck": {
+          "name": "finance_credit_card_details_statement_ck",
+          "value": "\"finance_credit_card_details\".\"statement_day\" BETWEEN 1 AND 31"
+        },
+        "finance_credit_card_details_due_day_ck": {
+          "name": "finance_credit_card_details_due_day_ck",
+          "value": "\"finance_credit_card_details\".\"due_day\" BETWEEN 1 AND 31"
+        },
+        "finance_credit_card_details_due_after_ck": {
+          "name": "finance_credit_card_details_due_after_ck",
+          "value": "\"finance_credit_card_details\".\"due_days_after_statement\" >= 1"
+        },
+        "finance_credit_card_details_due_one_ck": {
+          "name": "finance_credit_card_details_due_one_ck",
+          "value": "\"finance_credit_card_details\".\"due_day\" IS NULL OR \"finance_credit_card_details\".\"due_days_after_statement\" IS NULL"
+        }
+      }
+    },
+    "finance_currencies": {
+      "name": "finance_currencies",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "exponent": {
+          "name": "exponent",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_currencies_exponent_ck": {
+          "name": "finance_currencies_exponent_ck",
+          "value": "\"finance_currencies\".\"exponent\" BETWEEN 0 AND 4"
+        }
+      }
+    },
+    "finance_fx_direct_quotes": {
+      "name": "finance_fx_direct_quotes",
+      "columns": {
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "base": {
+          "name": "base",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quote": {
+          "name": "quote",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rate": {
+          "name": "rate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "finance_fx_direct_quotes_base_finance_currencies_code_fk": {
+          "name": "finance_fx_direct_quotes_base_finance_currencies_code_fk",
+          "tableFrom": "finance_fx_direct_quotes",
+          "tableTo": "finance_currencies",
+          "columnsFrom": [
+            "base"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "finance_fx_direct_quotes_quote_finance_currencies_code_fk": {
+          "name": "finance_fx_direct_quotes_quote_finance_currencies_code_fk",
+          "tableFrom": "finance_fx_direct_quotes",
+          "tableTo": "finance_currencies",
+          "columnsFrom": [
+            "quote"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "finance_fx_direct_quotes_date_base_quote_pk": {
+          "columns": [
+            "date",
+            "base",
+            "quote"
+          ],
+          "name": "finance_fx_direct_quotes_date_base_quote_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_fx_direct_quotes_direction_ck": {
+          "name": "finance_fx_direct_quotes_direction_ck",
+          "value": "\"finance_fx_direct_quotes\".\"base\" < \"finance_fx_direct_quotes\".\"quote\""
+        },
+        "finance_fx_direct_quotes_rate_ck": {
+          "name": "finance_fx_direct_quotes_rate_ck",
+          "value": "\"finance_fx_direct_quotes\".\"rate\" > 0"
+        }
+      }
+    },
+    "finance_fx_rates": {
+      "name": "finance_fx_rates",
+      "columns": {
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rate_to_eur": {
+          "name": "rate_to_eur",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fetched_at": {
+          "name": "fetched_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "finance_fx_rates_currency_finance_currencies_code_fk": {
+          "name": "finance_fx_rates_currency_finance_currencies_code_fk",
+          "tableFrom": "finance_fx_rates",
+          "tableTo": "finance_currencies",
+          "columnsFrom": [
+            "currency"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "finance_fx_rates_date_currency_pk": {
+          "columns": [
+            "date",
+            "currency"
+          ],
+          "name": "finance_fx_rates_date_currency_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_fx_rates_rate_ck": {
+          "name": "finance_fx_rates_rate_ck",
+          "value": "\"finance_fx_rates\".\"rate_to_eur\" > 0"
+        }
+      }
+    },
+    "finance_payee_aliases": {
+      "name": "finance_payee_aliases",
+      "columns": {
+        "alias": {
+          "name": "alias",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payee_id": {
+          "name": "payee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "finance_payee_aliases_payee_idx": {
+          "name": "finance_payee_aliases_payee_idx",
+          "columns": [
+            "payee_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "finance_payee_aliases_payee_id_finance_payees_id_fk": {
+          "name": "finance_payee_aliases_payee_id_finance_payees_id_fk",
+          "tableFrom": "finance_payee_aliases",
+          "tableTo": "finance_payees",
+          "columnsFrom": [
+            "payee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "finance_payees": {
+      "name": "finance_payees",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "finance_payees_name_unique": {
+          "name": "finance_payees_name_unique",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "finance_postings": {
+      "name": "finance_postings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "memo": {
+          "name": "memo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "finance_postings_tx_idx": {
+          "name": "finance_postings_tx_idx",
+          "columns": [
+            "transaction_id"
+          ],
+          "isUnique": false
+        },
+        "finance_postings_account_idx": {
+          "name": "finance_postings_account_idx",
+          "columns": [
+            "account_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "finance_postings_transaction_id_finance_transactions_id_fk": {
+          "name": "finance_postings_transaction_id_finance_transactions_id_fk",
+          "tableFrom": "finance_postings",
+          "tableTo": "finance_transactions",
+          "columnsFrom": [
+            "transaction_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "finance_postings_account_id_finance_accounts_id_fk": {
+          "name": "finance_postings_account_id_finance_accounts_id_fk",
+          "tableFrom": "finance_postings",
+          "tableTo": "finance_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "finance_postings_currency_finance_currencies_code_fk": {
+          "name": "finance_postings_currency_finance_currencies_code_fk",
+          "tableFrom": "finance_postings",
+          "tableTo": "finance_currencies",
+          "columnsFrom": [
+            "currency"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_postings_amount_ck": {
+          "name": "finance_postings_amount_ck",
+          "value": "\"finance_postings\".\"amount\" <> 0"
+        }
+      }
+    },
+    "finance_rules": {
+      "name": "finance_rules",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "match_field": {
+          "name": "match_field",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payee_id": {
+          "name": "payee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "match_value": {
+          "name": "match_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "assign_account_id": {
+          "name": "assign_account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "assign_tags": {
+          "name": "assign_tags",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 10
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "finance_rules_payee_idx": {
+          "name": "finance_rules_payee_idx",
+          "columns": [
+            "payee_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "finance_rules_payee_id_finance_payees_id_fk": {
+          "name": "finance_rules_payee_id_finance_payees_id_fk",
+          "tableFrom": "finance_rules",
+          "tableTo": "finance_payees",
+          "columnsFrom": [
+            "payee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "finance_rules_assign_account_id_finance_accounts_id_fk": {
+          "name": "finance_rules_assign_account_id_finance_accounts_id_fk",
+          "tableFrom": "finance_rules",
+          "tableTo": "finance_accounts",
+          "columnsFrom": [
+            "assign_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_rules_match_ck": {
+          "name": "finance_rules_match_ck",
+          "value": "(\"finance_rules\".\"match_field\" = 'payee' AND \"finance_rules\".\"payee_id\" IS NOT NULL AND \"finance_rules\".\"match_value\" IS NULL) OR (\"finance_rules\".\"match_field\" = 'source_category' AND \"finance_rules\".\"payee_id\" IS NULL AND \"finance_rules\".\"match_value\" IS NOT NULL)"
+        },
+        "finance_rules_is_active_ck": {
+          "name": "finance_rules_is_active_ck",
+          "value": "\"finance_rules\".\"is_active\" IN (0,1)"
+        }
+      }
+    },
+    "finance_scheduled_transactions": {
+      "name": "finance_scheduled_transactions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payee_id": {
+          "name": "payee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_min": {
+          "name": "amount_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_max": {
+          "name": "amount_max",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "frequency": {
+          "name": "frequency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "interval": {
+          "name": "interval",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "starts_on": {
+          "name": "starts_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ends_on": {
+          "name": "ends_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "finance_scheduled_transactions_name_unique": {
+          "name": "finance_scheduled_transactions_name_unique",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "finance_scheduled_transactions_account_id_finance_accounts_id_fk": {
+          "name": "finance_scheduled_transactions_account_id_finance_accounts_id_fk",
+          "tableFrom": "finance_scheduled_transactions",
+          "tableTo": "finance_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "finance_scheduled_transactions_payee_id_finance_payees_id_fk": {
+          "name": "finance_scheduled_transactions_payee_id_finance_payees_id_fk",
+          "tableFrom": "finance_scheduled_transactions",
+          "tableTo": "finance_payees",
+          "columnsFrom": [
+            "payee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "finance_scheduled_transactions_currency_finance_currencies_code_fk": {
+          "name": "finance_scheduled_transactions_currency_finance_currencies_code_fk",
+          "tableFrom": "finance_scheduled_transactions",
+          "tableTo": "finance_currencies",
+          "columnsFrom": [
+            "currency"
+          ],
+          "columnsTo": [
+            "code"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_scheduled_transactions_min_ck": {
+          "name": "finance_scheduled_transactions_min_ck",
+          "value": "\"finance_scheduled_transactions\".\"amount_min\" >= 0"
+        },
+        "finance_scheduled_transactions_max_ck": {
+          "name": "finance_scheduled_transactions_max_ck",
+          "value": "\"finance_scheduled_transactions\".\"amount_max\" >= \"finance_scheduled_transactions\".\"amount_min\""
+        },
+        "finance_scheduled_transactions_frequency_ck": {
+          "name": "finance_scheduled_transactions_frequency_ck",
+          "value": "\"finance_scheduled_transactions\".\"frequency\" IN ('weekly','monthly','yearly')"
+        },
+        "finance_scheduled_transactions_interval_ck": {
+          "name": "finance_scheduled_transactions_interval_ck",
+          "value": "\"finance_scheduled_transactions\".\"interval\" >= 1"
+        },
+        "finance_scheduled_transactions_is_active_ck": {
+          "name": "finance_scheduled_transactions_is_active_ck",
+          "value": "\"finance_scheduled_transactions\".\"is_active\" IN (0,1)"
+        }
+      }
+    },
+    "finance_settings": {
+      "name": "finance_settings",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "finance_tags": {
+      "name": "finance_tags",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "starts_on": {
+          "name": "starts_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ends_on": {
+          "name": "ends_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "finance_tags_name_unique": {
+          "name": "finance_tags_name_unique",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "finance_transaction_tags": {
+      "name": "finance_transaction_tags",
+      "columns": {
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tag_id": {
+          "name": "tag_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "finance_transaction_tags_transaction_id_finance_transactions_id_fk": {
+          "name": "finance_transaction_tags_transaction_id_finance_transactions_id_fk",
+          "tableFrom": "finance_transaction_tags",
+          "tableTo": "finance_transactions",
+          "columnsFrom": [
+            "transaction_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "finance_transaction_tags_tag_id_finance_tags_id_fk": {
+          "name": "finance_transaction_tags_tag_id_finance_tags_id_fk",
+          "tableFrom": "finance_transaction_tags",
+          "tableTo": "finance_tags",
+          "columnsFrom": [
+            "tag_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "finance_transaction_tags_transaction_id_tag_id_pk": {
+          "columns": [
+            "transaction_id",
+            "tag_id"
+          ],
+          "name": "finance_transaction_tags_transaction_id_tag_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "finance_transactions": {
+      "name": "finance_transactions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payee_id": {
+          "name": "payee_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "scheduled_id": {
+          "name": "scheduled_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "import_meta": {
+          "name": "import_meta",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "category_source": {
+          "name": "category_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "finance_transactions_external_id_unique": {
+          "name": "finance_transactions_external_id_unique",
+          "columns": [
+            "external_id"
+          ],
+          "isUnique": true
+        },
+        "finance_transactions_occurred_idx": {
+          "name": "finance_transactions_occurred_idx",
+          "columns": [
+            "occurred_at"
+          ],
+          "isUnique": false
+        },
+        "finance_transactions_payee_idx": {
+          "name": "finance_transactions_payee_idx",
+          "columns": [
+            "payee_id"
+          ],
+          "isUnique": false
+        },
+        "finance_transactions_scheduled_idx": {
+          "name": "finance_transactions_scheduled_idx",
+          "columns": [
+            "scheduled_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "finance_transactions_payee_id_finance_payees_id_fk": {
+          "name": "finance_transactions_payee_id_finance_payees_id_fk",
+          "tableFrom": "finance_transactions",
+          "tableTo": "finance_payees",
+          "columnsFrom": [
+            "payee_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "finance_transactions_scheduled_id_finance_scheduled_transactions_id_fk": {
+          "name": "finance_transactions_scheduled_id_finance_scheduled_transactions_id_fk",
+          "tableFrom": "finance_transactions",
+          "tableTo": "finance_scheduled_transactions",
+          "columnsFrom": [
+            "scheduled_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "finance_transactions_source_ck": {
+          "name": "finance_transactions_source_ck",
+          "value": "\"finance_transactions\".\"source\" IN ('wise_csv','manual','migration','scheduled')"
+        },
+        "finance_transactions_category_source_ck": {
+          "name": "finance_transactions_category_source_ck",
+          "value": "\"finance_transactions\".\"category_source\" IN ('legacy','scheduled','rule','payee_history','source_category','correction')"
+        }
+      }
+    }
+  },
+  "views": {
+    "finance_v_unbalanced": {
+      "columns": {
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "residual": {
+          "name": "residual",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "name": "finance_v_unbalanced",
+      "isExisting": false,
+      "definition": "SELECT transaction_id, currency, SUM(amount) AS residual FROM finance_postings GROUP BY transaction_id, currency HAVING SUM(amount) <> 0"
+    }
+  },
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

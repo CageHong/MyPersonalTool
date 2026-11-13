@@ -46,6 +46,25 @@ export function findPayeeByText(
   return row?.payeeId ?? null
 }
 
+// 這個文字會對到的既有收款人:別名表有就用,沒有就找同名的收款人;都沒有是 null。只查不寫。
+// 跟 resolvePayee 用同一個順序,所以試跑時查到的就是套用時會用的
+export function lookupPayee(
+  db: FinanceConn,
+  raw: string,
+  suffixes: readonly string[],
+): number | null {
+  const known = findPayeeByText(db, raw, suffixes)
+  if (known !== null) return known
+  const name = payeeDisplayName(raw, suffixes)
+  if (name === '') return null
+  const [sameName] = db
+    .select({ id: financePayees.id })
+    .from(financePayees)
+    .where(eq(financePayees.name, name))
+    .all()
+  return sameName?.id ?? null
+}
+
 // 原始文字 → 收款人 id。別名表有就用;沒有就新增別名,掛到同名的收款人,同名的也沒有才新增收款人。
 // 整理後是空字串時回傳 null
 export function resolvePayee(
