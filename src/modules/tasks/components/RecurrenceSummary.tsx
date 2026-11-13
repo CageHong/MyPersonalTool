@@ -36,7 +36,7 @@ export function useRecurrenceRule(
     let ignore = false
     void (async () => {
       try {
-        const response = await fetch(`/api/recurrence-rules/${ruleId}`)
+        const response = await fetch(`/api/tasks/recurrence-rules/${ruleId}`)
         if (ignore) {
           return
         }

@@ -7,5 +7,5 @@ export type ChecklistItem = {
   completedAt: number | null
 }
 
-// PATCH /api/checklist-items/:itemId 的 body;一次只送一個欄位
+// PATCH /api/tasks/checklist-items/:itemId 的 body;一次只送一個欄位
 export type ChecklistItemPatch = { title: string } | { done: boolean }

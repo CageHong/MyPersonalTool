@@ -151,7 +151,7 @@ export function firstOccurrence(rule: RecurrenceSpec): string {
   return first
 }
 
-// 前端讀 GET /api/recurrence-rules/:ruleId 用的形狀;前端不從 src/modules/tasks/server/ import 型別,在這裡自行宣告,
+// 前端讀 GET /api/tasks/recurrence-rules/:ruleId 用的形狀;前端不從 src/modules/tasks/server/ import 型別,在這裡自行宣告,
 // 只列畫面用得到的欄位
 export type RecurrenceRuleView = RecurrenceSpec & {
   id: number

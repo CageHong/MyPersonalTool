@@ -1,13 +1,6 @@
-import { Suspense } from 'react'
-import PageSkeleton from '@/modules/tasks/components/PageSkeleton'
-import ThreeColumnLayout from '@/modules/tasks/components/ThreeColumnLayout'
+import { redirect } from 'next/navigation'
 
+// 平台沒有首頁:每個工具在自己的路徑底下(/tasks、/finance),根路徑先導到任務管理
 export default function Home() {
-  // ThreeColumnLayout 讀 useSearchParams,預先渲染時要有 Suspense 邊界;
-  // 邊界以內改走 client render,fallback 是靜態骨架,首屏不留一片空白。
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <ThreeColumnLayout />
-    </Suspense>
-  )
+  redirect('/tasks')
 }

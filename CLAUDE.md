@@ -40,8 +40,9 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 
 ## 目錄結構
 
-- `src/app/` — 頁面與路由
-- `src/app/api/` — route handler
+- `src/app/tasks/` — 頁面(網址 `/tasks`;根路徑 `/` 只轉址到這裡)
+- `src/app/api/tasks/` — route handler(網址一律以 `/api/tasks/` 開頭,任務本身是 `/api/tasks/tasks`)
+- `src/app/api/_lib/` — route handler 共用的 HTTP 輔助函式
 - `src/modules/tasks/server/` — 業務邏輯(純函式)
 - `src/modules/tasks/db/` — Drizzle schema 與連線
 - `src/modules/tasks/components/` — UI 元件
@@ -80,9 +81,9 @@ MVP 只有三種錯誤碼,不要自行增加:
 
 ## 前端
 
-**資料一律走 HTTP。** 畫面用 Client Component,以 `fetch('/api/tasks')` 取資料。不要在頁面或元件直接 import `src/modules/tasks/server/`(型別也不行),不要用 Server Action。理由見 `docs/decisions.md` §4。
+**資料一律走 HTTP。** 畫面用 Client Component,以 `fetch('/api/tasks/tasks')` 取資料。不要在頁面或元件直接 import `src/modules/tasks/server/`(型別也不行),不要用 Server Action。理由見 `docs/decisions.md` §4。
 
-**畫面更新一律重新抓。** 任何寫入操作(POST / PATCH / DELETE)成功後,重新 `GET /api/tasks`,用回傳結果整份替換 state。不要拿回應的物件去局部更新 state,不要做樂觀更新。習慣的寫入同理,重抓的是 `GET /api/habits`。例外只有三個,都已定案,不要再增加:編輯中的輸入框、checklist 拖曳排序、習慣計數。
+**畫面更新一律重新抓。** 任何寫入操作(POST / PATCH / DELETE)成功後,重新 `GET /api/tasks/tasks`,用回傳結果整份替換 state。不要拿回應的物件去局部更新 state,不要做樂觀更新。習慣的寫入同理,重抓的是 `GET /api/tasks/habits`。例外只有三個,都已定案,不要再增加:編輯中的輸入框、checklist 拖曳排序、習慣計數。
 
 **寫入不停用控制項。** 任務與 checklist 的寫入都經過佇列,每個動作等前一個(含重抓)完成才開始,期間**不**用 `disabled` 或 `readOnly` 擋控制項(例外:ConfirmDialog 的確認鈕);防重複送出用 ref(如 `pendingRef`)。理由見 `docs/decisions.md` §5。
 

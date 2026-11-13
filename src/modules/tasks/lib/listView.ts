@@ -19,7 +19,7 @@ export type ViewSettings = {
   sortDirection: SortDirection
 }
 
-// GET /api/list-views 的一筆
+// GET /api/tasks/list-views 的一筆
 export type StoredViewSettings = ViewSettings & { listKey: string }
 
 // 有設定可存的清單:畫任務的智慧檢視。習慣視圖不走任務的分組與排序

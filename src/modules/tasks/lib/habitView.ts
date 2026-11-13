@@ -5,7 +5,7 @@ import type { PeriodType } from './habit'
 
 export type PeriodCount = { date: string; count: number }
 
-// GET /api/habits 的一筆;只列畫面用得到的欄位
+// GET /api/tasks/habits 的一筆;只列畫面用得到的欄位
 export type HabitItem = {
   id: number
   name: string

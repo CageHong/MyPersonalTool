@@ -20,8 +20,8 @@
 
 ## 按確定時的送出
 
-- 日期有改 → `PATCH /api/tasks/:id { dueDate }`。
-- 規則:沒有規則或已停止 → `POST /api/tasks/:id/recurrence`;選不重複 → `POST …/stop`;節奏(頻率、間隔、星期幾)有改 → `PATCH /api/recurrence-rules/:ruleId`,連同 `startDate` = 選單裡的日期;只改結束日 → `PATCH { until }`,錨點不動。
+- 日期有改 → `PATCH /api/tasks/tasks/:id { dueDate }`。
+- 規則:沒有規則或已停止 → `POST /api/tasks/tasks/:id/recurrence`;選不重複 → `POST …/stop`;節奏(頻率、間隔、星期幾)有改 → `PATCH /api/tasks/recurrence-rules/:ruleId`,連同 `startDate` = 選單裡的日期;只改結束日 → `PATCH { until }`,錨點不動。
 - 兩者都有改時先送日期再送規則,放在 `mutate` 的**同一個佇列工作**裡:遇到第一個失敗就停(不拿被拒的日期改規則),前面已成功的仍重抓一次;焦點快照只記一次,共用重抓與遞補。都沒有改動就不送。防重複送出用 `dateSavePendingRef`,完成後一律重設。
 
 **規則寫入會刪掉今天之後未完成的實例(含正在編輯的未來實例)並重生成新 id。** 寫入期間 `ThreeColumnLayout` 暫停「選中的任務不見就清掉 `task`」的 effect(`ruleWritePending`),結束後第一次判斷時,不見的若是剛寫入規則的那個任務,就改選這條規則最早的未完成實例(`earliestIncomplete`,與列表收合的代表同一套排序);沒有未完成實例、或改選的實例被目前檢視濾掉時才清掉。
@@ -38,8 +38,8 @@
 
 **`DueDateDialog` 的第二層 `scope`。** 按確定時,任務是實例、規則仍進行中、日期有改、這次沒有同時改規則(`needsScopeQuestion`),才切到第二層,不另開對話框;日期與規則在同一次操作裡都改時不問,直接套用到整個規則。
 
-- 「只改這一次」只送 `PATCH /api/tasks/:id { dueDate }`,`occurrence_date` 不動。
-- 「改整個重複規則」送 `PATCH /api/recurrence-rules/:ruleId`,錨點改成新日期;每週時連 `weekdays` 一起送,只替換被移動的那一天(移除原定日的星期、加上新日期的星期,合併時天數減一,不會是 0)。未來的實例(`occurrence_date > today`)先移它再改規則,它會被刪掉重生,由自動改選接手;今天或逾期的實例不移動,只改規則(伺服器只從明天起重生,移動它會讓新日期出現兩筆)。
+- 「只改這一次」只送 `PATCH /api/tasks/tasks/:id { dueDate }`,`occurrence_date` 不動。
+- 「改整個重複規則」送 `PATCH /api/tasks/recurrence-rules/:ruleId`,錨點改成新日期;每週時連 `weekdays` 一起送,只替換被移動的那一天(移除原定日的星期、加上新日期的星期,合併時天數減一,不會是 0)。未來的實例(`occurrence_date > today`)先移它再改規則,它會被刪掉重生,由自動改選接手;今天或逾期的實例不移動,只改規則(伺服器只從明天起重生,移動它會讓新日期出現兩筆)。
 
 每個選項下有一行用當下日期與規則產生的說明(`src/modules/tasks/lib/recurrenceMove.ts`),改整個規則另外提醒「今天之後未完成的實例會重新產生,之前對個別實例的日期調整會消失」。不記住上次的選擇:每次進入焦點都在「只改這一次」;Esc 或「返回」退回主畫面、焦點回確定鈕,不送出。規則還沒載入完成時「改整個重複規則」顯示載入中,按了不動作(不停用)。
 

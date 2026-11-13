@@ -54,19 +54,19 @@ function parseSelectedId(raw: string | null): number | null {
 function recurrenceRequest(taskId: number, request: RecurrenceRequest): Promise<Response> {
   switch (request.kind) {
     case 'create':
-      return fetch(`/api/tasks/${taskId}/recurrence`, {
+      return fetch(`/api/tasks/tasks/${taskId}/recurrence`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request.spec),
       })
     case 'update':
-      return fetch(`/api/recurrence-rules/${request.ruleId}`, {
+      return fetch(`/api/tasks/recurrence-rules/${request.ruleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request.changes),
       })
     case 'stop':
-      return fetch(`/api/recurrence-rules/${request.ruleId}/stop`, { method: 'POST' })
+      return fetch(`/api/tasks/recurrence-rules/${request.ruleId}/stop`, { method: 'POST' })
   }
 }
 
@@ -197,7 +197,7 @@ export default function ThreeColumnLayout() {
 
   const today = todayIso()
   const view = parseView(searchParams.get('view'))
-  // 篩選在前端做,GET /api/tasks 照舊拿全部。重複實例每條規則只剩一個代表,
+  // 篩選在前端做,GET /api/tasks/tasks 照舊拿全部。重複實例每條規則只剩一個代表,
   // 非代表的實例不在 visibleTasks 裡,所以也選不到(網址上的 task 會被下面的 effect 清掉)
   const { tasks: visibleTasks, overdueCounts } = filterTasks(tasks, view, today)
 
@@ -248,7 +248,7 @@ export default function ThreeColumnLayout() {
   // flushSync:回傳時新清單已經 commit 到 DOM,呼叫端接著就能依畫面上的列移焦點。
   // 這時右欄若已換成空狀態,確認彈窗連同 <dialog> 一起卸載、背景 inert 已解除,focus() 才有效
   const refetch = useCallback(async (): Promise<ApiError | null> => {
-    const response = await fetch('/api/tasks')
+    const response = await fetch('/api/tasks/tasks')
     if (!response.ok) {
       return await readApiError(response)
     }
@@ -261,7 +261,7 @@ export default function ThreeColumnLayout() {
   }, [])
 
   const refetchViewSettings = useCallback(async (): Promise<ApiError | null> => {
-    const response = await fetch('/api/list-views')
+    const response = await fetch('/api/tasks/list-views')
     if (!response.ok) {
       return await readApiError(response)
     }
@@ -286,7 +286,7 @@ export default function ThreeColumnLayout() {
   }, [refetchViewSettings])
 
   const refetchHabits = useCallback(async (): Promise<ApiError | null> => {
-    const response = await fetch('/api/habits')
+    const response = await fetch('/api/tasks/habits')
     if (!response.ok) {
       return await readApiError(response)
     }
@@ -415,7 +415,7 @@ export default function ThreeColumnLayout() {
   const handleCreate = useCallback(
     (input: NewTask) =>
       mutate(() =>
-        fetch('/api/tasks', {
+        fetch('/api/tasks/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(input),
@@ -428,7 +428,7 @@ export default function ThreeColumnLayout() {
   const handleCreateMany = useCallback(
     (inputs: NewTask[]) =>
       mutate(() =>
-        fetch('/api/tasks/batch', {
+        fetch('/api/tasks/tasks/batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tasks: inputs }),
@@ -446,7 +446,7 @@ export default function ThreeColumnLayout() {
       }
       void enqueue(async () => {
         try {
-          const response = await fetch(`/api/list-views/${listKey}`, {
+          const response = await fetch(`/api/tasks/list-views/${listKey}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(next),
@@ -470,7 +470,7 @@ export default function ThreeColumnLayout() {
   const handleToggle = useCallback(
     (task: Task) =>
       mutate(() =>
-        fetch(`/api/tasks/${task.id}`, {
+        fetch(`/api/tasks/tasks/${task.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ done: task.completedAt === null }),
@@ -483,7 +483,7 @@ export default function ThreeColumnLayout() {
   const handleUpdate = useCallback(
     (id: number, patch: TaskPatch) =>
       mutate(() =>
-        fetch(`/api/tasks/${id}`, {
+        fetch(`/api/tasks/tasks/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(patch),
@@ -500,7 +500,7 @@ export default function ThreeColumnLayout() {
       const requests: (() => Promise<Response>)[] = []
       if (dueDate !== undefined) {
         requests.push(() =>
-          fetch(`/api/tasks/${id}`, {
+          fetch(`/api/tasks/tasks/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dueDate }),
@@ -528,7 +528,7 @@ export default function ThreeColumnLayout() {
   // 失敗時 mutate 已經 setError,任務與選取都不動。焦點由 mutate 統一處理(離開視圖的規則)
   const handleDelete = useCallback(
     async (id: number) => {
-      const failure = await mutate(() => fetch(`/api/tasks/${id}`, { method: 'DELETE' }))
+      const failure = await mutate(() => fetch(`/api/tasks/tasks/${id}`, { method: 'DELETE' }))
       if (failure === null) {
         replaceParams((params) => params.delete('task'))
       }
@@ -589,7 +589,7 @@ export default function ThreeColumnLayout() {
         let failure: ApiError | null = null
         try {
           for (const write of step.writes) {
-            const response = await fetch(`/api/habits/${id}/logs?date=${write.date}`, {
+            const response = await fetch(`/api/tasks/habits/${id}/logs?date=${write.date}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ count: write.count }),
@@ -640,7 +640,7 @@ export default function ThreeColumnLayout() {
     (name: string) =>
       enqueue(async (): Promise<ApiError | null> => {
         try {
-          const response = await fetch('/api/habits', {
+          const response = await fetch('/api/tasks/habits', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, periodType: 'daily', target: 1 }),
@@ -666,7 +666,7 @@ export default function ThreeColumnLayout() {
   const handleUpdateHabit = useCallback(
     (id: number, patch: HabitPatch) =>
       mutateHabit(() =>
-        fetch(`/api/habits/${id}`, {
+        fetch(`/api/tasks/habits/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(patch),
@@ -679,7 +679,7 @@ export default function ThreeColumnLayout() {
   const handleTogglePause = useCallback(
     (habit: HabitItem) =>
       mutateHabit(() =>
-        fetch(`/api/habits/${habit.id}/${habit.paused ? 'resume' : 'pause'}`, { method: 'POST' }),
+        fetch(`/api/tasks/habits/${habit.id}/${habit.paused ? 'resume' : 'pause'}`, { method: 'POST' }),
       ),
     [mutateHabit],
   )
@@ -690,7 +690,7 @@ export default function ThreeColumnLayout() {
       const column = tasksColumnRef.current
       const index =
         column === null ? -1 : habitRows(column).findIndex((row) => row.dataset.habitId === String(id))
-      const failure = await mutateHabit(() => fetch(`/api/habits/${id}`, { method: 'DELETE' }))
+      const failure = await mutateHabit(() => fetch(`/api/tasks/habits/${id}`, { method: 'DELETE' }))
       if (failure === null) {
         replaceParams((params) => params.delete('habit'))
         if (column !== null && index !== -1) {

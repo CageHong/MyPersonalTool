@@ -95,7 +95,7 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
 
   // 寫入後整份重抓,不拿回應的物件更新 state,也不做樂觀更新
   const fetchItems = useCallback(async (): Promise<ApiError | null> => {
-    const response = await fetch(`/api/tasks/${taskId}/checklist-items`)
+    const response = await fetch(`/api/tasks/tasks/${taskId}/checklist-items`)
     if (!response.ok) {
       return await readApiError(response)
     }
@@ -145,7 +145,7 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
   function patchItem(id: number, patch: ChecklistItemPatch) {
     return write(
       () =>
-        fetch(`/api/checklist-items/${id}`, {
+        fetch(`/api/tasks/checklist-items/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(patch),
@@ -157,7 +157,7 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
   function handleCreate(title: string) {
     return write(
       () =>
-        fetch(`/api/tasks/${taskId}/checklist-items`, {
+        fetch(`/api/tasks/tasks/${taskId}/checklist-items`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),
@@ -170,7 +170,7 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
   function handleCreateMany(titles: string[]) {
     return write(
       () =>
-        fetch(`/api/tasks/${taskId}/checklist-items/batch`, {
+        fetch(`/api/tasks/tasks/${taskId}/checklist-items/batch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ titles }),
@@ -197,7 +197,7 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
     }
     // write 在重抓完成後才 resolve,這時項目已經從畫面上拿掉
     const failure = await write(
-      () => fetch(`/api/checklist-items/${item.id}`, { method: 'DELETE' }),
+      () => fetch(`/api/tasks/checklist-items/${item.id}`, { method: 'DELETE' }),
       'item',
     )
     deletingIdsRef.current.delete(item.id)
@@ -257,7 +257,7 @@ export default function TaskChecklist({ taskId, onError, labelId }: Props) {
 
     void enqueue(async () => {
       try {
-        const response = await fetch(`/api/tasks/${taskId}/checklist-items/order`, {
+        const response = await fetch(`/api/tasks/tasks/${taskId}/checklist-items/order`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ itemIds: next.map((item) => item.id) }),
