@@ -1,4 +1,8 @@
-// 收款人文字的正規化。匯入的原始文字先經過這裡,再到別名表做完全相同的比對。
+// 收款人:文字的正規化,以及「原始文字 → 收款人」的查詢與建立。
+// 匯入的原始文字先正規化,再到別名表做完全相同的比對。
+import { eq } from 'drizzle-orm'
+import type { FinanceConn } from '../../db/index'
+import { financePayeeAliases, financePayees } from '../../db/schema'
 
 function collapse(raw: string): string {
   return raw.trim().replace(/\s+/g, ' ')
@@ -24,4 +28,51 @@ export function normalizePayeeText(raw: string, suffixes: readonly string[]): st
 // 第一次看到這個文字時,收款人的顯示名稱:保留原本的大小寫,只整理空白與後綴
 export function payeeDisplayName(raw: string, suffixes: readonly string[]): string {
   return stripSuffix(collapse(raw), suffixes)
+}
+
+// 別名表裡這個文字對到的收款人;沒有就是 null。只查不寫
+export function findPayeeByText(
+  db: FinanceConn,
+  raw: string,
+  suffixes: readonly string[],
+): number | null {
+  const alias = normalizePayeeText(raw, suffixes)
+  if (alias === '') return null
+  const [row] = db
+    .select({ payeeId: financePayeeAliases.payeeId })
+    .from(financePayeeAliases)
+    .where(eq(financePayeeAliases.alias, alias))
+    .all()
+  return row?.payeeId ?? null
+}
+
+// 原始文字 → 收款人 id。別名表有就用;沒有就新增別名,掛到同名的收款人,同名的也沒有才新增收款人。
+// 整理後是空字串時回傳 null
+export function resolvePayee(
+  db: FinanceConn,
+  raw: string,
+  suffixes: readonly string[],
+  now: string = new Date().toISOString(),
+): number | null {
+  const alias = normalizePayeeText(raw, suffixes)
+  if (alias === '') return null
+  return db.transaction((tx) => {
+    const known = findPayeeByText(tx, raw, suffixes)
+    if (known !== null) return known
+    const name = payeeDisplayName(raw, suffixes)
+    const [sameName] = tx
+      .select({ id: financePayees.id })
+      .from(financePayees)
+      .where(eq(financePayees.name, name))
+      .all()
+    const payeeId =
+      sameName?.id ??
+      tx
+        .insert(financePayees)
+        .values({ name, createdAt: now })
+        .returning({ id: financePayees.id })
+        .all()[0].id
+    tx.insert(financePayeeAliases).values({ alias, payeeId }).run()
+    return payeeId
+  })
 }

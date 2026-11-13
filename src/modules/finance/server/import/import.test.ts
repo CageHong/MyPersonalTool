@@ -1,0 +1,323 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { sql } from 'drizzle-orm'
+import { parseWiseCsv } from '@personal-tools/statement-parsers'
+import type { FinanceDb } from '../../db/index'
+import { resolvePayee } from '../ledger/payees'
+import { createTransaction } from '../ledger/transactions'
+import { ACCOUNTS, AT, freshLedger } from '../testing'
+import { applyImport, ImportBlockedError, planImport } from './index'
+
+const options = { payeeSuffixes: ['via Processor'] }
+
+const COLUMNS = [
+  'ID',
+  'Status',
+  'Direction',
+  'Created on',
+  'Source fee amount',
+  'Source fee currency',
+  'Source name',
+  'Source amount (after fees)',
+  'Source currency',
+  'Target name',
+  'Target amount (after fees)',
+  'Target currency',
+  'Exchange rate',
+  'Reference',
+  'Category',
+  'Note',
+]
+
+const DEFAULTS: Record<string, string> = {
+  ID: 'CARD-1',
+  Status: 'COMPLETED',
+  Direction: 'OUT',
+  'Created on': '2030-01-15 09:30:00',
+  'Source fee amount': '0.00',
+  'Source fee currency': 'EUR',
+  'Source name': 'Alex Example',
+  'Source amount (after fees)': '12.30',
+  'Source currency': 'EUR',
+  'Target name': 'Some Shop BV',
+  'Target amount (after fees)': '12.30',
+  'Target currency': 'EUR',
+  'Exchange rate': '1.0',
+}
+
+function statement(rows: Record<string, string>[]) {
+  const lines = rows.map((row) => COLUMNS.map((c) => row[c] ?? DEFAULTS[c] ?? '').join(','))
+  return parseWiseCsv([COLUMNS.join(','), ...lines].join('\n'))
+}
+
+const incoming = (overrides: Record<string, string> = {}) => ({
+  ID: 'TRANSFER-1',
+  Direction: 'IN',
+  'Source name': 'Jordan Sample',
+  'Source amount (after fees)': '1000.00',
+  'Source currency': 'USD',
+  'Target name': 'Alex Example',
+  'Target amount (after fees)': '915.40',
+  'Target currency': 'EUR',
+  ...overrides,
+})
+
+const exchange = {
+  ID: 'BALANCE-1',
+  Direction: 'NEUTRAL',
+  'Source amount (after fees)': '200.00',
+  'Source currency': 'USD',
+  'Source fee amount': '0.80',
+  'Source fee currency': 'USD',
+  'Target amount (after fees)': '183.20',
+  'Target currency': 'EUR',
+  'Source name': '',
+  'Target name': '',
+}
+
+function postingsOf(db: FinanceDb, externalId: string) {
+  return db.all<{ account_id: number; amount: number; currency: string }>(
+    sql`SELECT p.account_id, p.amount, p.currency FROM finance_postings p
+        JOIN finance_transactions t ON t.id = p.transaction_id
+        WHERE t.external_id = ${externalId} ORDER BY p.sort_order`,
+  )
+}
+
+function payeeOf(db: FinanceDb, externalId: string) {
+  return (
+    db.all<{ name: string | null }>(
+      sql`SELECT y.name FROM finance_transactions t LEFT JOIN finance_payees y ON y.id = t.payee_id
+          WHERE t.external_id = ${externalId}`,
+    )[0]?.name ?? null
+  )
+}
+
+const unbalanced = (db: FinanceDb) => db.all(sql`SELECT * FROM finance_v_unbalanced`)
+
+// 舊的匯入方式留下來的入帳交易:對象是帳戶持有人自己,金額是匯出方的數字
+function seedOldIncoming(db: FinanceDb, amount = 91540) {
+  const self = resolvePayee(db, 'Alex Example', options.payeeSuffixes, AT)
+  return createTransaction(
+    db,
+    {
+      occurredAt: '2030-01-15T09:30:00+00:00',
+      source: 'wise_csv',
+      externalId: 'TRANSFER-1',
+      payeeId: self,
+      postings: [
+        { accountId: ACCOUNTS.wiseEur, amount, currency: 'EUR' },
+        { accountId: ACCOUNTS.uncategorizedIncome, amount: -amount, currency: 'EUR' },
+      ],
+    },
+    AT,
+  )
+}
+
+test('付出:來源帳戶 −(金額 + 手續費)、未分類 + 金額、手續費 + 手續費', () => {
+  const db = freshLedger()
+  const plan = planImport(
+    db,
+    statement([{ 'Source amount (after fees)': '100.00', 'Source fee amount': '1.25', Note: 'gift' }]),
+    options,
+  )
+  assert.deepEqual(plan.errors, [])
+  assert.deepEqual(applyImport(db, plan, options, AT), { created: 1, payeesFixed: 0 })
+  assert.deepEqual(postingsOf(db, 'CARD-1'), [
+    { account_id: ACCOUNTS.wiseEur, amount: -10125, currency: 'EUR' },
+    { account_id: ACCOUNTS.uncategorized, amount: 10000, currency: 'EUR' },
+    { account_id: ACCOUNTS.fee, amount: 125, currency: 'EUR' },
+  ])
+  assert.equal(payeeOf(db, 'CARD-1'), 'Some Shop BV')
+  const [header] = db.all<{ note: string; source: string; import_meta: string; occurred_at: string }>(
+    sql`SELECT note, source, import_meta, occurred_at FROM finance_transactions`,
+  )
+  assert.equal(header.note, 'gift')
+  assert.equal(header.source, 'wise_csv')
+  assert.equal(header.occurred_at, '2030-01-15T09:30:00+00:00')
+  const meta = JSON.parse(header.import_meta)
+  assert.equal(meta.payee_original, 'Some Shop BV')
+  assert.equal(meta.row['Source fee amount'], '1.25')
+  assert.deepEqual(unbalanced(db), [])
+})
+
+test('入帳:來源帳戶 + 實際入帳金額、未分類收入 − 金額;對象是匯款人', () => {
+  const db = freshLedger()
+  applyImport(db, planImport(db, statement([incoming()]), options), options)
+  assert.deepEqual(postingsOf(db, 'TRANSFER-1'), [
+    { account_id: ACCOUNTS.wiseEur, amount: 91540, currency: 'EUR' },
+    { account_id: ACCOUNTS.uncategorizedIncome, amount: -91540, currency: 'EUR' },
+  ])
+  assert.equal(payeeOf(db, 'TRANSFER-1'), 'Jordan Sample')
+})
+
+test('換匯:兩個幣別各自平衡,手續費從流出的帳戶扣', () => {
+  const db = freshLedger()
+  applyImport(db, planImport(db, statement([exchange]), options), options)
+  assert.deepEqual(postingsOf(db, 'BALANCE-1'), [
+    { account_id: ACCOUNTS.wiseUsd, amount: -20080, currency: 'USD' },
+    { account_id: ACCOUNTS.exchange, amount: 20000, currency: 'USD' },
+    { account_id: ACCOUNTS.wiseEur, amount: 18320, currency: 'EUR' },
+    { account_id: ACCOUNTS.exchange, amount: -18320, currency: 'EUR' },
+    { account_id: ACCOUNTS.fee, amount: 80, currency: 'USD' },
+  ])
+  assert.equal(payeeOf(db, 'BALANCE-1'), null)
+  assert.deepEqual(unbalanced(db), [])
+})
+
+test('沒有對方名稱時,對象用備註欄', () => {
+  const db = freshLedger()
+  applyImport(
+    db,
+    planImport(db, statement([{ 'Target name': '', Reference: 'Monthly Pass' }]), options),
+    options,
+  )
+  assert.equal(payeeOf(db, 'CARD-1'), 'Monthly Pass')
+})
+
+test('同一份檔案套用兩次:第二次沒有新的,也不再寫入', () => {
+  const db = freshLedger()
+  const parsed = statement([{}, incoming(), exchange])
+  assert.deepEqual(applyImport(db, planImport(db, parsed, options), options), {
+    created: 3,
+    payeesFixed: 0,
+  })
+  const again = planImport(db, parsed, options)
+  assert.deepEqual(
+    again.items.map((item) => item.status),
+    ['existing', 'existing', 'existing'],
+  )
+  assert.ok(again.items.every((i) => i.status === 'existing' && !i.payeeFix && !i.amountDiff))
+  assert.deepEqual(applyImport(db, again, options), { created: 0, payeesFixed: 0 })
+  assert.equal(db.all(sql`SELECT * FROM finance_transactions`).length, 3)
+  assert.equal(again.missingFromFile, 0)
+})
+
+test('補對象:既有的入帳交易對象是帳戶持有人時,換成匯款人;其他欄位不動', () => {
+  const db = freshLedger()
+  const id = seedOldIncoming(db)
+  db.run(sql`INSERT INTO finance_tags (id, name, created_at) VALUES (1, 'trip', ${AT})`)
+  db.run(sql`INSERT INTO finance_transaction_tags VALUES (${id}, 1)`)
+  const plan = planImport(db, statement([incoming()]), options)
+  const [item] = plan.items
+  assert.ok(item.status === 'existing')
+  assert.deepEqual(item.payeeFix, { from: 'Alex Example', to: 'Jordan Sample' })
+  assert.equal(item.amountDiff, null)
+  assert.deepEqual(applyImport(db, plan, options), { created: 0, payeesFixed: 1 })
+  assert.equal(payeeOf(db, 'TRANSFER-1'), 'Jordan Sample')
+  assert.equal(db.all(sql`SELECT * FROM finance_transaction_tags`).length, 1)
+  assert.equal(postingsOf(db, 'TRANSFER-1').length, 2)
+  // 再跑一次:已經補過,不再列為要補
+  const again = planImport(db, statement([incoming()]), options)
+  assert.ok(again.items[0].status === 'existing' && again.items[0].payeeFix === null)
+})
+
+test('不補對象:匯款人就是持有人自己、對象已經是別人、付出的交易', () => {
+  const db = freshLedger()
+  seedOldIncoming(db)
+  const selfTransfer = planImport(db, statement([incoming({ 'Source name': 'ALEX  EXAMPLE' })]), options)
+  assert.ok(selfTransfer.items[0].status === 'existing' && selfTransfer.items[0].payeeFix === null)
+
+  const other = freshLedger()
+  resolvePayee(other, 'Alex Example', options.payeeSuffixes)
+  createTransaction(other, {
+    occurredAt: '2030-01-15T09:30:00+00:00',
+    source: 'wise_csv',
+    externalId: 'TRANSFER-1',
+    payeeId: resolvePayee(other, 'Hand Picked', options.payeeSuffixes),
+    postings: [
+      { accountId: ACCOUNTS.wiseEur, amount: 91540, currency: 'EUR' },
+      { accountId: ACCOUNTS.food, amount: -91540, currency: 'EUR' },
+    ],
+  })
+  const kept = planImport(other, statement([incoming()]), options)
+  assert.ok(kept.items[0].status === 'existing' && kept.items[0].payeeFix === null)
+  applyImport(other, kept, options)
+  assert.equal(payeeOf(other, 'TRANSFER-1'), 'Hand Picked')
+})
+
+test('金額不同:只列出來,套用時不改分錄(對象照補)', () => {
+  const db = freshLedger()
+  seedOldIncoming(db, 100000)
+  const plan = planImport(db, statement([incoming()]), options)
+  const [item] = plan.items
+  assert.ok(item.status === 'existing')
+  assert.deepEqual(item.amountDiff, {
+    existing: [{ accountId: ACCOUNTS.wiseEur, currency: 'EUR', amount: 100000 }],
+    incoming: [{ accountId: ACCOUNTS.wiseEur, currency: 'EUR', amount: 91540 }],
+  })
+  assert.deepEqual(applyImport(db, plan, options), { created: 0, payeesFixed: 1 })
+  assert.equal(postingsOf(db, 'TRANSFER-1')[0].amount, 100000)
+})
+
+test('金額只比來源帳戶那一側:分類那一側拆成幾條都算相同', () => {
+  const db = freshLedger()
+  createTransaction(db, {
+    occurredAt: '2030-01-15T09:30:00+00:00',
+    source: 'wise_csv',
+    externalId: 'CARD-1',
+    postings: [
+      { accountId: ACCOUNTS.wiseEur, amount: -1230, currency: 'EUR' },
+      { accountId: ACCOUNTS.food, amount: 800, currency: 'EUR' },
+      { accountId: ACCOUNTS.uncategorized, amount: 430, currency: 'EUR' },
+    ],
+  })
+  const [item] = planImport(db, statement([{}]), options).items
+  assert.ok(item.status === 'existing' && item.amountDiff === null)
+})
+
+test('帳本沒有對應的帳戶、小數位數不對、檔案裡 ID 重複:列為錯誤,不能套用', () => {
+  const db = freshLedger()
+  const plan = planImport(
+    db,
+    statement([
+      { ID: 'CARD-1', 'Source currency': 'GBP' },
+      { ID: 'CARD-2', 'Source amount (after fees)': '12.345' },
+      { ID: 'CARD-3' },
+      { ID: 'CARD-3' },
+    ]),
+    options,
+  )
+  assert.deepEqual(
+    plan.errors.map((error) => [error.line, error.externalId]),
+    [
+      [2, 'CARD-1'],
+      [3, 'CARD-2'],
+      [5, 'CARD-3'],
+    ],
+  )
+  assert.match(plan.errors[0].message, /GBP|wise:GBP/)
+  assert.equal(plan.items.length, 1)
+  assert.throws(() => applyImport(db, plan, options), ImportBlockedError)
+  assert.equal(db.all(sql`SELECT * FROM finance_transactions`).length, 0)
+})
+
+test('略過的列原樣帶進計畫;帳本有、檔案沒有的筆數', () => {
+  const db = freshLedger()
+  seedOldIncoming(db)
+  const plan = planImport(db, statement([{ Status: 'CANCELLED' }, { ID: 'CARD-2' }]), options)
+  assert.equal(plan.skipped.length, 1)
+  assert.equal(plan.skipped[0].reason, 'status')
+  assert.equal(plan.missingFromFile, 1)
+  assert.deepEqual(
+    plan.items.map((item) => item.status),
+    ['new'],
+  )
+})
+
+test('套用到一半失敗時整份復原', () => {
+  const db = freshLedger()
+  const plan = planImport(db, statement([{ ID: 'CARD-1' }, { ID: 'CARD-2' }]), options)
+  // 計畫做好之後,帳本被別的地方先寫入了同一個 ID
+  createTransaction(db, {
+    occurredAt: '2030-01-15T09:30:00+00:00',
+    source: 'manual',
+    externalId: 'CARD-2',
+    postings: [
+      { accountId: ACCOUNTS.wiseEur, amount: -100, currency: 'EUR' },
+      { accountId: ACCOUNTS.food, amount: 100, currency: 'EUR' },
+    ],
+  })
+  assert.throws(() => applyImport(db, plan, options))
+  assert.equal(db.all(sql`SELECT * FROM finance_transactions`).length, 1)
+  assert.equal(db.all(sql`SELECT * FROM finance_payees`).length, 0)
+})

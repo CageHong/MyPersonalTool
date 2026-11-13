@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { normalizePayeeText, payeeDisplayName } from './payees'
+import { sql } from 'drizzle-orm'
+import { AT, freshLedger } from '../testing'
+import { findPayeeByText, normalizePayeeText, payeeDisplayName, resolvePayee } from './payees'
 
 const suffixes = ['via Processor']
 
@@ -21,4 +23,32 @@ test('後綴只在結尾、而且前面有其他文字時才去掉', () => {
 
 test('顯示名稱保留大小寫,只整理空白與後綴', () => {
   assert.equal(payeeDisplayName(' Some  Shop BV via Processor', suffixes), 'Some Shop BV')
+})
+
+test('resolvePayee:第一次看到就新增收款人與別名;寫法只差大小寫、空白、後綴時是同一個', () => {
+  const db = freshLedger()
+  assert.equal(findPayeeByText(db, 'Some Shop BV', suffixes), null)
+  const id = resolvePayee(db, ' Some  Shop BV via Processor', suffixes, AT)
+  assert.equal(resolvePayee(db, 'some shop bv', suffixes), id)
+  assert.equal(findPayeeByText(db, 'SOME SHOP BV', suffixes), id)
+  assert.deepEqual(db.all(sql`SELECT name, created_at FROM finance_payees`), [
+    { name: 'Some Shop BV', created_at: AT },
+  ])
+  assert.deepEqual(db.all(sql`SELECT alias, payee_id FROM finance_payee_aliases`), [
+    { alias: 'some shop bv', payee_id: id },
+  ])
+})
+
+test('resolvePayee:別名表沒有、但已經有同名的收款人時,別名掛到那個收款人', () => {
+  const db = freshLedger()
+  db.run(sql`INSERT INTO finance_payees (id, name, created_at) VALUES (7, 'Some Shop BV', ${AT})`)
+  assert.equal(resolvePayee(db, 'Some Shop BV', suffixes), 7)
+  assert.equal(db.all(sql`SELECT * FROM finance_payees`).length, 1)
+  assert.equal(findPayeeByText(db, 'some shop bv', suffixes), 7)
+})
+
+test('resolvePayee:空白文字回傳 null,不新增', () => {
+  const db = freshLedger()
+  assert.equal(resolvePayee(db, '   ', suffixes), null)
+  assert.equal(db.all(sql`SELECT * FROM finance_payees`).length, 0)
 })

@@ -32,6 +32,9 @@ const COLUMNS = {
   category: 'Category',
 } as const
 
+// 不是每一份匯出都有的欄位:有就讀,沒有不算缺欄位
+const NOTE_COLUMN = 'Note'
+
 export const WISE_CSV_COLUMNS: readonly string[] = Object.values(COLUMNS)
 
 export function isWiseCsvHeader(header: readonly string[]): boolean {
@@ -125,6 +128,7 @@ function parseRow(raw: Record<string, string>, line: number): RowOutcome {
     occurredAt,
     fee,
     reference: orNull(value(COLUMNS.reference)),
+    note: orNull((raw[NOTE_COLUMN] ?? '').trim()),
     sourceCategory: orNull(value(COLUMNS.category)),
     line,
     raw,

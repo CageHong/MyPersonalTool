@@ -13,6 +13,7 @@ function pending(overrides: Partial<PendingTransaction>): PendingTransaction {
     fee: null,
     counterparty: null,
     reference: null,
+    note: null,
     sourceCategory: null,
     line: 2,
     raw: {},

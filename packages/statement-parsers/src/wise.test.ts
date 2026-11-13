@@ -110,6 +110,16 @@ test('空的對象、備註、分類是 null', () => {
   assert.equal(tx.sourceCategory, null)
 })
 
+test('Note 欄:有就讀進 note,沒有這一欄或是空的就是 null', () => {
+  assert.equal(parseOne({}).note, null)
+  const columns = [...WISE_CSV_COLUMNS, 'Note']
+  const withNote = parseWiseCsv(wiseCsv([{ Note: ' shared dinner ' }, { Note: '' }], columns))
+  assert.deepEqual(
+    withNote.transactions.map((tx) => tx.note),
+    ['shared dinner', null],
+  )
+})
+
 test('raw 保留這一列所有欄位的原文', () => {
   const tx = parseOne({ 'Target name': 'Shop, "Quoted" BV', 'Exchange rate': '1.0825' })
   assert.equal(tx.raw['Target name'], 'Shop, "Quoted" BV')

@@ -34,6 +34,8 @@ export interface PendingTransaction {
   // 對方的名稱:out 是收款人,in 是匯款人;exchange 沒有對方
   counterparty: string | null
   reference: string | null
+  // 使用者自己在來源那邊寫的備註;來源沒有這個欄位時是 null
+  note: string | null
   // 來源自己給的分類(原文)
   sourceCategory: string | null
   // 第幾行(從 1 算,欄位名那一行是 1)

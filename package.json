@@ -16,7 +16,8 @@
     "finance:db:generate": "drizzle-kit generate --config src/modules/finance/drizzle.config.ts",
     "finance:db:migrate": "drizzle-kit migrate --config src/modules/finance/drizzle.config.ts",
     "finance:import-v2": "tsx src/modules/finance/tools/import-v2.ts",
-    "finance:fx-update": "tsx src/modules/finance/tools/fx-update.ts"
+    "finance:fx-update": "tsx src/modules/finance/tools/fx-update.ts",
+    "finance:import-statement": "tsx src/modules/finance/tools/import-statement.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

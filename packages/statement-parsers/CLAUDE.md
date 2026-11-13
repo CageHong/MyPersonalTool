@@ -33,6 +33,7 @@
 - `IN`:金額與幣別讀 **Target**(實際入帳的金額),對象讀 **`Source name`**(匯款人;`Target name` 是帳戶持有人自己)。手續費是匯款人在 Wise 之外付的,`fee` 是 `null`。
 - `NEUTRAL`(換匯):一列一筆交易,`movements` 兩筆(先流出、後流入);`externalId` 是 Wise 的 ID,不加後綴。
 - 金額欄是「扣掉手續費之後」的數字,手續費另外從來源帳戶扣。
+- `Note`(使用者在 Wise 寫的備註)有這一欄就讀進 `note`;不是必要欄位。`Finished on`、`Target fee amount`、`Target fee currency`、`Batch`、`Created by` 不解讀,只留在 `raw`。
 
 ## 新增來源
 

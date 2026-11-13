@@ -1,11 +1,16 @@
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import Database from 'better-sqlite3'
+import type { RunResult } from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
 import * as schema from './schema'
 
 export type FinanceDb = ReturnType<typeof openDb>
+
+// 連線,或 db.transaction() 裡拿到的 tx。會被別的寫入函式包在同一個 DB transaction 裡呼叫的函式收這個型別
+export type FinanceConn = BaseSQLiteDatabase<'sync', RunResult, typeof schema>
 
 // 開一條連線。path 可以是 ':memory:'(測試用)
 export function openDb(path: string) {
