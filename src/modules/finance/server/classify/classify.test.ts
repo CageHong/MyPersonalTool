@@ -95,6 +95,14 @@ test('付出的順序:週期項目 → 對象規則 → 對象歷史 → 來源�
   assert.equal(decide(out({ sourceCategory: 'General' }), noHistory).accountId, null)
 })
 
+test('週期項目的分類不是支出分類時不用它,照下面的順序繼續', () => {
+  const c = ctx({ scheduled: [{ ...scheduledTrain, accountId: BONUS }], payeeRules: new Map([[5, FOOD]]) })
+  assert.deepEqual(
+    [decide(out(), c).accountId, decide(out(), c).categorySource, decide(out(), c).scheduledId],
+    [FOOD, 'rule', null],
+  )
+})
+
 test('沒有收款人時只看來源分類', () => {
   const c = ctx({ history: new Map([[5, TRAIN]]), sourceRules: new Map([['Groceries', FOOD]]) })
   assert.equal(decide(out({ payeeId: null }), c).accountId, FOOD)

@@ -80,8 +80,9 @@ export function buildDraft(pending: PendingTransaction, lookups: DraftLookups): 
     add(sourceAccount(pending.fee.account, pending.fee.currency), pending.fee.currency, -fee)
     add(lookups.system.fee, pending.fee.currency, fee)
   }
-  if (postings.some((p) => p.amount === 0)) {
-    throw new DraftError('金額互相抵銷,沒有可以記的分錄')
+  // 金額是零的變動不記分錄(add),所以全部是零時一條都沒有;同一帳戶的金額合併後也可能變成零
+  if (postings.length < 2 || postings.some((p) => p.amount === 0)) {
+    throw new DraftError('金額是零或互相抵銷,沒有可以記的分錄')
   }
 
   return {

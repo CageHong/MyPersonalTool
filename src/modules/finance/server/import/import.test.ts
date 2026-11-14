@@ -381,6 +381,84 @@ test('mergeParseResults:只差在 raw 的欄位(例:完成時間)不算衝突', 
   assert.deepEqual(mergeParseResults([a, b]).conflicts, [])
 })
 
+test('mergeParseResults:同一份檔案裡 ID 重複時兩列都留下,由 planImport 列為錯誤(只給一個檔案也一樣)', () => {
+  const seconds: Record<string, string>[] = [{ ID: 'CARD-1' }, { ID: 'CARD-1', 'Source amount (after fees)': '99.00' }]
+  for (const second of seconds) {
+    const { merged, conflicts } = mergeParseResults([statement([{ ID: 'CARD-1' }, second])])
+    assert.deepEqual(conflicts, [])
+    const db = freshLedger()
+    const plan = planImport(db, merged, options)
+    assert.deepEqual(
+      plan.errors.map((error) => [error.line, error.externalId]),
+      [[3, 'CARD-1']],
+    )
+    assert.throws(() => applyImport(db, plan, options), ImportBlockedError)
+  }
+})
+
+test('mergeParseResults:三份檔案,衝突列出每一份的行號', () => {
+  const a = statement([{ ID: 'CARD-1' }])
+  const b = statement([{ ID: 'CARD-2' }, { ID: 'CARD-1' }])
+  const c = statement([{ ID: 'CARD-1', 'Source amount (after fees)': '99.00' }])
+  assert.deepEqual(mergeParseResults([a, b, c]).conflicts, [
+    {
+      externalId: 'CARD-1',
+      lines: [
+        { file: 0, line: 2 },
+        { file: 1, line: 3 },
+        { file: 2, line: 2 },
+      ],
+    },
+  ])
+})
+
+test('mergeParseResults:只有備註或來源分類不同時留第一份,列在 detailDiffs;沒有對方名稱時備註欄不同算衝突', () => {
+  const a = statement([{ ID: 'CARD-1', Category: 'Groceries' }])
+  const b = statement([{ ID: 'CARD-1', Category: 'General' }])
+  const { merged, conflicts, detailDiffs } = mergeParseResults([a, b])
+  assert.deepEqual(conflicts, [])
+  assert.deepEqual(detailDiffs, [
+    {
+      externalId: 'CARD-1',
+      lines: [
+        { file: 0, line: 2 },
+        { file: 1, line: 2 },
+      ],
+    },
+  ])
+  assert.equal(merged.transactions[0].sourceCategory, 'Groceries')
+
+  const noName = { ID: 'CARD-2', 'Target name': '' }
+  const result = mergeParseResults([
+    statement([{ ...noName, Reference: 'first text' }]),
+    statement([{ ...noName, Reference: 'second text' }]),
+  ])
+  assert.deepEqual(
+    result.conflicts.map((c) => c.externalId),
+    ['CARD-2'],
+  )
+})
+
+test('沒有任何金額的列:試跑就列為錯誤', () => {
+  const parsed = statement([{ ID: 'CARD-1' }])
+  parsed.transactions[0].movements = []
+  const plan = planImport(freshLedger(), parsed, options)
+  assert.deepEqual(
+    plan.errors.map((error) => error.externalId),
+    ['CARD-1'],
+  )
+  assert.equal(plan.items.length, 0)
+})
+
+test('補對象的判斷跟套用用同一套查詢:匯款人的寫法沒有別名但有同名的收款人時,看成同一個', () => {
+  const db = freshLedger()
+  seedOldIncoming(db)
+  // 持有人的收款人改過名字;匯款人的寫法就是新名字,別名表裡沒有 → 套用時會對到持有人自己,所以不用補
+  db.run(sql`UPDATE finance_payees SET name = 'A. Example' WHERE name = 'Alex Example'`)
+  const plan = planImport(db, statement([incoming({ 'Source name': 'A. Example' })]), options)
+  assert.ok(plan.items[0].status === 'existing' && plan.items[0].payeeFix === null)
+})
+
 // ── 自動分類 ──────────────────────────────────────────────────────
 
 function headerOf(db: FinanceDb, externalId: string) {

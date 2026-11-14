@@ -148,7 +148,8 @@ function main() {
     let extraAliases = 0
     for (const merge of config.payeeMerges ?? []) {
       const key = norm(merge.into)
-      if (!payeeIdOf.has(key)) {
+      // 比的是 v2 的原始寫法:只有 from 出現過時,payeeIdOf 也會有 into 的鍵,但 into 本身沒有別名
+      if (!aliasSeen.has(key)) {
         fail(`import-v2.json 的 payeeMerges:into「${merge.into}」在 v2 的資料裡沒有出現過`)
       }
       for (const alias of merge.from.map(norm)) {

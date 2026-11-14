@@ -178,7 +178,10 @@ export function decide(input: ClassifyInput, ctx: ClassifyContext): Classificati
         amount: input.amounts[0].amount,
         occurredAt: input.occurredAt,
       })
-      if (match.status === 'matched') return assign(match.item.accountId, 'scheduled', match.item.id)
+      // 項目的分類不是支出分類時不用它(付出只記到支出分類),照下面的順序繼續
+      if (match.status === 'matched' && isType(match.item.accountId, 'expense')) {
+        return assign(match.item.accountId, 'scheduled', match.item.id)
+      }
       if (match.status === 'ambiguous') result.ambiguousScheduled = match.itemIds
     }
     const rule = ctx.payeeRules.get(input.payeeId)

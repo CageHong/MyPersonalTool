@@ -19,7 +19,7 @@ import { decide, loadClassifyContext } from '../classify/index'
 import type { Classification, ClassifyContext } from '../classify/index'
 import { getAccountsWithLegacyId, getSystemAccounts } from '../ledger/accounts'
 import type { SystemAccounts } from '../ledger/accounts'
-import { findPayeeByText, lookupPayee, normalizePayeeText, resolvePayee } from '../ledger/payees'
+import { lookupPayee, normalizePayeeText, resolvePayee } from '../ledger/payees'
 import { createTransaction, setTransactionPayee } from '../ledger/transactions'
 import { buildDraft, DraftError } from './draft'
 import type { DraftLookups, DraftTransaction } from './draft'
@@ -223,8 +223,8 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
       pending.kind === 'in' &&
       sender !== null &&
       existing.payeeId !== null &&
-      existing.payeeId === findPayeeByText(db, holder, options.payeeSuffixes) &&
-      existing.payeeId !== findPayeeByText(db, sender, options.payeeSuffixes) &&
+      existing.payeeId === lookupPayee(db, holder, options.payeeSuffixes) &&
+      existing.payeeId !== lookupPayee(db, sender, options.payeeSuffixes) &&
       normalizePayeeText(sender, options.payeeSuffixes) !==
         normalizePayeeText(holder, options.payeeSuffixes)
     ) {
@@ -249,55 +249,71 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
 export type MergeConflict = { externalId: string; lines: { file: number; line: number }[] }
 
 // 同一個來源的多份解析結果合成一份(例:分段匯出、期間重疊的檔案)。
-// 同一個 ID 出現在多份檔案:內容相同就留第一份的;內容不同(金額、手續費、對方、時間、種類)列為衝突,
-// 兩筆都不留,由使用者決定。不同來源不能合併。
+// 同一個 ID 出現在多份檔案:
+// - 會影響寫入的內容(種類、時間、金額、手續費、對象)不同:列為衝突,都不留,由使用者決定;
+// - 只有備註或來源分類不同:留第一份的,另外列在 detailDiffs 給使用者確認;
+// - 完全相同:留第一份的。
+// 同一份檔案裡 ID 重複不在這裡處理:重複的列原樣留下,由 planImport 列為錯誤。不同來源不能合併。
 export function mergeParseResults(results: readonly ParseResult[]): {
   merged: ParseResult
   conflicts: MergeConflict[]
+  detailDiffs: MergeConflict[]
 } {
   if (!results.length) throw new Error('沒有任何解析結果')
   const source = results[0].source
   if (results.some((result) => result.source !== source)) {
     throw new Error('不同來源的檔案不能一起匯入')
   }
+  // 對象:沒有對方名稱時 buildDraft 用備註欄,所以比的是實際會用到的文字
   const signature = (tx: PendingTransaction) =>
-    JSON.stringify([tx.kind, tx.occurredAt, tx.movements, tx.fee, tx.counterparty])
-  const kept = new Map<string, { tx: PendingTransaction; file: number }>()
-  const conflicts = new Map<string, MergeConflict>()
+    JSON.stringify([tx.kind, tx.occurredAt, tx.movements, tx.fee, tx.counterparty ?? tx.reference])
+  const details = (tx: PendingTransaction) => JSON.stringify([tx.note, tx.sourceCategory])
+  type Lines = MergeConflict['lines']
+  const kept = new Map<string, { tx: PendingTransaction; lines: Lines }>()
+  const conflicts = new Map<string, Lines>()
+  const withDetailDiff = new Set<string>()
+  const repeatedInFile: PendingTransaction[] = []
   const withoutId: PendingTransaction[] = []
   results.forEach((result, file) => {
+    const seenInFile = new Set<string>()
     for (const tx of result.transactions) {
-      if (tx.externalId === null) {
+      const id = tx.externalId
+      if (id === null) {
         withoutId.push(tx)
         continue
       }
-      const conflict = conflicts.get(tx.externalId)
+      const here = { file, line: tx.line }
+      const conflict = conflicts.get(id)
       if (conflict) {
-        conflict.lines.push({ file, line: tx.line })
+        conflict.push(here)
         continue
       }
-      const first = kept.get(tx.externalId)
+      if (seenInFile.has(id)) {
+        repeatedInFile.push(tx)
+        continue
+      }
+      seenInFile.add(id)
+      const first = kept.get(id)
       if (!first) {
-        kept.set(tx.externalId, { tx, file })
+        kept.set(id, { tx, lines: [here] })
       } else if (signature(first.tx) !== signature(tx)) {
-        kept.delete(tx.externalId)
-        conflicts.set(tx.externalId, {
-          externalId: tx.externalId,
-          lines: [
-            { file: first.file, line: first.tx.line },
-            { file, line: tx.line },
-          ],
-        })
+        kept.delete(id)
+        withDetailDiff.delete(id)
+        conflicts.set(id, [...first.lines, here])
+      } else {
+        first.lines.push(here)
+        if (details(first.tx) !== details(tx)) withDetailDiff.add(id)
       }
     }
   })
   return {
     merged: {
       source,
-      transactions: [...[...kept.values()].map((entry) => entry.tx), ...withoutId],
+      transactions: [...[...kept.values()].map((entry) => entry.tx), ...repeatedInFile.filter((tx) => !conflicts.has(tx.externalId!)), ...withoutId],
       skipped: results.flatMap((result) => result.skipped),
     },
-    conflicts: [...conflicts.values()],
+    conflicts: [...conflicts].map(([externalId, lines]) => ({ externalId, lines })),
+    detailDiffs: [...withDetailDiff].map((externalId) => ({ externalId, lines: kept.get(externalId)!.lines })),
   }
 }
 

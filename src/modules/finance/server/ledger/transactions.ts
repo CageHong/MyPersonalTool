@@ -38,6 +38,13 @@ export type NewTransaction = {
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00)$/
 
+// 格式對、而且日期真的存在。Date.parse 會把 2月30日 進位成 3月2日,所以解析後再反查年月日與時刻
+function isValidUtcTimestamp(text: string): boolean {
+  if (!ISO_UTC.test(text)) return false
+  const time = Date.parse(text)
+  return !Number.isNaN(time) && new Date(time).toISOString().slice(0, 19) === text.slice(0, 19)
+}
+
 // 加總不為零的幣別(純函式)
 export function unbalancedCurrencies(postings: readonly NewPosting[]): string[] {
   const totals = new Map<string, number>()
@@ -49,9 +56,7 @@ export function unbalancedCurrencies(postings: readonly NewPosting[]): string[] 
 
 function validate(db: FinanceConn, input: NewTransaction): Record<string, string> {
   const fields: Record<string, string> = {}
-  if (!ISO_UTC.test(input.occurredAt) || Number.isNaN(Date.parse(input.occurredAt))) {
-    fields.occurredAt = 'invalid'
-  }
+  if (!isValidUtcTimestamp(input.occurredAt)) fields.occurredAt = 'invalid'
   if (input.postings.length < 2) fields.postings = 'too_few'
 
   const accountIds = [...new Set(input.postings.map((posting) => posting.accountId))]

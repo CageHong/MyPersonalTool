@@ -59,7 +59,7 @@ function main() {
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error))
   }
-  const { merged: parsed, conflicts } = merged
+  const { merged: parsed, conflicts, detailDiffs } = merged
 
   const configPath = toolDataPath('finance', 'import-v2.json')
   const config: { payeeSuffixes?: string[] } = existsSync(configPath)
@@ -120,7 +120,8 @@ function main() {
   console.log(`  入帳、對象不用補:${incomingKept.length}`)
   console.log(`  帳本有、檔案沒有:${plan.missingFromFile}`)
   console.log(`  無法處理:${plan.errors.length}`)
-  if (files.length > 1) console.log(`  檔案之間同一個 ID 內容不同:${conflicts.length}`)
+  console.log(`  檔案之間同一個 ID 內容不同:${conflicts.length}`)
+  console.log(`  檔案之間同一個 ID 只有備註或來源分類不同(用第一份):${detailDiffs.length}`)
 
   const skipCounts = new Map<string, number>()
   for (const row of plan.skipped) {
@@ -131,6 +132,11 @@ function main() {
   section(
     '檔案之間同一個 ID 內容不同(兩筆都不匯入)',
     conflicts,
+    (c) => `${c.externalId}  ${c.lines.map((l) => `檔案 ${l.file + 1} 第 ${l.line} 行`).join('、')}`,
+  )
+  section(
+    '檔案之間同一個 ID 只有備註或來源分類不同(用第一份的)',
+    detailDiffs,
     (c) => `${c.externalId}  ${c.lines.map((l) => `檔案 ${l.file + 1} 第 ${l.line} 行`).join('、')}`,
   )
   section('無法處理', plan.errors, (e) => `第 ${e.line} 行  ${e.externalId ?? ''}  ${e.message}`)

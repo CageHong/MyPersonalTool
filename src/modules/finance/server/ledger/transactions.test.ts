@@ -134,6 +134,9 @@ test('時間格式不對、收款人不存在、來源 ID 重複', () => {
       .occurredAt,
     'invalid',
   )
+  for (const occurredAt of ['2030-02-30T09:30:00+00:00', '2031-02-29T09:30:00Z', '2030-01-15T24:30:00Z']) {
+    assert.equal(fieldsOf(() => createTransaction(db, expense({ occurredAt }))).occurredAt, 'invalid')
+  }
   assert.equal(fieldsOf(() => createTransaction(db, expense({ payeeId: 5 }))).payeeId, 'not_found')
   createTransaction(db, expense({ externalId: 'X-1' }))
   assert.equal(
