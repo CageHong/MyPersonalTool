@@ -3,8 +3,7 @@ import '../test/setup'
 import assert from 'node:assert/strict'
 import { before, describe, test } from 'node:test'
 import { eq, sql } from 'drizzle-orm'
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { db } from '../db'
+import { applyMigrations, db } from '../db'
 import { task } from '../db/schema'
 import {
   BATCH_MAX,
@@ -20,7 +19,7 @@ import {
 before(() => {
   // 保險:萬一 test/setup 沒先載入,不在真的資料庫上跑 migration 與寫入
   assert.equal(process.env.TASKS_DB_PATH, ':memory:')
-  migrate(db, { migrationsFolder: './src/modules/tasks/drizzle' })
+  applyMigrations(db)
 })
 
 // task 表沒有 updatedAt,改用連線累計的異動列數判斷「有沒有寫入」;讀取不會增加

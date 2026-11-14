@@ -55,9 +55,9 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
   - `db/` — Drizzle schema 與連線
   - `components/` — UI 元件
   - `lib/` — 前後端共用的純函式與型別(不碰資料庫與檔案系統)
-  - `drizzle/` — migration 檔(進版控);設定在 `drizzle.config.ts`,用 `npm run <工具>:db:generate` 產生
+  - `drizzle/` — migration 檔(進版控);設定在 `drizzle.config.ts`,用 `npm run <工具>:db:generate` 產生。套用一律經過 `src/platform/migrations.ts` 的 `runMigrations`(`npm run <工具>:db:migrate` 是工具自己的 `tools/migrate.ts`),不直接用 `drizzle-kit migrate` 或 Drizzle 的 `migrate`。每個工具有一支測試(`db/migrations.test.ts`)檢查最新的 migration 不會弄丟資料;它的種子照倒數第二版的 schema 寫,migration 改到種子用到的欄位時跟著更新。已經套用過的 migration 不改 `meta/_journal.json` 的 `when`(Drizzle 用它判斷哪些還沒套用)
   - 工具額外的資料夾寫在工具規則檔
-- `src/platform/` — 各工具共用、不屬於任何一個工具的程式(目前只有資料夾位置 `dataDir.ts`)
+- `src/platform/` — 各工具共用、不屬於任何一個工具的程式:資料夾位置 `dataDir.ts`、套用 migration 的 `migrations.ts`;測試輔助在 `testing/`
 - `packages/<套件>/` — npm workspaces 的套件(目前有 `statement-parsers`):不匯入 `src/` 的任何東西;`src/` 的程式從套件名稱 `@personal-tools/<套件>` 匯入
 - 資料庫不在 repo 裡:`<資料夾>/<工具>/`,資料夾由 `PERSONAL_TOOLS_DATA_DIR` 指定,預設是 repo 旁邊的 `personal-tools-data/`
 

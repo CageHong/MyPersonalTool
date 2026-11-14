@@ -3,8 +3,8 @@ import { dirname, join } from 'node:path'
 import Database from 'better-sqlite3'
 import type { RunResult } from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
+import { runMigrations } from '../../../platform/migrations'
 import * as schema from './schema'
 
 export type FinanceDb = ReturnType<typeof openDb>
@@ -26,7 +26,10 @@ export function openDb(path: string) {
   return drizzle(sqlite, { schema })
 }
 
-// 套用還沒套用過的 migration。指令一律在 repo 根目錄執行
+export const MIGRATIONS_FOLDER = join(process.cwd(), 'src/modules/finance/drizzle')
+
+// 套用還沒套用過的 migration(經過平台的 runMigrations,重建資料表時不會連帶刪掉子表)。
+// 指令一律在 repo 根目錄執行
 export function applyMigrations(db: FinanceDb) {
-  migrate(db, { migrationsFolder: join(process.cwd(), 'src/modules/finance/drizzle') })
+  runMigrations(db, MIGRATIONS_FOLDER)
 }

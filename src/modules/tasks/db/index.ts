@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { runMigrations } from '../../../platform/migrations'
 import { DB_PATH } from './path'
 import * as schema from './schema'
 
@@ -26,4 +27,12 @@ export const db = globalForDb.db ?? createDb()
 
 if (process.env.NODE_ENV !== 'production') {
   globalForDb.db = db
+}
+
+export const MIGRATIONS_FOLDER = join(process.cwd(), 'src/modules/tasks/drizzle')
+
+// 套用還沒套用過的 migration(經過平台的 runMigrations,重建資料表時不會連帶刪掉子表)。
+// 指令一律在 repo 根目錄執行
+export function applyMigrations(target: typeof db = db) {
+  runMigrations(target, MIGRATIONS_FOLDER)
 }

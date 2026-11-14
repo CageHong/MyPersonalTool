@@ -2,15 +2,14 @@
 import '../test/setup'
 import assert from 'node:assert/strict'
 import { before, describe, test } from 'node:test'
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { db } from '../db'
+import { applyMigrations, db } from '../db'
 import type { ViewSettings } from '../lib/listView'
 import { ValidationError } from './errors'
 import { listViewSettings, saveViewSettings } from './listViews'
 
 before(() => {
   assert.equal(process.env.TASKS_DB_PATH, ':memory:')
-  migrate(db, { migrationsFolder: './src/modules/tasks/drizzle' })
+  applyMigrations(db)
 })
 
 const SETTINGS: ViewSettings = { groupBy: 'priority', sortBy: 'dueDate', sortDirection: 'asc' }

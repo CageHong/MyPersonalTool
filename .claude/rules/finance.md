@@ -35,7 +35,7 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 分類是帳戶(`expense` / `income`),交易上不加 category 欄位。標籤掛在交易上。
 - 先付出去、之後會回來的錢(保證金、代墊)記在資產帳戶,不記成支出;收回時沖減該帳戶。
 - 「之後」的功能(貸款明細、持股、標的、價格歷史)不預先建表,用到時再加 migration。
-- **產生 migration 後一定要看 SQL**:SQLite 改 CHECK、改欄位要重建資料表,Drizzle Kit 會產生「`PRAGMA foreign_keys=OFF` → 建新表 → DROP 舊表 → 改名」。migration 包在 transaction 裡,`PRAGMA foreign_keys` 在 transaction 裡不生效,DROP 有 `ON DELETE CASCADE` 子表的資料表(`finance_transactions`、`finance_accounts` 等)會把子表的資料一起刪掉。遇到時改成手寫:子表一起重建、外鍵先指向新表,再刪舊表、改名(範例:`drizzle/0002_category_source_rule.sql`)。snapshot 仍用產生的。任何重建資料表的 migration 都要在真實資料庫的複本上跑過,比對每張表的筆數。
+- migration 的套用與檢查照平台規則(`runMigrations`、`db/migrations.test.ts`)。重建資料表的 migration(SQL 裡有 `DROP TABLE`)另外在真實資料庫的複本上跑一次 `finance:db:migrate`(用 `FINANCE_DB_PATH` 指到複本),比對每張表的筆數。
 
 ## 寫入規則
 

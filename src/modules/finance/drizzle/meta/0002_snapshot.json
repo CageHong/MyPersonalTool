@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3406b60d-677f-42bc-a28d-7800149aa476",
+  "id": "b557fda7-35ad-4cdd-a84d-c8a5264ff2a4",
   "prevId": "ae956008-c722-4aa7-8aba-34aca843a67d",
   "tables": {
     "finance_account_groups": {

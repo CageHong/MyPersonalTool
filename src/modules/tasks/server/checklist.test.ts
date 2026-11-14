@@ -3,8 +3,7 @@ import '../test/setup'
 import assert from 'node:assert/strict'
 import { before, describe, test } from 'node:test'
 import { eq } from 'drizzle-orm'
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { db } from '../db'
+import { applyMigrations, db } from '../db'
 import { task, taskChecklistItem } from '../db/schema'
 import {
   createChecklistItem,
@@ -19,7 +18,7 @@ before(() => {
   // 保險:萬一 test/setup 沒先載入,不在真的資料庫上跑 migration 與寫入
   assert.equal(process.env.TASKS_DB_PATH, ':memory:')
   // 跑真正的 migration 檔,驗的是 SQL 裡的外鍵設定,不是 schema 物件
-  migrate(db, { migrationsFolder: './src/modules/tasks/drizzle' })
+  applyMigrations(db)
 })
 
 function rowsForTask(taskId: number) {

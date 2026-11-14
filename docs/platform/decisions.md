@@ -56,6 +56,8 @@ finance 的畫面怎麼套用這一層還沒定,見 `docs/platform/backlog.md`�
 | 不屬於任何一個工具的共用程式放 `src/platform/`;模組可以匯入 platform,platform 不匯入模組 | 依賴單向。共用設計系統仍然不做,這裡只放沒有畫面的基礎設施 |
 | finance(原本的 PACR)搬進 `src/modules/finance/`:schema 與 migration、ledger(收款人、餘額)、fx、從 PACR v2 匯入的工具。還沒有頁面與 API | 地基先在 `CageHong/pacr` 獨立做完才併入。finance 的決策紀錄與進度檔含個人財務資料,留在 repo 外,不放進這個 repo |
 | `packages/<套件>/` 用 npm workspaces(根 `package.json` 的 `workspaces: ["packages/*"]`),套件名稱 `@personal-tools/<套件>`;套件的 `exports` 直接指向 `src/index.ts`,不編譯;套件不匯入 `src/` | 套件是「沒有資料庫、沒有畫面、可以單獨測試」的純函式(第一個是 `statement-parsers`),用套件邊界保證它不會依賴到模組。不編譯:不需要建置步驟與 `dist/`,tsx 與 tsc 直接讀原始碼;代價是 Next.js 的程式匯入時要加 `transpilePackages`(`docs/platform/backlog.md`)。名稱加前綴:不會跟 npm 上的公開套件撞名。2026-11-13 |
+| migration 一律經過 `src/platform/migrations.ts` 的 `runMigrations`:transaction 外關外鍵 → Drizzle 的 migrate → `PRAGMA foreign_key_check`(有斷掉的參照就報錯)→ 開回外鍵。`<工具>:db:migrate` 改成各工具的 `tools/migrate.ts` | SQLite 改 CHECK、改欄位要重建資料表;Drizzle 把 migration 包在 transaction 裡,transaction 裡關不掉外鍵,DROP 有 `ON DELETE CASCADE` 子表的資料表會把子表刪光(在 finance 的真實資料複本上重現過)。tasks 也有 cascade,所以做在平台層。在 transaction 外關外鍵是 SQLite 官方文件的重建步驟,Drizzle Kit 產生的 SQL 因此可以直接用。代價:檢查在 Drizzle 提交之後,查到問題只能報錯,不能回滾。放棄自己寫 migrator(要自己維持 `__drizzle_migrations` 的相容)、拿掉 cascade、enum 不用 CHECK、換工具。2026-11-14 |
+| 每個工具一支 `db/migrations.test.ts`:只套到倒數第二個 migration → 灌虛構的種子 → 套最新的 → 原本就有的每張表筆數相同、外鍵檢查為空(`src/platform/testing/migrationCheck.ts`) | 擋住寫錯的 migration(上一條的檢查只能事後報錯)。只檢查最新的那個:每個 migration 在它是最新的那段期間都會被檢查到;種子只要維持一個版本。2026-11-14 |
 
 ## 5. 規則與文件的分層
 

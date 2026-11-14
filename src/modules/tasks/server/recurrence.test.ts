@@ -3,8 +3,7 @@ import '../test/setup'
 import assert from 'node:assert/strict'
 import { before, describe, test } from 'node:test'
 import { asc, eq } from 'drizzle-orm'
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import { db } from '../db'
+import { applyMigrations, db } from '../db'
 import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem } from '../db/schema'
 import { addDaysUtc } from '../lib/recurrence'
 import { createChecklistItem, updateChecklistItem } from './checklist'
@@ -27,7 +26,7 @@ before(() => {
   // 保險:萬一 test/setup 沒先載入,不在真的資料庫上跑 migration 與寫入
   assert.equal(process.env.TASKS_DB_PATH, ':memory:')
   // 跑真正的 migration 檔,驗的是 SQL 裡的 CHECK、外鍵與唯一鍵
-  migrate(db, { migrationsFolder: './src/modules/tasks/drizzle' })
+  applyMigrations(db)
 })
 
 // 直接寫一條規則,好設定任意的水位線

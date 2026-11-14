@@ -12,9 +12,9 @@
     "lint": "eslint",
     "test": "node --import tsx --test 'src/**/*.test.ts' 'packages/*/src/**/*.test.ts'",
     "tasks:db:generate": "drizzle-kit generate --config src/modules/tasks/drizzle.config.ts",
-    "tasks:db:migrate": "drizzle-kit migrate --config src/modules/tasks/drizzle.config.ts",
+    "tasks:db:migrate": "tsx src/modules/tasks/tools/migrate.ts",
     "finance:db:generate": "drizzle-kit generate --config src/modules/finance/drizzle.config.ts",
-    "finance:db:migrate": "drizzle-kit migrate --config src/modules/finance/drizzle.config.ts",
+    "finance:db:migrate": "tsx src/modules/finance/tools/migrate.ts",
     "finance:import-v2": "tsx src/modules/finance/tools/import-v2.ts",
     "finance:fx-update": "tsx src/modules/finance/tools/fx-update.ts",
     "finance:import-statement": "tsx src/modules/finance/tools/import-statement.ts"
