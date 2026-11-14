@@ -71,3 +71,14 @@ finance 的畫面怎麼套用這一層還沒定,見 `docs/platform/backlog.md`�
 | 文件依層分:`docs/platform/`、`docs/<工具>/`;決策紀錄也是每層一份 | 分類的單位跟規則檔一致(工具,不是資料夾)。搬 docs 本來就要改所有 `decisions.md` 的引用,所以決策紀錄直接拆乾淨。放棄只把平台決策抽出、tasks 的留在原檔:搬家的成本一樣,結構不乾淨 |
 | repo 內的規則與文件不引用 repo 外的決策編號,每條規則本身寫完整 | finance 的決策紀錄含個人財務資料,留在 repo 外;在 repo 裡讀到查不到的編號等於沒寫 |
 | 放棄:不拆、一個 CLAUDE.md 分三段、根檔放各工具的摘要、工具規則放 `docs/<工具>/` 只靠對照表 | 不拆:做 finance 時要自己判斷哪些 tasks 規則適用。分段:context 隨工具數量線性成長。摘要:同一條規則寫兩次。只靠對照表:放棄 Claude Code 的按需載入 |
+
+## 6. 副線開發者(Gemini / Antigravity)
+
+規則在 `AGENTS.md`,任務卡在 `docs/handoff/`。
+
+| 決策 | 理由 |
+|---|---|
+| 副線在獨立的 git worktree 與分支 `gemini/<任務名>` 工作,資料夾是假資料;成果經主線審查後才併進 main。2026-11-13 | 副線看不到真實資料;主線保有併入前的最後檢查 |
+| 寫入交易的 finance 程式(schema、migration、ledger、import、classify、recurring)只由主線做;tasks 的 schema 開放給副線,但只在任務卡列出時。2026-11-14 | finance 的錯誤會弄壞真實帳本,而且這些程式共用「每個幣別加總為零」等不變量;tasks 目前主線沒在動,不開放的話目標、清單、標籤、排程都只能等主線。schema 變更仍有 `migrations.test.ts` 與主線審查把關 |
+| 副線同時也做主線切片的審查(只讀,報告寫在 `docs/handoff/`) | 換一個模型、沒有對話歷史的審查,避免寫程式的人替自己的程式辯護 |
+

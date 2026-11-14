@@ -16,7 +16,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - 只在自己的分支 `gemini/<任務名>` 上 commit;不 merge、不 rebase、不碰 main。
 - 只改任務卡「可以改的檔案」列出的檔案;需要改其他檔案時停下,寫進任務卡的回報。
-- 不改 schema、migration、`src/modules/finance/server/ledger/`、`server/import/`。
+- finance:不改 `src/modules/finance/` 的 schema 與 migration,也不改 `server/ledger/`、`server/import/`、`server/classify/`、`server/recurring/`。
+- tasks 的 schema 只在任務卡列出時可以改:改 `src/modules/tasks/db/schema.ts` 後用 `npm run tasks:db:generate` 產生 migration(不手改產生出來的檔案、不改已經存在的 migration 與 `meta/_journal.json`);同一次修改裡更新 `src/modules/tasks/db/migrations.test.ts` 的種子(照倒數第二版的 schema)與 `docs/tasks/data-model.md`。
 - 不執行會寫入資料的指令:`--apply`、`finance:import-v2`、`finance:fx-update`。
 - 程式碼、測試、註解裡的名稱與數字一律虛構。
 - 完成條件:`npx tsc --noEmit`、`npm run lint`、`npm test` 全過;在任務卡底部寫回報(做了什麼、沒做什麼、疑問)。
