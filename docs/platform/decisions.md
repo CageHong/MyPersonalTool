@@ -51,7 +51,7 @@
 | 模組之間不直接匯入對方的 schema 或 server 函式 | 工具之間資料獨立(§1「各工具分開 SQLite 檔」的延伸) |
 | 每個工具自己的 Drizzle 設定檔與 migration 資料夾,指令加工具前綴(`npm run tasks:db:generate`) | 各工具分開 SQLite 檔,migration 的紀錄也要分開 |
 | 每個工具的頁面在 `/<工具>`,API 在 `/api/<工具>/…`;任務管理是 `/tasks` 與 `/api/tasks/…`,任務這個資源因此是 `/api/tasks/tasks` | 規則只有一條、沒有例外。放棄「任務維持 `/api/tasks/:id`,其他資源搬到 `/api/tasks/` 底下」:同一層會同時有任務 id 與其他資源的名稱 |
-| 根路徑 `/` 只轉址到 `/tasks`,不做首頁 | 首頁 shell 仍然列為不做(`docs/platform/backlog.md`);之後要做再換掉這一頁 |
+| 根路徑 `/` 是首頁:每個工具提供自己的小工具元件與摘要 API,首頁只負責排版(依賴方向:首頁 → 工具公開的小工具)。分兩段:先只有工具入口;摘要小工具等工具有對應的讀取函式再加(finance 要等 `reports`)。2026-11-15 | 摘要要顯示什麼由工具決定,加新工具只是多一個小工具。放棄:首頁自己呼叫各工具 API 並決定呈現(呈現邏輯會集中在首頁、跟工具脫節);首頁直接匯入各工具的 `server/`(平台依賴工具,也違反畫面經過 API 的規則) |
 | 資料庫放在 repo 外:`PERSONAL_TOOLS_DATA_DIR`(預設 repo 旁邊的 `personal-tools-data/`),每個工具一個子資料夾。取代原本 repo 內的 `data/` | finance 的資料是財務資料,資料與程式實體分開比靠 `.gitignore` 穩;兩個工具用同一條規則。位置由 `src/platform/dataDir.ts` 推算 |
 | 不屬於任何一個工具的共用程式放 `src/platform/`;模組可以匯入 platform,platform 不匯入模組 | 依賴單向。共用設計系統仍然不做,這裡只放沒有畫面的基礎設施 |
 | finance(原本的 PACR)搬進 `src/modules/finance/`:schema 與 migration、ledger(收款人、餘額)、fx、從 PACR v2 匯入的工具。還沒有頁面與 API | 地基先在 `CageHong/pacr` 獨立做完才併入。finance 的決策紀錄與進度檔含個人財務資料,留在 repo 外,不放進這個 repo |
