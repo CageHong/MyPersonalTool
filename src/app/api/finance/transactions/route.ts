@@ -6,6 +6,7 @@ import { parseTransactionFilter } from '@/modules/finance/lib/transactions'
 import { getTransactionRow, listTransactions } from '@/modules/finance/server/ledger/list'
 import { createManualTransaction } from '@/modules/finance/server/ledger/transactions'
 import { errorResponse, handleError, readJsonObject } from '@/app/api/_lib/http'
+import { invalidBody } from '../_lib/parse'
 
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams
@@ -31,9 +32,7 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   const body = await readJsonObject(request)
-  if (!body) {
-    return errorResponse(400, 'VALIDATION_FAILED', 'Request body must be a JSON object', { body: 'invalid_json' })
-  }
+  if (!body) return invalidBody()
   const parsed = parseNewTransaction(body)
   if (!parsed.ok) {
     return errorResponse(400, 'VALIDATION_FAILED', 'Invalid transaction', parsed.fields)

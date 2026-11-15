@@ -56,3 +56,12 @@
   scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
   background: var(--color-column-main);
 }
+
+/* 導覽的分組標題(「管理」) */
+.group {
+  margin-top: var(--space-3);
+  padding: 0 var(--space-2);
+  color: var(--color-field-label);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}

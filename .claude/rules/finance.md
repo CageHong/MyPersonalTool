@@ -26,7 +26,7 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 資料檔的位置(資料庫、套用前的備份、`import-v2.json`)只在 `db/path.ts` 定義;route handler 用的共用連線是 `db/index.ts` 的 `getDb()`(資料庫不存在就報錯,不自動建立)
 - 畫面:`src/app/finance/<頁面>/`(子路由,`src/app/finance/layout.tsx` 放 finance 的側欄導覽,只列做好的頁面);元件在 `src/modules/finance/components/`;畫面一律是 client component 呼叫 `/api/finance/...`,不用 Server Component 或 Server Actions 直接呼叫 `server/`
 - `src/modules/finance/lib/`:前後端共用的型別與純函式(API 回傳的形狀、金額與日期的顯示、API 錯誤的中文訊息)
-- `docs/finance/`:描述性文件。動對帳單匯入之前先讀 `docs/finance/import.md`,動自動分類之前先讀 `docs/finance/classify.md`,動交易清單的查詢之前先讀 `docs/finance/transactions.md`
+- `docs/finance/`:描述性文件。動對帳單匯入之前先讀 `docs/finance/import.md`,動自動分類之前先讀 `docs/finance/classify.md`,動交易清單的查詢之前先讀 `docs/finance/transactions.md`,動管理頁之前先讀 `docs/finance/admin.md`
 - `src/modules/finance/config.example/`:設定檔範例;新增設定欄位時同步更新
 - 指令(repo 根目錄):`finance:import-v2`(要設 `PACR_DATA_DIR`,或把 v2 的 `finance.db` 路徑當參數)、`finance:import-statement`(對帳單檔案當參數;不加 `--apply` 只試跑)、`finance:fx-update`、`finance:db:generate`、`finance:db:migrate`
 
@@ -52,6 +52,7 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 針對個別交易的人工更正(拆分、收回、轉帳到自己的帳戶、對帳調整)是 ledger 的編輯操作,不靠設定檔。
 - 單筆編輯(分類、對象、日期時間、備註、標籤、整組替換分錄)只經過 `ledger/transactions.ts` 的 `updateTransaction`:帶上讀取時的 `updatedAt`,不同就拒絕;分類或分錄真的換了才重算 `category_source`(有使用者選的分類 = `manual`,否則 `null`)。細節在 `docs/finance/transactions.md` 的「編輯」。
 - 手動新增(畫面上的新增交易、對帳調整)只經過 `ledger/transactions.ts` 的 `createManualTransaction`;範本(`lib/templates.ts`)只把表單變成分錄,不寫入。
+- 分類的管理(新增、改名、換上層、排序、封存、合併、刪除)只經過 `ledger/categories.ts`;規則寫在 `docs/finance/admin.md`。管理頁的寫入一樣寫入 `v2_retired_at`。
 - 刪除交易只經過 `ledger/transactions.ts` 的 `deleteTransaction`:有來源 ID 的把 ID 記進 `finance_deleted_external_ids`,匯入看到這個 ID 就不加回來。其他查詢(餘額、清單、分類)不用管這張表。
 - 整組替換分錄(`updateTransaction` 的 `postings`)跟新增交易用同一套分錄檢查(`validatePostings`)。
 - `finance_settings` 的 `v2_retired_at`:第一次在畫面上編輯或刪除交易時寫入,之後 `finance:import-v2` 拒絕執行。讀寫只經過 `ledger/settings.ts`。

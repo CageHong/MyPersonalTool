@@ -6,18 +6,13 @@ import { parseTransactionPatch } from '@/modules/finance/lib/edit'
 import { getTransactionRow } from '@/modules/finance/server/ledger/list'
 import { deleteTransaction, updateTransaction } from '@/modules/finance/server/ledger/transactions'
 import { errorResponse, handleError, readJsonObject } from '@/app/api/_lib/http'
-
-// 網址上的 id;不合法時回傳 400 的 Response
-function parseTransactionId(raw: string): number | Response {
-  if (/^\d+$/.test(raw)) return Number(raw)
-  return errorResponse(400, 'VALIDATION_FAILED', 'Invalid transaction id', { id: 'invalid' })
-}
+import { invalidBody, parseRouteId } from '../../_lib/parse'
 
 export async function GET(
   _request: Request,
   ctx: RouteContext<'/api/finance/transactions/[id]'>,
 ): Promise<Response> {
-  const id = parseTransactionId((await ctx.params).id)
+  const id = parseRouteId((await ctx.params).id, 'transaction')
   if (id instanceof Response) return id
   try {
     return Response.json(getTransactionRow(getDb(), id))
@@ -30,12 +25,10 @@ export async function PATCH(
   request: Request,
   ctx: RouteContext<'/api/finance/transactions/[id]'>,
 ): Promise<Response> {
-  const id = parseTransactionId((await ctx.params).id)
+  const id = parseRouteId((await ctx.params).id, 'transaction')
   if (id instanceof Response) return id
   const body = await readJsonObject(request)
-  if (!body) {
-    return errorResponse(400, 'VALIDATION_FAILED', 'Request body must be a JSON object', { body: 'invalid_json' })
-  }
+  if (!body) return invalidBody()
   const parsed = parseTransactionPatch(body)
   if (!parsed.ok) {
     return errorResponse(400, 'VALIDATION_FAILED', 'Invalid patch', parsed.fields)
@@ -53,7 +46,7 @@ export async function DELETE(
   request: Request,
   ctx: RouteContext<'/api/finance/transactions/[id]'>,
 ): Promise<Response> {
-  const id = parseTransactionId((await ctx.params).id)
+  const id = parseRouteId((await ctx.params).id, 'transaction')
   if (id instanceof Response) return id
   const expected = new URL(request.url).searchParams.get('expectedUpdatedAt')
   if (!expected) {
