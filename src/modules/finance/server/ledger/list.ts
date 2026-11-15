@@ -89,20 +89,23 @@ export function listTransactions(
   const cursor = page.cursor === undefined ? undefined : decodeCursor(page.cursor)
   const system = getSystemAccounts(db)
 
-  // 類型:依序判斷,先符合的優先。手續費不決定類型(換匯、支出都可能帶手續費),
-  // 只有手續費、沒有其他分類時才算支出
+  // 類型:依序判斷,先符合的優先。手續費不決定類型(換匯、支出、轉帳都可能帶手續費):
+  // 只有手續費、沒有其他分類時,動到兩個以上的資產 / 負債帳戶是轉帳,否則是支出
   const has = (condition: SQL) =>
     sql`EXISTS (SELECT 1 FROM finance_postings kp JOIN finance_accounts ka ON ka.id = kp.account_id
                 WHERE kp.transaction_id = t.id AND ${condition})`
   const expenseOther = has(sql`ka.type = 'expense' AND ka.id <> ${system.fee}`)
   const income = has(sql`ka.type = 'income'`)
+  const balanceAccounts = sql`(SELECT COUNT(DISTINCT kp.account_id) FROM finance_postings kp
+                               JOIN finance_accounts ka ON ka.id = kp.account_id
+                               WHERE kp.transaction_id = t.id AND ka.type IN ('asset', 'liability'))`
   const kindExpr = sql`CASE
       WHEN ${has(sql`ka.id = ${system.exchange}`)} THEN 'exchange'
       WHEN ${has(sql`ka.type = 'equity'`)} THEN 'opening'
       WHEN ${expenseOther} AND ${income} THEN 'mixed'
       WHEN ${expenseOther} THEN 'expense'
       WHEN ${income} THEN 'income'
-      WHEN ${has(sql`ka.id = ${system.fee}`)} THEN 'expense'
+      WHEN ${has(sql`ka.id = ${system.fee}`)} AND ${balanceAccounts} < 2 THEN 'expense'
       ELSE 'transfer' END`
 
   const conditions: SQL[] = []

@@ -59,6 +59,19 @@ function freshDb() {
   return db
 }
 
+// 在虛構帳本上多加一筆交易(id 從 21 起,日期在原本的交易之後),給只需要一種情境的測試用
+type Db = ReturnType<typeof freshDb>
+function addTx(db: Db, id: number, postings: [account: number, amount: number, currency: string][], note: string | null = null) {
+  const at = '2026-01-01T00:00:00Z'
+  db.run(sql`INSERT INTO finance_transactions (id, occurred_at, note, source, created_at, updated_at)
+             VALUES (${id}, '2026-01-01T12:00:00Z', ${note}, 'manual', ${at}, ${at})`)
+  postings.forEach(([account, amount, currency], index) =>
+    db.run(sql`INSERT INTO finance_postings (transaction_id, account_id, amount, currency, sort_order)
+               VALUES (${id}, ${account}, ${amount}, ${currency}, ${index})`),
+  )
+}
+const rowOf = (db: Db, id: number) => listTransactions(db, { order: 'desc' }).items.find((r) => r.id === id)
+
 const ids = (db: ReturnType<typeof freshDb>, filter: Partial<TransactionFilter> = {}) =>
   listTransactions(db, { order: 'desc', ...filter }).items.map((row) => row.id)
 
@@ -183,4 +196,41 @@ test('缺匯率時折合金額是 null,其他欄位照常', () => {
   const row = listTransactions(db, { order: 'desc' }).items.find((r) => r.id === 8)
   assert.equal(row?.displayAmount, null)
   assert.equal(row?.legs[0]?.amount, -500)
+})
+
+test('支出與收入(mixed):類型是 mixed,折合金額是兩邊相抵的淨額', () => {
+  const db = freshDb()
+  addTx(db, 21, [[1, -2000, 'EUR'], [10, 3000, 'EUR'], [13, -1000, 'EUR']])
+  const row = rowOf(db, 21)
+  assert.equal(row?.kind, 'mixed')
+  assert.equal(row?.displayAmount, -2000)
+})
+
+test('帶手續費的轉帳是轉帳,不是支出;只動一個帳戶的手續費才是支出', () => {
+  const db = freshDb()
+  addTx(db, 21, [[1, -10100, 'EUR'], [3, 10000, 'EUR'], [22, 100, 'EUR']])
+  const row = rowOf(db, 21)
+  assert.equal(row?.kind, 'transfer')
+  assert.equal(row?.displayAmount, null)
+  assert.deepEqual(row?.categories, [{ id: 22, name: '手續費', parentName: null }])
+  assert.ok(ids(db, { kind: 'transfer' }).includes(21))
+  assert.ok(!ids(db, { kind: 'expense' }).includes(21))
+  assert.equal(rowOf(db, 7)?.kind, 'expense')
+})
+
+test('折合金額:多筆外幣分錄先換算加總,最後才取整數', () => {
+  const db = freshDb()
+  // 每筆 6 × 0.9 = 5.4;各自取整是 10,先加總再取整是 11
+  addTx(db, 21, [[2, -12, 'USD'], [10, 6, 'USD'], [11, 6, 'USD']])
+  assert.equal(rowOf(db, 21)?.displayAmount, -11)
+})
+
+test('搜尋:_ 與 \\ 是一般字元', () => {
+  const db = freshDb()
+  addTx(db, 21, [[1, -100, 'EUR'], [10, 100, 'EUR']], 'a_b')
+  addTx(db, 22, [[1, -100, 'EUR'], [10, 100, 'EUR']], 'c\\d')
+  assert.deepEqual(ids(db, { q: '_' }), [21])
+  assert.deepEqual(ids(db, { q: 'a_b' }), [21])
+  assert.deepEqual(ids(db, { q: '\\' }), [22])
+  assert.deepEqual(ids(db, { q: 'c\\d' }), [22])
 })
