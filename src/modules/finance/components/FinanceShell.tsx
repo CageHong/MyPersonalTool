@@ -14,7 +14,10 @@ const NAV = [
 ] as const
 
 // 管理:分類、收款人、規則、標籤、帳戶(做好的才列)
-const ADMIN_NAV = [{ href: '/finance/categories', label: '分類' }] as const
+const ADMIN_NAV = [
+  { href: '/finance/categories', label: '分類' },
+  { href: '/finance/payees', label: '收款人' },
+] as const
 
 export default function FinanceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()

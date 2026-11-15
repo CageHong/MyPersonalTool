@@ -26,3 +26,20 @@
 - 刪除:有交易、有子分類、被規則或週期項目用到都不行;用合併把它們一起改指過去,或封存。
 - 封存:新交易的選單選不到(交易的編輯面板、新增交易),舊資料照常顯示。
 - 顏色不在這裡(分類色到里程碑 c 才指派)。
+
+## 收款人
+
+程式在 `server/ledger/payees.ts`(跟匯入的比對、建立在同一個檔),回傳的形狀在 `lib/payees.ts`。
+
+| API | 作用 |
+|---|---|
+| `GET /api/finance/payees` | 全部收款人:交易筆數、別名、規則數、週期項目數,依名稱排序 |
+| `PATCH /api/finance/payees/<id>` | 改名 `{ name }`(不能重複) |
+| `POST /api/finance/payees/<id>/merge` | `{ targetId }`:交易、別名、規則、週期項目改指向目標,再刪掉這個 |
+| `DELETE /api/finance/payees/<id>` | 刪除(別名一起刪);有交易、規則、週期項目用到時不行 |
+| `PATCH /api/finance/payees/aliases` | `{ alias, payeeId }`:別名移到另一個收款人 |
+| `DELETE /api/finance/payees/aliases` | `{ alias }`:刪除別名 |
+
+- 別名是匯入時的比對鍵(正規化後的文字);移動或刪除別名只影響之後的匯入,已經匯入的交易不動。刪掉別名後,那個寫法下次匯入時重新比對(找同名的收款人,沒有就新增)。
+- 合併取代了 `import-v2.json` 的 `payeeMerges`(v2 停用後那份設定不再套用)。
+- 畫面不能新增別名;同一個對象的新寫法,匯入後用合併處理。

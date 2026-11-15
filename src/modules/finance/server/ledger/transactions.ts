@@ -21,6 +21,7 @@ import { NotFoundError, ValidationError } from '../errors'
 import { getSystemAccounts } from './accounts'
 import { resolvePayee } from './payees'
 import { markV2Retired } from './settings'
+import { toStoredTimestamp } from './time'
 
 export type NewPosting = {
   accountId: number
@@ -209,10 +210,6 @@ export function setTransactionPayee(
   })
 }
 
-// 存進資料庫的時間格式:UTC、精確到秒、結尾 +00:00
-export function toStoredTimestamp(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 19) + '+00:00'
-}
 
 // 改過分錄之後的分類來源:有使用者選的分類就是 manual;沒有分類(轉帳)或全部是未分類時是 null。手續費不算分類
 function categorySourceAfterEdit(tx: FinanceConn, transactionId: number): 'manual' | null {

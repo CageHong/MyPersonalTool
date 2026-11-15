@@ -9,7 +9,7 @@ import { NAME_MAX_LENGTH } from '../../lib/edit'
 import type { CategoryNode } from '../../lib/categories'
 import { NotFoundError, ValidationError } from '../errors'
 import { markV2Retired } from './settings'
-import { toStoredTimestamp } from './transactions'
+import { toStoredTimestamp } from './time'
 
 type CategoryType = 'expense' | 'income'
 type Account = typeof financeAccounts.$inferSelect
