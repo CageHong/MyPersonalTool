@@ -1,19 +1,14 @@
-export class ValidationError extends Error {
-  readonly fields: Record<string, string>
+import { NotFoundErrorBase, ValidationErrorBase } from '../../../platform/errors'
 
+// 繼承平台的基底:route handler 只認基底(src/app/api/_lib/http.ts)
+export class ValidationError extends ValidationErrorBase {
   constructor(fields: Record<string, string>) {
-    super('Validation failed')
-    this.name = 'ValidationError'
-    this.fields = fields
+    super('Validation failed', fields)
   }
 }
 
-export class NotFoundError extends Error {
-  readonly id: number
-
+export class NotFoundError extends NotFoundErrorBase {
   constructor(id: number) {
-    super(`Task ${id} not found`)
-    this.name = 'NotFoundError'
-    this.id = id
+    super(`Task ${id} not found`, id)
   }
 }

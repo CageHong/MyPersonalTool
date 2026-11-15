@@ -15,6 +15,7 @@
 | 業務邏輯一律寫在 `src/modules/<工具>/server/` 的純函式;route handler 只解析請求、呼叫函式、回傳 JSON | API 之後要搬到獨立伺服器,邏輯不綁框架,搬家時只換入口 |
 | 驗證邏輯(如標題不可為空)放 `src/modules/<工具>/server/`;協定層解析(如網址 id 不是數字)放 route handler | 純函式是唯一入口:之後的產生邏輯或匯入 script 直接呼叫 `server/` 時,驗證不會被繞過。協定層解析則是 HTTP 才有的問題,搬家時會跟著入口一起換掉 |
 | 驗證失敗時 throw 自訂錯誤類別(帶 `fields`),定義在 `src/modules/<工具>/server/`;route handler 用 `instanceof` 對映到狀態碼 | `server/` 不可以知道 HTTP 的存在 |
+| 各工具的錯誤類別繼承 `src/platform/errors.ts` 的基底,`src/app/api/_lib/http.ts` 只認基底(2026-11-15) | 原本 `http.ts` 匯入 tasks 的錯誤類別:平台依賴工具,而且 finance 的驗證錯誤認不出來、回 500。放棄:共用同一組類別(錯誤要定義在各工具)、每個工具一份 `http.ts`(錯誤形狀兩處維護)、比對 `error.name`(改名就默默失效) |
 | 前端不從 `src/modules/<工具>/server/` import 任何東西,包括型別 | `import type` 雖不會被打包,但搬家時仍是要拆的相依 |
 | 技術棧:TypeScript、Drizzle + better-sqlite3、SQLite、CSS Modules | 已定案,不提替代方案(Prisma、Tailwind、Postgres 等) |
 | 各工具分開 SQLite 檔,表名保留前綴 | 工具之間資料獨立,首頁摘要另行處理 |
@@ -36,8 +37,7 @@
 | 字級、字重已 token 化,字級以 rem 表示 | 改字級只動 `:root` |
 | 鍵盤焦點:全域 :focus-visible 用 ink-soft 外框,偏移 2px | 全頁單一顏色;偏移讓外框畫在頁面底色上,因此不受按鈕底色影響(ink 在 accent 上只有 2.82) |
 | 深色模式暫不做 | 語意層命名保證之後只需加一組覆寫 |
-
-finance 的畫面怎麼套用這一層還沒定,見 `docs/platform/backlog.md`。
+| finance 的畫面沿用同一套色票與語意層,不另設主題色、不覆寫語意層(2026-11-15 記入;finance 的決策紀錄 2026-11-13 定案) | 兩個工具外觀一致;使用者提供的參考色票之後用在 finance 的分類色(圖表、分類標記),不用在底色、側欄、選取 |
 
 ## 4. 平台結構(personal-tools)
 

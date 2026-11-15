@@ -57,7 +57,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
   - `lib/` — 前後端共用的純函式與型別(不碰資料庫與檔案系統)
   - `drizzle/` — migration 檔(進版控);設定在 `drizzle.config.ts`,用 `npm run <工具>:db:generate` 產生。套用一律經過 `src/platform/migrations.ts` 的 `runMigrations`(`npm run <工具>:db:migrate` 是工具自己的 `tools/migrate.ts`),不直接用 `drizzle-kit migrate` 或 Drizzle 的 `migrate`。每個工具有一支測試(`db/migrations.test.ts`)檢查最新的 migration 不會弄丟資料;它的種子照倒數第二版的 schema 寫,migration 改到種子用到的欄位時跟著更新。已經套用過的 migration 不改 `meta/_journal.json` 的 `when`(Drizzle 用它判斷哪些還沒套用)
   - 工具額外的資料夾寫在工具規則檔
-- `src/platform/` — 各工具共用、不屬於任何一個工具的程式:資料夾位置 `dataDir.ts`、套用 migration 的 `migrations.ts`;測試輔助在 `testing/`
+- `src/platform/` — 各工具共用、不屬於任何一個工具的程式:資料夾位置 `dataDir.ts`、套用 migration 的 `migrations.ts`、業務錯誤的基底 `errors.ts`;測試輔助在 `testing/`
 - `packages/<套件>/` — npm workspaces 的套件(目前有 `statement-parsers`):不匯入 `src/` 的任何東西;`src/` 的程式從套件名稱 `@personal-tools/<套件>` 匯入
 - 資料庫不在 repo 裡:`<資料夾>/<工具>/`,資料夾由 `PERSONAL_TOOLS_DATA_DIR` 指定,預設是 repo 旁邊的 `personal-tools-data/`
 
@@ -84,7 +84,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 驗證的位置(理由見 `docs/platform/decisions.md` §1):
 
 - 驗證邏輯寫在 `src/modules/<工具>/server/` 的函式裡,不寫在 route handler。
-- 驗證失敗時 throw 自訂錯誤類別(帶 `fields` 資訊),定義在 `src/modules/<工具>/server/`。
+- 驗證失敗時 throw 自訂錯誤類別(帶 `fields` 資訊),定義在 `src/modules/<工具>/server/`,繼承 `src/platform/errors.ts` 的 `ValidationErrorBase`(找不到是 `NotFoundErrorBase`)。`src/app/api/_lib/http.ts` 只認基底,不匯入任何工具。
 - route handler 用 `instanceof` 判斷錯誤類別,對映到狀態碼。`server/` 不可以知道 HTTP 的存在——不 import Next.js 的任何東西,不回傳 Response。
 
 驗證 vs 解析的判準:這條規則在**非 HTTP 的呼叫路徑**上還成立嗎?
@@ -107,7 +107,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 
 **元件只能引用語意層**,不得引用 `--palette-*`。需要新顏色時先看語意層有沒有合適的名字;沒有就新增語意變數指向既有色票,新增色票要先問。間距只能用 `--space-1` 到 `--space-5`,字級只能用 `--text-xs` 到 `--text-lg`。過場的時長與曲線只能用 `--motion-duration`、`--motion-easing`。
 
-finance 的畫面怎麼套用這套變數還沒定(`docs/platform/backlog.md`),做 finance 第一個畫面之前先問。
+finance 的畫面直接用同一套色票與語意層,不另設主題色、不覆寫語意層(`docs/platform/decisions.md` §3)。
 
 ## 工作流程:依風險分級
 
