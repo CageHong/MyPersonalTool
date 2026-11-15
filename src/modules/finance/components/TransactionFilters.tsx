@@ -1,12 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { RANGE_PRESETS, localToday, matchPreset, presetRange } from '../lib/date'
+import type { RangePreset } from '../lib/date'
 import { KIND_LABELS, SEARCH_MAX_LENGTH, TRANSACTION_KINDS } from '../lib/transactions'
 import type { FinanceLookups, TransactionFilter, TransactionKind } from '../lib/transactions'
+import PayeePicker from './PayeePicker'
 import styles from './TransactionFilters.module.css'
 
 // 交易清單的篩選列。只負責把使用者的選擇變成新的篩選條件交給上層;條件存在網址裡,
-// 這個元件除了搜尋框正在打的字之外不存狀態
+// 這個元件只存搜尋框正在打的字,以及期間快捷用的今天
 
 const SEARCH_DELAY_MS = 300
 
@@ -49,6 +52,14 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
 
   const set = (patch: Partial<TransactionFilter>) => onChange({ ...filter, ...patch })
 
+  // 期間快捷用的「今天」:開頁時算一次就好(快捷是月、年為單位,跨日不影響)
+  const [today] = useState(() => localToday())
+  const preset = matchPreset(filter.from, filter.to, today)
+  function choosePreset(value: string) {
+    if (value === 'all') set({ from: undefined, to: undefined })
+    else if (value !== 'custom') set(presetRange(value as RangePreset, today))
+  }
+
   const accounts = lookups?.accounts.filter((a) => a.type === 'asset' || a.type === 'liability') ?? []
   const categoryGroups = (['expense', 'income'] as const).map((type) => {
     const ofType = lookups?.accounts.filter((a) => a.type === type) ?? []
@@ -77,23 +88,23 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
       />
 
       <div className={styles.range}>
-        <input
+        <select
           className={styles.field}
-          type="date"
-          aria-label="開始日期"
-          value={filter.from ?? ''}
-          max={filter.to}
-          onChange={(event) => set({ from: event.target.value || undefined })}
-        />
+          aria-label="期間"
+          value={preset}
+          onChange={(event) => choosePreset(event.target.value)}
+        >
+          <option value="all">全部期間</option>
+          {RANGE_PRESETS.map(({ key, label }) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+          {preset === 'custom' && <option value="custom">自訂</option>}
+        </select>
+        <DateField label="開始日期" value={filter.from} max={filter.to} onChange={(from) => set({ from })} />
         <span className={styles.muted}>–</span>
-        <input
-          className={styles.field}
-          type="date"
-          aria-label="結束日期"
-          value={filter.to ?? ''}
-          min={filter.from}
-          onChange={(event) => set({ to: event.target.value || undefined })}
-        />
+        <DateField label="結束日期" value={filter.to} min={filter.from} onChange={(to) => set({ to })} />
       </div>
 
       <select
@@ -143,19 +154,7 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
         ))}
       </select>
 
-      <select
-        className={styles.field}
-        aria-label="對象"
-        value={filter.payeeId ?? ''}
-        onChange={(event) => set({ payeeId: idOf(event.target.value) })}
-      >
-        <option value="">所有對象</option>
-        {lookups?.payees.map((payee) => (
-          <option key={payee.id} value={payee.id}>
-            {payee.name}
-          </option>
-        ))}
-      </select>
+      <PayeePicker payees={lookups?.payees ?? null} value={filter.payeeId} onChange={(payeeId) => set({ payeeId })} />
 
       <select
         className={styles.field}
@@ -194,5 +193,39 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
         清除篩選
       </button>
     </div>
+  )
+}
+
+// 原生的日期欄位,旁邊有單獨清除這一格的按鈕(原生欄位在有些瀏覽器清不掉)
+function DateField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  value: string | undefined
+  min?: string
+  max?: string
+  onChange: (value: string | undefined) => void
+}) {
+  return (
+    <span className={styles.dateField}>
+      <input
+        className={styles.field}
+        type="date"
+        aria-label={label}
+        value={value ?? ''}
+        min={min}
+        max={max}
+        onChange={(event) => onChange(event.target.value || undefined)}
+      />
+      {value && (
+        <button type="button" className={styles.dateClear} aria-label={`清除${label}`} onClick={() => onChange(undefined)}>
+          ×
+        </button>
+      )}
+    </span>
   )
 }

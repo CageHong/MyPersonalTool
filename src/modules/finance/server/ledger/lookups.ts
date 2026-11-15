@@ -1,8 +1,8 @@
 // 帳本的參考資料(唯讀):帳戶與分類、收款人、幣別的小數位數、顯示幣別。
 // 篩選選單與金額顯示用;標籤在 tags 模組
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import type { FinanceConn } from '../../db/index'
-import { financeAccounts, financeCurrencies, financePayees, financeSettings } from '../../db/schema'
+import { financeAccounts, financeCurrencies, financePayees, financeSettings, financeTransactions } from '../../db/schema'
 import type { FinanceLookups } from '../../lib/transactions'
 
 // 設定裡沒有時用內部換算的基準
@@ -40,6 +40,17 @@ export function listAccounts(db: FinanceConn): FinanceLookups['accounts'] {
     .all()
 }
 
+// 收款人與各自的交易筆數(篩選選單的「常用」用筆數排),依名稱排序
 export function listPayees(db: FinanceConn): FinanceLookups['payees'] {
-  return db.select({ id: financePayees.id, name: financePayees.name }).from(financePayees).orderBy(asc(financePayees.name)).all()
+  return db
+    .select({
+      id: financePayees.id,
+      name: financePayees.name,
+      transactionCount: sql<number>`COUNT(${financeTransactions.id})`,
+    })
+    .from(financePayees)
+    .leftJoin(financeTransactions, eq(financeTransactions.payeeId, financePayees.id))
+    .groupBy(financePayees.id)
+    .orderBy(asc(financePayees.name))
+    .all()
 }

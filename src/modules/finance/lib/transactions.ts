@@ -192,5 +192,5 @@ export type FinanceLookups = {
     isActive: boolean
   }[]
   tags: { id: number; name: string; startsOn: string | null; endsOn: string | null }[]
-  payees: { id: number; name: string }[]
+  payees: { id: number; name: string; transactionCount: number }[]
 }
