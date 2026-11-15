@@ -3,6 +3,7 @@
 // planImport 只讀:把每一筆待匯入交易跟帳本比對,分成「新的」與「已經有的」;
 // 新的用 classify 決定分類(草稿裡的「未分類」換成決定的帳戶);
 // 已經有的再看要不要補對象、來源帳戶那一側的金額有沒有不同(分類不動)。
+// 帳本裡刪掉過的(來源 ID 記在 finance_deleted_external_ids)列為「刪掉過」,不寫入。
 // applyImport 經過 ledger 寫入:新增「新的」(連同分類來源與週期項目)、補對象。金額不同的只在計畫裡列出來,不改。
 // 同一份檔案套用兩次,第二次不會再寫任何東西。
 import { eq, isNotNull, like, sql } from 'drizzle-orm'
@@ -11,6 +12,7 @@ import type { FinanceConn } from '../../db/index'
 import {
   financeAccounts,
   financeCurrencies,
+  financeDeletedExternalIds,
   financePayees,
   financePostings,
   financeTransactions,
@@ -48,6 +50,12 @@ export type PlanItem =
       payeeFix: { from: string; to: string } | null
       // 來源帳戶那一側,帳本現有的金額與檔案算出來的不同;相同是 null
       amountDiff: { existing: AccountAmount[]; incoming: AccountAmount[] } | null
+    }
+  | {
+      // 帳本裡刪掉過(finance_deleted_external_ids):不再加回來
+      status: 'deleted'
+      pending: PendingTransaction
+      deletedAt: string
     }
 
 export type ImportPlan = {
@@ -158,6 +166,13 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
     .where(isNotNull(financeTransactions.externalId))
     .all()
   const existingById = new Map(existingRows.map((row) => [row.externalId!, row]))
+  const deletedById = new Map(
+    db
+      .select({ externalId: financeDeletedExternalIds.externalId, deletedAt: financeDeletedExternalIds.deletedAt })
+      .from(financeDeletedExternalIds)
+      .all()
+      .map((row) => [row.externalId, row.deletedAt]),
+  )
 
   // 既有交易在來源帳戶那一側的金額:交易 id → 每個帳戶的合計
   const existingAmounts = new Map<number, AccountAmount[]>()
@@ -209,6 +224,11 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
     }
 
     const existing = existingById.get(pending.externalId)
+    const deletedAt = deletedById.get(pending.externalId)
+    if (!existing && deletedAt !== undefined) {
+      plan.items.push({ status: 'deleted', pending, deletedAt })
+      continue
+    }
     if (!existing) {
       plan.items.push({
         status: 'new',
@@ -363,7 +383,7 @@ export function applyImport(
           now,
         )
         outcome.created++
-      } else if (item.payeeFix) {
+      } else if (item.status === 'existing' && item.payeeFix) {
         const payeeId = resolvePayee(tx, item.payeeFix.to, options.payeeSuffixes, now)
         setTransactionPayee(tx, item.transactionId, payeeId, now)
         outcome.payeesFixed++

@@ -11,6 +11,9 @@ export type PayeeChange = { id: number } | { name: string } | null
 // 把一條分類分錄換到另一個分類;金額不變
 export type CategoryChange = { postingId: number; accountId: number }
 
+// 整組替換時的一條分錄。amount 是最小貨幣單位的整數,正 = 借、負 = 貸
+export type PostingInput = { accountId: number; amount: number; currency: string; memo: string | null }
+
 export type TransactionPatch = {
   // 讀取時的 updatedAt;資料庫裡的不一樣(別處改過)就拒絕
   expectedUpdatedAt: string
@@ -20,6 +23,8 @@ export type TransactionPatch = {
   note?: string | null
   payee?: PayeeChange
   categories?: CategoryChange[]
+  // 整組替換分錄(拆帳、改成轉帳、收回等);不能跟 categories 同時給
+  postings?: PostingInput[]
   // 改完之後的完整標籤:既有的 id + 要新增的名稱(同名的已經存在就用它)
   tags?: { ids: number[]; newNames: string[] }
 }
@@ -30,7 +35,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const isId = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) > 0
 
-const KNOWN_KEYS = new Set(['expectedUpdatedAt', 'occurredAt', 'note', 'payee', 'categories', 'tags'])
+const KNOWN_KEYS = new Set(['expectedUpdatedAt', 'occurredAt', 'note', 'payee', 'categories', 'postings', 'tags'])
 
 // 請求的 JSON → TransactionPatch。只看型別與形狀
 export function parseTransactionPatch(body: unknown): PatchParse {
@@ -64,6 +69,28 @@ export function parseTransactionPatch(body: unknown): PatchParse {
     if (Array.isArray(list) && list.every((c) => isObject(c) && isId(c.postingId) && isId(c.accountId))) {
       patch.categories = list.map((c) => ({ postingId: c.postingId as number, accountId: c.accountId as number }))
     } else fields.categories = 'invalid'
+  }
+  if ('postings' in body) {
+    const list = body.postings
+    const valid =
+      Array.isArray(list) &&
+      list.every(
+        (p) =>
+          isObject(p) &&
+          isId(p.accountId) &&
+          Number.isSafeInteger(p.amount) &&
+          typeof p.currency === 'string' &&
+          (p.memo === undefined || p.memo === null || typeof p.memo === 'string'),
+      )
+    if (valid) {
+      patch.postings = (list as Record<string, unknown>[]).map((p) => ({
+        accountId: p.accountId as number,
+        amount: p.amount as number,
+        currency: p.currency as string,
+        memo: (p.memo as string | null | undefined) ?? null,
+      }))
+    } else fields.postings = 'invalid'
+    if ('categories' in body) fields.categories = 'with_postings'
   }
   if ('tags' in body) {
     const tags = body.tags

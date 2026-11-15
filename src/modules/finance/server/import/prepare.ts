@@ -92,7 +92,7 @@ export function planFingerprint(plan: ImportPlan): string {
         ],
       ]
     }
-    return item.payeeFix ? [['payee', item.transactionId, item.payeeFix.to]] : []
+    return item.status === 'existing' && item.payeeFix ? [['payee', item.transactionId, item.payeeFix.to]] : []
   })
   return createHash('sha256').update(JSON.stringify([plan.source, writes])).digest('hex')
 }
@@ -131,6 +131,7 @@ export function summarizeImport(db: FinanceConn, prepared: PreparedImport): Impo
   const existing = plan.items.filter(
     (item): item is Extract<PlanItem, { status: 'existing' }> => item.status === 'existing',
   )
+  const deleted = plan.items.filter((item) => item.status === 'deleted')
   const payeeFixes = existing.filter((item) => item.payeeFix)
   const amountDiffs = existing.filter((item) => item.amountDiff)
   const sourceAccounts = new Set(plan.sourceAccountIds)
@@ -159,6 +160,7 @@ export function summarizeImport(db: FinanceConn, prepared: PreparedImport): Impo
       amountDiffs: amountDiffs.length,
       incomingKept: existing.filter((item) => item.pending.kind === 'in' && !item.payeeFix).length,
       missingFromFile: plan.missingFromFile,
+      deleted: deleted.length,
       errors: plan.errors.length,
       conflicts: conflicts.length,
       detailDiffs: detailDiffs.length,

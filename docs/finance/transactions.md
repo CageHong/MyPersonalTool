@@ -67,10 +67,11 @@ API 是 `GET /api/finance/transactions`,畫面是 `/finance/transactions`。篩�
 
 程式在 `src/modules/finance/server/ledger/transactions.ts`(`updateTransaction`),請求的形狀與協定層的解析在
 `src/modules/finance/lib/edit.ts`。API:`GET /api/finance/transactions/<id>`(一列,形狀同清單)、
-`PATCH /api/finance/transactions/<id>`(成功時回傳改好的那一列)。畫面:清單網址加 `?edit=<id>` 打開右欄;
-換篩選條件時保留,關閉時拿掉。
+`PATCH /api/finance/transactions/<id>`(成功時回傳改好的那一列)、`DELETE /api/finance/transactions/<id>?expectedUpdatedAt=…`(204)。
+畫面:清單網址加 `?edit=<id>` 打開右欄;換篩選條件時保留,關閉時拿掉。右欄的「編輯分錄…」打開分錄對話框(送 `postings`),
+「刪除交易」先跳確認。右欄有還沒儲存的修改時,這兩個按鈕停用。
 
-能改的只有下面這些;金額、分錄的增減、帳戶側都不能改(那是結構性編輯)。`PATCH` 只放要改的欄位:
+`PATCH` 只放要改的欄位:
 
 | 欄位 | 規則 |
 |---|---|
@@ -79,11 +80,14 @@ API 是 `GET /api/finance/transactions`,畫面是 `/finance/transactions`。篩�
 | `note` | 去頭尾空白;空字串 = 清空;最長 1000 字 |
 | `payee` | `{ id }` 選既有的;`{ name }` 先比對別名、再找同名的,都沒有才新增收款人(並建立別名);`null` 清空 |
 | `categories` | `[{ postingId, accountId }]`:把那條分錄換到另一個分類,金額不變。分錄必須是這筆交易的支出 / 收入分錄;只能換成同類型的分類;手續費不能換進換出;封存的分類不能選(原本就是它的可以留著) |
+| `postings` | `[{ accountId, amount, currency, memo }]`:整組替換分錄(拆帳、改成轉帳、收回保證金或代墊、改金額)。檢查跟新增交易相同:至少兩條、金額是非零整數、帳戶與幣別存在、有固定幣別的帳戶幣別要一致、每個幣別加總為零。不能跟 `categories` 一起給。內容跟現在完全一樣時不動 |
 | `tags` | `{ ids, newNames }`:改完後的完整標籤。新名稱去頭尾空白,同名的已經存在就用它,沒有才新增(一般標籤,沒有日期範圍) |
 
 - 全部在同一個 DB transaction;任何一項不合法回 400、整筆不寫入(新建的收款人與標籤也不留下)。
-- 分類真的換了才改 `category_source`:改成 `manual`(對象歷史會採用它);換完之後全部都是「未分類」/「未分類收入」時是 `null`。
+- 分類或分錄真的換了才改 `category_source`:有使用者選的分類就是 `manual`(對象歷史會採用它);沒有分類(變成轉帳)或全部是「未分類」/「未分類收入」時是 `null`。手續費不算分類。
 - `updated_at` 存到毫秒(同一秒內連續編輯也分得出版本)。
-- 第一次編輯時一起寫入 `finance_settings` 的 `v2_retired_at`;之後 `finance:import-v2` 拒絕執行(它每次從空的資料庫重建,會洗掉畫面上的修改)。
+- 分錄對話框:金額分借、貸兩欄,下方即時顯示各幣別的差額;每一行可以「補差額」(這一行吸收自己幣別的差額)、「拆開」(下面插一行同帳戶、同幣別、沒有金額的)。匯入的交易改了資產 / 負債那一側的金額時會提醒:下次匯入同一份檔案會列為「金額不同」(只報告、不改回來)。
+- **刪除**:分錄與標籤一起刪。有來源 ID 的(匯入的)把 ID 與刪除當時的內容(JSON 快照)記進 `finance_deleted_external_ids`,之後匯入同一份檔案時列為「刪掉過」、不加回來。同樣檢查 `expectedUpdatedAt`。
+- 第一次編輯(含刪除)時一起寫入 `finance_settings` 的 `v2_retired_at`;之後 `finance:import-v2` 拒絕執行(它每次從空的資料庫重建,會洗掉畫面上的修改)。
 - 改了對象不會重新分類。改完之後不符合目前篩選條件的列先留在畫面上,重新整理或換條件時才消失。
 

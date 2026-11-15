@@ -200,6 +200,15 @@ export const financeTransactions = sqliteTable(
   ],
 )
 
+// 刪掉的匯入交易的來源 ID:匯入時看到就跳過,不再加回來。
+// snapshot 是刪除當時的表頭與分錄(JSON),只供查看與日後還原,不拿來比對
+export const financeDeletedExternalIds = sqliteTable('finance_deleted_external_ids', {
+  externalId: text('external_id').primaryKey(),
+  source: text('source').notNull(),
+  deletedAt: text('deleted_at').notNull(),
+  snapshot: text('snapshot').notNull(),
+})
+
 // 分錄。帳戶有固定幣別時,分錄幣別必須相同(由 trigger 檢查)
 export const financePostings = sqliteTable(
   'finance_postings',

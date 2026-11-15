@@ -1,19 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { editErrorMessage, getJson, loadErrorMessage, patchJson } from '../lib/api'
+import { useEffect, useRef, useState } from 'react'
+import { deleteRequest, editErrorMessage, getJson, loadErrorMessage, patchJson } from '../lib/api'
 import { fromLocalInputValue, toLocalInputValue } from '../lib/date'
 import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH } from '../lib/edit'
 import type { TransactionPatch } from '../lib/edit'
 import { formatMoney } from '../lib/money'
 import { KIND_LABELS } from '../lib/transactions'
 import type { FinanceLookups, PostingView, TransactionRow } from '../lib/transactions'
+import ConfirmDialog from './ConfirmDialog'
 import PayeePicker from './PayeePicker'
+import PostingsDialog from './PostingsDialog'
 import styles from './TransactionEditor.module.css'
 
 // 單筆編輯的右欄:分類、對象、日期時間、備註、標籤。按「儲存」才送出,只送改過的欄位。
 // 打開時重新取這一筆(拿到最新的 updatedAt);伺服器發現資料在打開之後被改過會拒絕。
-// 金額與分錄的結構不能在這裡改
+// 金額與分錄的結構在「編輯分錄…」的對話框改;刪除要先確認
 
 const itemUrl = (id: number) => `/api/finance/transactions/${id}`
 
@@ -22,13 +24,18 @@ type Props = {
   lookups: FinanceLookups
   onClose: () => void
   onSaved: (row: TransactionRow) => void
+  onDeleted: (id: number) => void
 }
 
-export default function TransactionEditor({ id, lookups, onClose, onSaved }: Props) {
+export default function TransactionEditor({ id, lookups, onClose, onSaved, onDeleted }: Props) {
   // 取回來的列與錯誤都記住屬於哪個 id,換一筆就自然失效
   const [loaded, setLoaded] = useState<{ id: number; row: TransactionRow } | null>(null)
   const [loadError, setLoadError] = useState<{ id: number; message: string } | null>(null)
   const [savedVersion, setSavedVersion] = useState<string | null>(null)
+  const [postingsOpen, setPostingsOpen] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleteButtonRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -42,6 +49,24 @@ export default function TransactionEditor({ id, lookups, onClose, onSaved }: Pro
 
   const row = loaded?.id === id ? loaded.row : null
   const error = loadError?.id === id ? loadError.message : null
+
+  function handleSaved(saved: TransactionRow) {
+    setLoaded({ id, row: saved })
+    setSavedVersion(saved.updatedAt)
+    onSaved(saved)
+  }
+
+  async function confirmDelete() {
+    if (!row) return
+    try {
+      await deleteRequest(`${itemUrl(row.id)}?expectedUpdatedAt=${encodeURIComponent(row.updatedAt)}`)
+      setConfirmingDelete(false)
+      onDeleted(row.id)
+    } catch (caught) {
+      setConfirmingDelete(false)
+      setDeleteError(editErrorMessage(caught).replace('沒有儲存', '沒有刪除'))
+    }
+  }
 
   return (
     <aside className={styles.panel} aria-label="編輯交易">
@@ -60,14 +85,33 @@ export default function TransactionEditor({ id, lookups, onClose, onSaved }: Pro
           row={row}
           lookups={lookups}
           saved={savedVersion === row.updatedAt}
+          deleteButtonRef={deleteButtonRef}
+          deleteError={deleteError}
           onClose={onClose}
-          onSaved={(saved) => {
-            setLoaded({ id, row: saved })
-            setSavedVersion(saved.updatedAt)
-            onSaved(saved)
+          onSaved={handleSaved}
+          onEditPostings={() => setPostingsOpen(true)}
+          onDelete={() => {
+            setDeleteError(null)
+            setConfirmingDelete(true)
           }}
         />
       )}
+      {row && postingsOpen && (
+        <PostingsDialog row={row} lookups={lookups} onClose={() => setPostingsOpen(false)} onSaved={handleSaved} />
+      )}
+      <ConfirmDialog
+        open={confirmingDelete}
+        title="刪除這筆交易?"
+        description={
+          row?.source === 'manual'
+            ? '分錄與標籤會一起刪掉,無法復原。'
+            : '分錄與標籤會一起刪掉。這是匯入的交易:之後匯入同一份檔案時不會再加回來。'
+        }
+        confirmLabel="刪除"
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmingDelete(false)}
+        triggerRef={deleteButtonRef}
+      />
     </aside>
   )
 }
@@ -76,8 +120,12 @@ type FormProps = {
   row: TransactionRow
   lookups: FinanceLookups
   saved: boolean
+  deleteButtonRef: React.RefObject<HTMLButtonElement | null>
+  deleteError: string | null
   onClose: () => void
   onSaved: (row: TransactionRow) => void
+  onEditPostings: () => void
+  onDelete: () => void
 }
 
 // 可以換分類的分錄:支出、收入那一側,手續費除外
@@ -108,7 +156,17 @@ function categoryOptions(lookups: FinanceLookups, type: 'expense' | 'income', cu
   return options
 }
 
-function EditorForm({ row, lookups, saved, onClose, onSaved }: FormProps) {
+function EditorForm({
+  row,
+  lookups,
+  saved,
+  deleteButtonRef,
+  deleteError,
+  onClose,
+  onSaved,
+  onEditPostings,
+  onDelete,
+}: FormProps) {
   const editable = editablePostings(row, lookups)
   const initialWhen = toLocalInputValue(row.occurredAt)
   const initialTagIds = row.tags.map((t) => t.id)
@@ -322,6 +380,28 @@ function EditorForm({ row, lookups, saved, onClose, onSaved }: FormProps) {
         <span role="status" className={error ? styles.error : styles.muted}>
           {error ?? (saved && !dirty ? '已儲存' : '')}
         </span>
+      </div>
+
+      <div className={styles.structure}>
+        <span className={styles.label}>分錄</span>
+        <span className={styles.hint}>拆帳、改成轉帳、收回保證金或代墊、改金額</span>
+        <button type="button" className={styles.button} onClick={onEditPostings} disabled={dirty}>
+          編輯分錄…
+        </button>
+        {dirty && <span className={styles.hint}>先儲存上面的修改,才能編輯分錄</span>}
+      </div>
+
+      <div className={styles.footer}>
+        <button
+          ref={deleteButtonRef}
+          type="button"
+          className={styles.delete}
+          onClick={onDelete}
+          disabled={dirty}
+        >
+          刪除交易
+        </button>
+        {deleteError && <span className={styles.error}>{deleteError}</span>}
       </div>
     </form>
   )

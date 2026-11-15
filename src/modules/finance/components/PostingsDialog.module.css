@@ -1,0 +1,181 @@
+/* 沒有內距,這樣點到 dialog 本身就一定是點到 backdrop(跟 ConfirmDialog 同一個做法) */
+.dialog {
+  padding: 0;
+  border: 1px solid var(--color-dialog-border);
+  border-radius: var(--radius);
+  background: var(--color-dialog-bg);
+  color: var(--color-text);
+}
+
+.dialog::backdrop {
+  background: var(--color-backdrop);
+}
+
+/* 分錄表要有寬度;這個對話框的版面值,不是共用 token */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(52rem, calc(100vw - 4 * var(--space-3)));
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  padding: var(--space-1);
+  color: var(--color-field-label);
+  font-weight: var(--weight-semibold);
+  text-align: left;
+}
+
+.table td {
+  padding: var(--space-1);
+  vertical-align: middle;
+}
+
+.right {
+  text-align: right;
+}
+
+.field {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-field-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-field-text);
+  font: inherit;
+}
+
+.field[aria-invalid='true'] {
+  border-color: var(--color-field-border-invalid);
+}
+
+/* 金額欄的寬度是版面值 */
+.amount {
+  width: 7rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.lineActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.small,
+.cancel {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.small:disabled,
+.remove:disabled {
+  color: var(--color-action-disabled-text);
+  cursor: not-allowed;
+}
+
+.remove {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.below {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.balance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+/* 提醒,不是錯誤:左側色條 */
+.warning {
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--color-row-selected-border);
+  color: var(--color-text);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-error-text);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-dialog-section-line);
+}
+
+.primary {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-action-border);
+  border-radius: var(--radius);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+  font: inherit;
+  cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: border-color, background-color, color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
+}
+
+.primary:disabled {
+  border-color: var(--color-action-disabled-bg);
+  background: var(--color-action-disabled-bg);
+  color: var(--color-action-disabled-text);
+  cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
+}
+
+.field:focus-visible,
+.small:focus-visible,
+.cancel:focus-visible,
+.remove:focus-visible,
+.primary:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

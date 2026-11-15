@@ -85,6 +85,7 @@ export default function ImportReport({ summary }: { summary: ImportSummary }) {
       `${counts.existing} 筆(要補對象 ${counts.payeeFixes}、金額不同 ${counts.amountDiffs}、入帳對象不用補 ${counts.incomingKept})`,
     ],
     ['帳本有、檔案沒有', `${counts.missingFromFile} 筆`],
+    ['刪掉過、不再加回來', `${counts.deleted} 筆`],
     ['無法處理', `${counts.errors} 筆`, counts.errors > 0],
     ['檔案之間內容不同', `${counts.conflicts} 筆`, counts.conflicts > 0],
   ]

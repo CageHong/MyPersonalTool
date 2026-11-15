@@ -5,6 +5,8 @@ import { and, eq, inArray } from 'drizzle-orm'
 import type { FinanceConn } from '../../db/index'
 import {
   financeAccounts,
+  financeCurrencies,
+  financeDeletedExternalIds,
   financePayees,
   financePostings,
   financeScheduledTransactions,
@@ -61,12 +63,13 @@ export function unbalancedCurrencies(postings: readonly NewPosting[]): string[] 
   return [...totals].filter(([, total]) => total !== 0).map(([currency]) => currency)
 }
 
-function validate(db: FinanceConn, input: NewTransaction): Record<string, string> {
+// 分錄本身的檢查(新增與整組替換共用):至少兩條、金額是非零整數、帳戶存在、幣別跟帳戶一致、每個幣別平衡
+function validatePostings(db: FinanceConn, postings: readonly NewPosting[]): Record<string, string> {
   const fields: Record<string, string> = {}
-  if (!isValidUtcTimestamp(input.occurredAt)) fields.occurredAt = 'invalid'
-  if (input.postings.length < 2) fields.postings = 'too_few'
+  if (postings.length < 2) fields.postings = 'too_few'
 
-  const accountIds = [...new Set(input.postings.map((posting) => posting.accountId))]
+  const currencies = new Set(db.select({ code: financeCurrencies.code }).from(financeCurrencies).all().map((c) => c.code))
+  const accountIds = [...new Set(postings.map((posting) => posting.accountId))]
   const accounts = new Map(
     (accountIds.length
       ? db
@@ -77,19 +80,27 @@ function validate(db: FinanceConn, input: NewTransaction): Record<string, string
       : []
     ).map((account) => [account.id, account]),
   )
-  input.postings.forEach((posting, index) => {
+  postings.forEach((posting, index) => {
     const account = accounts.get(posting.accountId)
     if (!Number.isSafeInteger(posting.amount) || posting.amount === 0) {
       fields[`postings.${index}.amount`] = 'invalid'
     }
-    if (!account) {
+    if (!currencies.has(posting.currency)) {
+      fields[`postings.${index}.currency`] = 'not_found'
+    } else if (!account) {
       fields[`postings.${index}.accountId`] = 'not_found'
     } else if (account.currency !== null && account.currency !== posting.currency) {
       fields[`postings.${index}.currency`] = 'account_currency_mismatch'
     }
   })
-  const unbalanced = unbalancedCurrencies(input.postings)
+  const unbalanced = unbalancedCurrencies(postings)
   if (unbalanced.length) fields.postings = `unbalanced:${unbalanced.join(',')}`
+  return fields
+}
+
+function validate(db: FinanceConn, input: NewTransaction): Record<string, string> {
+  const fields: Record<string, string> = validatePostings(db, input.postings)
+  if (!isValidUtcTimestamp(input.occurredAt)) fields.occurredAt = 'invalid'
 
   if (input.payeeId != null) {
     const payee = db
@@ -203,7 +214,69 @@ export function toStoredTimestamp(iso: string): string {
   return new Date(iso).toISOString().slice(0, 19) + '+00:00'
 }
 
-// 單筆編輯:分類、對象、日期時間、備註、標籤。金額與分錄的結構不動(那是結構性編輯)。
+// 改過分錄之後的分類來源:有使用者選的分類就是 manual;沒有分類(轉帳)或全部是未分類時是 null。手續費不算分類
+function categorySourceAfterEdit(tx: FinanceConn, transactionId: number): 'manual' | null {
+  const system = getSystemAccounts(tx)
+  const categories = tx
+    .select({ accountId: financePostings.accountId, type: financeAccounts.type })
+    .from(financePostings)
+    .innerJoin(financeAccounts, eq(financeAccounts.id, financePostings.accountId))
+    .where(eq(financePostings.transactionId, transactionId))
+    .all()
+    .filter((p) => (p.type === 'expense' || p.type === 'income') && p.accountId !== system.fee)
+  const given = categories.some(
+    (p) => p.accountId !== system.uncategorizedExpense && p.accountId !== system.uncategorizedIncome,
+  )
+  return given ? 'manual' : null
+}
+
+// 刪除一筆交易(分錄與標籤一起刪)。有來源 ID 的(匯入的)把 ID 記進 finance_deleted_external_ids,
+// 之後匯入同一份檔案不會再加回來。跟編輯一樣檢查 updatedAt,並寫入「v2 已停用」
+export function deleteTransaction(
+  db: FinanceConn,
+  transactionId: number,
+  expectedUpdatedAt: string,
+  now: string = new Date().toISOString(),
+): void {
+  const stamp = toStoredTimestamp(now)
+  db.transaction((tx) => {
+    const [header] = tx.select().from(financeTransactions).where(eq(financeTransactions.id, transactionId)).all()
+    if (!header) throw new NotFoundError('Transaction', transactionId)
+    if (header.updatedAt !== expectedUpdatedAt) throw new ValidationError({ expectedUpdatedAt: 'stale' })
+    if (header.externalId !== null) {
+      const postings = tx
+        .select({
+          accountId: financePostings.accountId,
+          amount: financePostings.amount,
+          currency: financePostings.currency,
+          memo: financePostings.memo,
+        })
+        .from(financePostings)
+        .where(eq(financePostings.transactionId, transactionId))
+        .orderBy(financePostings.sortOrder, financePostings.id)
+        .all()
+      const tagIds = tx
+        .select({ tagId: financeTransactionTags.tagId })
+        .from(financeTransactionTags)
+        .where(eq(financeTransactionTags.transactionId, transactionId))
+        .all()
+        .map((row) => row.tagId)
+      tx.insert(financeDeletedExternalIds)
+        .values({
+          externalId: header.externalId,
+          source: header.source,
+          deletedAt: stamp,
+          snapshot: JSON.stringify({ header, postings, tagIds }),
+        })
+        .onConflictDoNothing()
+        .run()
+    }
+    tx.delete(financeTransactions).where(eq(financeTransactions.id, transactionId)).run()
+    markV2Retired(tx, stamp)
+  })
+}
+
+// 單筆編輯:分類、對象、日期時間、備註、標籤,以及整組替換分錄(拆帳、改成轉帳、收回等)。
 // patch 裡沒有的欄位不變。全部在同一個 DB transaction;任何一項不合法就丟 ValidationError,資料庫不變。
 // 第一次編輯時一起寫入「v2 已停用」(見 settings.ts)
 export function updateTransaction(
@@ -295,6 +368,27 @@ export function updateTransaction(
       })
     }
 
+    // 整組替換分錄:檢查跟新增交易相同;內容跟現在完全一樣時不動
+    let postingsChanged = false
+    if (patch.postings !== undefined) {
+      if (patch.categories !== undefined) fields.categories = 'with_postings'
+      Object.assign(fields, validatePostings(tx, patch.postings))
+      const signature = (rows: { accountId: number; amount: number; currency: string; memo: string | null }[]) =>
+        JSON.stringify(rows.map((r) => [r.accountId, r.amount, r.currency, r.memo?.trim() || null]))
+      const current = tx
+        .select({
+          accountId: financePostings.accountId,
+          amount: financePostings.amount,
+          currency: financePostings.currency,
+          memo: financePostings.memo,
+        })
+        .from(financePostings)
+        .where(eq(financePostings.transactionId, transactionId))
+        .orderBy(financePostings.sortOrder, financePostings.id)
+        .all()
+      postingsChanged = signature(current) !== signature(patch.postings)
+    }
+
     let tagIds: number[] | null = null
     const newTagNames: string[] = []
     if (patch.tags !== undefined) {
@@ -321,19 +415,24 @@ export function updateTransaction(
           .where(and(eq(financePostings.id, change.postingId), eq(financePostings.transactionId, transactionId)))
           .run()
       }
-      // 分類全部回到未分類時,就不是任何人給的分類
-      const system = getSystemAccounts(tx)
-      const remaining = tx
-        .select({ accountId: financePostings.accountId, type: financeAccounts.type })
-        .from(financePostings)
-        .innerJoin(financeAccounts, eq(financeAccounts.id, financePostings.accountId))
-        .where(eq(financePostings.transactionId, transactionId))
-        .all()
-        .filter((p) => (p.type === 'expense' || p.type === 'income') && p.accountId !== system.fee)
-      const allUncategorized = remaining.every(
-        (p) => p.accountId === system.uncategorizedExpense || p.accountId === system.uncategorizedIncome,
-      )
-      header.categorySource = allUncategorized ? null : 'manual'
+      header.categorySource = categorySourceAfterEdit(tx, transactionId)
+    }
+
+    if (postingsChanged && patch.postings) {
+      tx.delete(financePostings).where(eq(financePostings.transactionId, transactionId)).run()
+      tx.insert(financePostings)
+        .values(
+          patch.postings.map((posting, index) => ({
+            transactionId,
+            accountId: posting.accountId,
+            amount: posting.amount,
+            currency: posting.currency,
+            memo: posting.memo?.trim() || null,
+            sortOrder: index,
+          })),
+        )
+        .run()
+      header.categorySource = categorySourceAfterEdit(tx, transactionId)
     }
 
     if (tagIds !== null) {
@@ -352,7 +451,7 @@ export function updateTransaction(
 
     tx.update(financeTransactions).set(header).where(eq(financeTransactions.id, transactionId)).run()
 
-    // 分錄的金額沒有動,這裡只是守住不變量
+    // 提交前用資料庫裡實際的分錄再檢查一次
     const residual = tx.select().from(financeUnbalanced).where(eq(financeUnbalanced.transactionId, transactionId)).all()
     if (residual.length) throw new ValidationError({ postings: 'unbalanced' })
 

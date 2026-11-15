@@ -78,6 +78,7 @@ function main() {
   )
   console.log(`  入帳、對象不用補:${counts.incomingKept}`)
   console.log(`  帳本有、檔案沒有:${counts.missingFromFile}`)
+  console.log(`  刪掉過、不再加回來:${counts.deleted}`)
   console.log(`  無法處理:${counts.errors}`)
   console.log(`  檔案之間同一個 ID 內容不同:${counts.conflicts}`)
   console.log(`  檔案之間同一個 ID 只有備註或來源分類不同(用第一份):${counts.detailDiffs}`)

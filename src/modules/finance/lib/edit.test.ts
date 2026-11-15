@@ -42,3 +42,20 @@ test('型別不對、缺 expectedUpdatedAt、不認得的欄位', () => {
     fields: { occurredAt: 'invalid', note: 'invalid', payee: 'invalid', categories: 'invalid', tags: 'invalid', amount: 'unknown' },
   })
 })
+
+test('postings:整組替換的分錄;memo 可省略;不能跟 categories 一起給', () => {
+  assert.deepEqual(
+    parseTransactionPatch({ expectedUpdatedAt: AT, postings: [{ accountId: 1, amount: -100, currency: 'EUR' }, { accountId: 2, amount: 100, currency: 'EUR', memo: 'x' }] }),
+    { ok: true, patch: { expectedUpdatedAt: AT, postings: [
+      { accountId: 1, amount: -100, currency: 'EUR', memo: null },
+      { accountId: 2, amount: 100, currency: 'EUR', memo: 'x' },
+    ] } },
+  )
+  assert.deepEqual(parseTransactionPatch({ expectedUpdatedAt: AT, postings: [{ accountId: 1, amount: 1.5, currency: 'EUR' }] }), {
+    ok: false, fields: { postings: 'invalid' },
+  })
+  assert.deepEqual(parseTransactionPatch({ expectedUpdatedAt: AT, postings: [], categories: [] }), {
+    ok: false, fields: { categories: 'with_postings' },
+  })
+})
+

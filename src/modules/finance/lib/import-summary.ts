@@ -24,6 +24,8 @@ export type ImportSummary = {
     // 入帳、已經在帳本裡、對象不用補
     incomingKept: number
     missingFromFile: number
+    // 帳本裡刪掉過、這次不再加回來
+    deleted: number
     errors: number
     conflicts: number
     detailDiffs: number

@@ -1,0 +1,80 @@
+/* 沒有內距,這樣點到 dialog 本身就一定是點到 backdrop */
+.dialog {
+  padding: 0;
+  border: 1px solid var(--color-dialog-border);
+  border-radius: var(--radius);
+  background: var(--color-dialog-bg);
+  color: var(--color-text);
+}
+
+.dialog::backdrop {
+  background: var(--color-backdrop);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* 這個彈窗的版面寬度,不是共用 token;有第二個地方用到同一個值再抽成變數 */
+  max-width: 24rem;
+  padding: var(--space-3);
+}
+
+.title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+}
+
+/* 說明裡可能有很長的名稱,沒有空白也要能換行 */
+.description {
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-dialog-section-line);
+}
+
+.cancel {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* 破壞性動作用實底,和取消鈕一眼分得出來 */
+.confirm {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-destructive-border);
+  border-radius: var(--radius);
+  background: var(--color-destructive-bg);
+  color: var(--color-destructive-on-bg);
+  font: inherit;
+  cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: border-color, background-color, color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
+}
+
+/* 非破壞性的確認(例:批次貼上):主要行動色。寫在 :disabled 之前,停用樣式仍然蓋得過 */
+.action {
+  border-color: var(--color-action-border);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+}
+
+.confirm:disabled {
+  border-color: var(--color-action-disabled-bg);
+  background: var(--color-action-disabled-bg);
+  color: var(--color-action-disabled-text);
+  cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
+}

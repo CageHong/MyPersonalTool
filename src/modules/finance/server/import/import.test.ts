@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm'
 import { parseWiseCsv } from '@personal-tools/statement-parsers'
 import type { FinanceDb } from '../../db/index'
 import { resolvePayee } from '../ledger/payees'
-import { createTransaction } from '../ledger/transactions'
+import { createTransaction, deleteTransaction } from '../ledger/transactions'
 import { ACCOUNTS, AT, freshLedger } from '../testing'
 import { applyImport, ImportBlockedError, mergeParseResults, planImport } from './index'
 
@@ -553,3 +553,22 @@ test('入帳:來源分類指到支出分類 = 沖銷;換匯不分類;既有交�
   assert.equal(postingsOf(db, 'TRANSFER-1')[1].account_id, ACCOUNTS.uncategorizedIncome)
   assert.deepEqual(unbalanced(db), [])
 })
+
+test('帳本裡刪掉過的交易:列為刪掉過,套用時不加回來;其他列照常', () => {
+  const db = freshLedger()
+  const parsed = statement([{ ID: 'CARD-1' }, { ID: 'CARD-2', 'Created on': '2030-01-16 09:30:00' }])
+  applyImport(db, planImport(db, parsed, options), options, AT)
+  const [row] = db.all<{ id: number; updated_at: string }>(
+    sql`SELECT id, updated_at FROM finance_transactions WHERE external_id = 'CARD-1'`,
+  )
+  deleteTransaction(db, row.id, row.updated_at, '2030-02-01T00:00:00Z')
+
+  const plan = planImport(db, parsed, options)
+  assert.deepEqual(
+    plan.items.map((item) => [item.pending.externalId, item.status]),
+    [['CARD-1', 'deleted'], ['CARD-2', 'existing']],
+  )
+  assert.deepEqual(applyImport(db, plan, options, AT), { created: 0, payeesFixed: 0 })
+  assert.equal(db.all(sql`SELECT * FROM finance_transactions`).length, 1)
+})
+

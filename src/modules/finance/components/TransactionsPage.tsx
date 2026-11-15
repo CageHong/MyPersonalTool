@@ -156,6 +156,13 @@ export default function TransactionsPage() {
     setLookupsAttempt((n) => n + 1)
   }
 
+  // 刪掉之後:從清單拿掉、關閉右欄
+  function removeRow(id: number) {
+    setList((prev) => (prev ? { ...prev, items: prev.items.filter((item) => item.id !== id) } : prev))
+    setLookupsAttempt((n) => n + 1)
+    setEditing(null)
+  }
+
   const message = lookupsError ?? currentError
   // 第一頁失敗就重取第一頁;載入下一頁失敗只要清掉錯誤,底部的哨兵還在畫面裡,會自動再載入
   function retry() {
@@ -222,7 +229,13 @@ export default function TransactionsPage() {
         </div>
 
         {editId !== null && lookups && (
-          <TransactionEditor id={editId} lookups={lookups} onClose={() => setEditing(null)} onSaved={replaceRow} />
+          <TransactionEditor
+            id={editId}
+            lookups={lookups}
+            onClose={() => setEditing(null)}
+            onSaved={replaceRow}
+            onDeleted={removeRow}
+          />
         )}
       </div>
     </div>

@@ -58,6 +58,20 @@ export async function patchJson<T>(url: string, body: unknown): Promise<T> {
   throw new FinanceApiError(error?.code ?? 'BAD_RESPONSE', error?.fields ?? {})
 }
 
+// DELETE,成功時沒有內容。失敗時 throw FinanceApiError
+export async function deleteRequest(url: string): Promise<void> {
+  let response: Response
+  try {
+    response = await fetch(url, { method: 'DELETE' })
+  } catch {
+    throw new FinanceApiError('NETWORK')
+  }
+  if (response.ok) return
+  const parsed: unknown = await response.json().catch(() => null)
+  const error = (parsed as { error?: { code?: string; fields?: Record<string, string> } } | null)?.error
+  throw new FinanceApiError(error?.code ?? 'BAD_RESPONSE', error?.fields ?? {})
+}
+
 // 讀取資料(交易清單、篩選選項)的錯誤 → 給人看的訊息
 export function loadErrorMessage(error: unknown): string {
   if (!(error instanceof FinanceApiError)) return '發生未預期的錯誤'
@@ -96,6 +110,9 @@ export function editErrorMessage(error: unknown): string {
     if (fields.note) return '備註太長。'
     if (fields.tags) return '標籤不合法(名稱空白、太長,或選的標籤已經不存在)。'
     if (Object.keys(fields).some((key) => key.startsWith('categories'))) return '分類不合法,請重新整理後再選。'
+    if (fields.postings?.startsWith('unbalanced')) return `借貸不平(${fields.postings.slice('unbalanced:'.length)}),沒有儲存。`
+    if (fields.postings === 'too_few') return '至少要兩條分錄。'
+    if (Object.keys(fields).some((key) => key.startsWith('postings'))) return '有分錄不合法(金額是 0、帳戶不存在,或幣別跟帳戶不符)。'
     return '輸入不合法。'
   }
   if (code === 'NOT_FOUND') return '這筆交易已經不存在。'

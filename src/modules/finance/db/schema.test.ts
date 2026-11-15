@@ -27,7 +27,7 @@ test('migration 可以套用在空的資料庫', () => {
   const tables = db.all<{ n: number }>(
     sql`SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name LIKE 'finance_%'`,
   )
-  assert.equal(tables[0].n, 15)
+  assert.equal(tables[0].n, 16)
 })
 
 test('分錄幣別與帳戶幣別不同時,新增與修改都被擋下', () => {
