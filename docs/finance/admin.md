@@ -43,3 +43,22 @@
 - 別名是匯入時的比對鍵(正規化後的文字);移動或刪除別名只影響之後的匯入,已經匯入的交易不動。刪掉別名後,那個寫法下次匯入時重新比對(找同名的收款人,沒有就新增)。
 - 合併取代了 `import-v2.json` 的 `payeeMerges`(v2 停用後那份設定不再套用)。
 - 畫面不能新增別名;同一個對象的新寫法,匯入後用合併處理。
+
+## 規則
+
+程式在 `server/classify/rules.ts`(決定分類的 `classify/index.ts` 只讀規則;規則的寫入只在這裡),形狀在 `lib/rules.ts`。
+規則怎麼被用見 `docs/finance/classify.md`。
+
+| API | 作用 |
+|---|---|
+| `GET /api/finance/rules` | 全部規則,依種類、`priority`、`id` |
+| `POST /api/finance/rules` | 新增 `{ matchField, payeeId \| matchValue, assignAccountId, isActive }`;排在同一種最後 |
+| `PATCH /api/finance/rules/<id>` | 改收款人 / 來源分類文字(只能改同一種的)、分類、啟用 |
+| `POST /api/finance/rules/<id>/move` | 同一種裡上移、下移(重新編成 0、1、2…) |
+| `DELETE /api/finance/rules/<id>` | 刪除 |
+| `GET /api/finance/rules/reclassify` | 重新分類的預覽:每一筆未分類的交易會被分到哪裡、沒命中的筆數 |
+| `POST /api/finance/rules/reclassify` | `{ transactionIds }`:只寫入選中的;寫入前用最新的資料重算,已經不是未分類的跳過 |
+
+- 對象規則只能指到支出分類(只用在付出);來源分類規則可以指到支出或收入分類。
+- 規則的「自動加標籤」(`assign_tags`)畫面不顯示,自動分類也不用。
+- 重新分類只動還記在「未分類」/「未分類收入」的交易:那條分錄換到決定的分類,`category_source` 記決定的來源(`scheduled`、`rule`、`payee_history`、`source_category`),配對到週期項目時一起記下。寫入經過 `ledger/transactions.ts` 的 `assignCategory`。

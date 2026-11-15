@@ -503,3 +503,32 @@ export function createManualTransaction(
   })
 }
 
+// 自動分類的結果寫回一筆未分類的交易(重新分類用):把記在 fromAccountId(未分類 / 未分類收入)的分錄
+// 換到 toAccountId,記下分類來源與配對到的週期項目。金額不動
+export function assignCategory(
+  db: FinanceConn,
+  transactionId: number,
+  change: {
+    fromAccountId: number
+    toAccountId: number
+    categorySource: 'scheduled' | 'rule' | 'payee_history' | 'source_category'
+    scheduledId: number | null
+  },
+  now: string = new Date().toISOString(),
+): void {
+  const version = new Date(now).toISOString().replace('Z', '+00:00')
+  db.transaction((tx) => {
+    const moved = tx
+      .update(financePostings)
+      .set({ accountId: change.toAccountId })
+      .where(and(eq(financePostings.transactionId, transactionId), eq(financePostings.accountId, change.fromAccountId)))
+      .returning({ id: financePostings.id })
+      .all()
+    if (!moved.length) throw new ValidationError({ transaction: 'not_uncategorized' })
+    tx.update(financeTransactions)
+      .set({ categorySource: change.categorySource, scheduledId: change.scheduledId, updatedAt: version })
+      .where(eq(financeTransactions.id, transactionId))
+      .run()
+  })
+}
+

@@ -147,10 +147,13 @@ const ADMIN_REASONS: Record<string, string> = {
   has_children: '底下還有子分類,請先把子分類移走或合併。',
   has_transactions: '已經有交易用到,不能刪除;可以封存或合併到別的。',
   in_use: '還有規則或週期項目用到,不能刪除;可以合併到別的(會一起改指過去)。',
-  type_mismatch: '類型不同(支出 / 收入)。',
+  type_mismatch: '類型不對(對象規則只能指到支出分類;合併要同類型)。',
   not_top_level: '只能放到最上層的分類底下(最多兩層)。',
   self: '不能選自己。',
   not_found: '選的項目已經不存在,請重新整理。',
+  not_payee_rule: '這不是對象規則。',
+  not_source_rule: '這不是來源分類規則。',
+  not_uncategorized: '這筆交易已經不是未分類。',
 }
 
 export function adminErrorMessage(error: unknown): string {

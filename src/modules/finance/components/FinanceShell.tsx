@@ -17,6 +17,7 @@ const NAV = [
 const ADMIN_NAV = [
   { href: '/finance/categories', label: '分類' },
   { href: '/finance/payees', label: '收款人' },
+  { href: '/finance/rules', label: '規則' },
 ] as const
 
 export default function FinanceShell({ children }: { children: ReactNode }) {
