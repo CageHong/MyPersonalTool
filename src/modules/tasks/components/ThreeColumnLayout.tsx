@@ -10,7 +10,7 @@ import HabitList from './HabitList'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
 import styles from './ThreeColumnLayout.module.css'
-import { todayIso } from '@/modules/tasks/lib/date'
+import { useToday } from '@/modules/tasks/lib/useToday'
 import {
   generalMessage,
   habitCountMessage,
@@ -195,7 +195,7 @@ export default function ThreeColumnLayout() {
   const [countOverrides, setCountOverrides] = useState<ReadonlyMap<number, PeriodCount[]>>(new Map())
   const pendingCountsRef = useRef(new Map<number, number>())
 
-  const today = todayIso()
+  const today = useToday()
   const view = parseView(searchParams.get('view'))
   // 篩選在前端做,GET /api/tasks/tasks 照舊拿全部。重複實例每條規則只剩一個代表,
   // 非代表的實例不在 visibleTasks 裡,所以也選不到(網址上的 task 會被下面的 effect 清掉)
@@ -576,7 +576,7 @@ export default function ThreeColumnLayout() {
         countOverridesRef.current.get(id) ??
         habitsRef.current.find((item) => item.id === id)?.periodCounts ??
         []
-      const step = stepCounts(base, todayIso(), delta)
+      const step = stepCounts(base, today, delta)
       // 本週期沒有紀錄可退
       if (step.writes.length === 0) {
         return
@@ -631,7 +631,7 @@ export default function ThreeColumnLayout() {
         }
       })
     },
-    [clearCountOverride, enqueue, refetchHabits],
+    [clearCountOverride, enqueue, refetchHabits, today],
   )
 
   // 新增習慣:預設每天 1 次,頻率與目標到右欄再改。成功後選取它、打開右欄;
@@ -740,6 +740,7 @@ export default function ThreeColumnLayout() {
             overdueCounts={overdueCounts}
             allTasks={tasks}
             view={view}
+            today={today}
             loading={loading || viewSettingsLoading}
             error={error}
             selectedId={selectedId}
@@ -768,6 +769,7 @@ export default function ThreeColumnLayout() {
           <TaskDetail
             key={selectedTask?.id ?? 'empty'}
             task={selectedTask}
+            today={today}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
             onSaveDate={handleSaveDate}

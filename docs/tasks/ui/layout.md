@@ -22,6 +22,8 @@
 
 **選取狀態放在網址。** `?view=today&task=123`。`view` 是分類欄選的檢視,`task` 是被選取的任務 id;沒有 `task` 時編輯欄顯示空狀態。`useSearchParams` 在 `ThreeColumnLayout` 讀一次往下傳,用 `router.replace` 寫。不要用元件內的 state 存這兩個值。
 
+**「今天」在 `ThreeColumnLayout` 取一次往下傳。** `ThreeColumnLayout` 以 `useToday()` 取得今天的 `YYYY-MM-DD`(跨過本地午夜與分頁回到前景時重算),往下傳給 `CategoryColumn`、`DueDateDialog`、`MonthCalendar`,並在篩選、分組與習慣步進計數時共用同一個 `today`。
+
 ## 欄位儲存
 
 **每個欄位各自儲存,各自送一次 PATCH。**

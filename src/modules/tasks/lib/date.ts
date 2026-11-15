@@ -30,6 +30,12 @@ export function todayIso(): string {
   return fromDate(new Date())
 }
 
+// 到下一個本地午夜的毫秒數
+export function msUntilNextLocalMidnight(now: Date): number {
+  const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  return nextMidnight.getTime() - now.getTime()
+}
+
 export function addDays(iso: string, days: number): string {
   const { year, month, day } = parseIso(iso)
   return fromDate(new Date(year, month - 1, day + days))

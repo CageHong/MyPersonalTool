@@ -16,6 +16,7 @@ import styles from './TaskDetail.module.css'
 // 四個欄位都可編輯;各自儲存,各自送一次 PATCH。checklist 自己打自己的 API
 type Props = {
   task: Task | undefined
+  today: string
   onUpdate: (id: number, patch: TaskPatch) => Promise<ApiError | null>
   onDelete: (id: number) => Promise<ApiError | null>
   // 日期選單按確定:截止日與重複規則一起存(先日期、再規則);undefined = 那一項沒有改
@@ -32,6 +33,7 @@ type Props = {
 
 export default function TaskDetail({
   task,
+  today,
   onUpdate,
   onDelete,
   onSaveDate,
@@ -275,6 +277,7 @@ export default function TaskDetail({
       {dateMenuOpener !== null && (
         <DueDateDialog
           dueDate={task.dueDate}
+          today={today}
           recurrence={
             task.completedAt === null
               ? { rule: dialogRuleState, occurrenceDate: task.occurrenceDate }
