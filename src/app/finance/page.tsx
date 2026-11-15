@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 
-// 交易清單做好之前,/finance 先到匯入
+// /finance 的預設頁是交易清單
 export default function FinanceHome() {
-  redirect('/finance/import')
+  redirect('/finance/transactions')
 }

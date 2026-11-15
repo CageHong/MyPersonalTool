@@ -1,0 +1,123 @@
+/* 表格比畫面寬時在這裡橫向捲動,不撐開整頁 */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-row-border);
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-row-border);
+  vertical-align: top;
+}
+
+.row:hover {
+  background: var(--color-row-hover-bg);
+}
+
+/* 展開中的那一列;顏色在 finance 配色時再定 */
+.expanded,
+.expanded:hover {
+  background: var(--color-row-selected-bg);
+}
+
+.right {
+  text-align: right;
+}
+
+.date,
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 日期是展開按鈕:外觀跟一般文字一樣 */
+.toggle {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.payee {
+  display: flex;
+  flex-direction: column;
+}
+
+.note,
+.muted {
+  color: var(--color-text-muted);
+}
+
+.tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+
+.tag {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-row-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.detailRow > td {
+  background: var(--color-column-aside);
+}
+
+.detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+}
+
+.postings {
+  border-collapse: collapse;
+}
+
+.postings th,
+.postings td {
+  padding: 0 var(--space-3) var(--space-1) 0;
+  border: 0;
+  text-align: left;
+}
+
+.postings th.right,
+.postings td.right {
+  text-align: right;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0 var(--space-3);
+  align-content: start;
+}
+
+.meta dt {
+  color: var(--color-text-muted);
+}

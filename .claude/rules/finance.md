@@ -25,7 +25,7 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 資料檔的位置(資料庫、套用前的備份、`import-v2.json`)只在 `db/path.ts` 定義;route handler 用的共用連線是 `db/index.ts` 的 `getDb()`(資料庫不存在就報錯,不自動建立)
 - 畫面:`src/app/finance/<頁面>/`(子路由,`src/app/finance/layout.tsx` 放 finance 的側欄導覽,只列做好的頁面);元件在 `src/modules/finance/components/`;畫面一律是 client component 呼叫 `/api/finance/...`,不用 Server Component 或 Server Actions 直接呼叫 `server/`
 - `src/modules/finance/lib/`:前後端共用的型別與純函式(API 回傳的形狀、金額與日期的顯示、API 錯誤的中文訊息)
-- `docs/finance/`:描述性文件。動對帳單匯入之前先讀 `docs/finance/import.md`,動自動分類之前先讀 `docs/finance/classify.md`
+- `docs/finance/`:描述性文件。動對帳單匯入之前先讀 `docs/finance/import.md`,動自動分類之前先讀 `docs/finance/classify.md`,動交易清單的查詢之前先讀 `docs/finance/transactions.md`
 - `src/modules/finance/config.example/`:設定檔範例;新增設定欄位時同步更新
 - 指令(repo 根目錄):`finance:import-v2`(要設 `PACR_DATA_DIR`,或把 v2 的 `finance.db` 路徑當參數)、`finance:import-statement`(對帳單檔案當參數;不加 `--apply` 只試跑)、`finance:fx-update`、`finance:db:generate`、`finance:db:migrate`
 
@@ -53,8 +53,9 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 ## 模組切分(`src/modules/finance/server/`)
 
 - **拆分的標準**:會因為不同的原因改動、依賴外部的東西、可以替換、可以單獨測試,符合任一條就拆。共用同一條不變量(表頭與分錄同一個 transaction、每個幣別加總為零)的東西不拆。
-- **模組**:`ledger`(帳本核心,唯一寫入交易的地方;收款人與別名、帳戶群組也在這裡)、`import`、`fx`、`classify`、`recurring`、`tags`(含旅行)、`budgets`、`reports`(含匯出 CSV)、`audit`(稽核)。目前已有 `ledger`、`fx`、`import`、`classify`、`recurring`。
+- **模組**:`ledger`(帳本核心,唯一寫入交易的地方;收款人與別名、帳戶群組也在這裡)、`import`、`fx`、`classify`、`recurring`、`tags`(含旅行)、`budgets`、`reports`(含匯出 CSV)、`audit`(稽核)。目前已有 `ledger`、`fx`、`import`、`classify`、`recurring`、`tags`(目前只有查詢)。
 - `classify` 只決定不寫入(讀取 + 純函式);週期項目的配對在 `recurring`,`classify` 呼叫它。
+- 交易清單的篩選、排序、分頁只在 `ledger/list.ts`(`listTransactions`)定義;要「符合某組條件的交易」的功能(報表、匯出、批量編輯)呼叫它,不另寫一份。篩選條件與網址參數的對應在 `lib/transactions.ts`。
 - 對帳單匯入的入口只有 `server/import/prepare.ts`(命令列與 API 都呼叫它);不要在 `tools/` 或 route handler 裡自己解析、合併、算計畫。
 - **寫入一律經過 ledger 的函式**;其他模組不直接寫交易相關的表。`reports`、`budgets`、`tags`、`audit` 只讀。
 - **帳戶餘額一律經過 `ledger/balances.ts`**(`getAccountBalance`、`getAccountBalances`)。系統帳戶(未分類、未分類收入、手續費、換匯)的 id 一律經過 `ledger/accounts.ts` 的 `getSystemAccounts`,不在別處寫名稱或 id。側欄、群組合計、淨值、可動用資金、信用卡可用餘額、報表都呼叫它,不自己寫分錄加總。原因:之後投資帳戶的市值是「持股 × 價格」,股價變動不產生分錄,屆時只改這個函式。

@@ -25,6 +25,29 @@ export async function postForm<T>(url: string, form: FormData): Promise<T> {
   throw new FinanceApiError(error?.code ?? 'BAD_RESPONSE', error?.fields ?? {})
 }
 
+// GET,回傳 JSON。失敗時 throw FinanceApiError;signal 用來取消已經過時的請求(取消時 throw AbortError)
+export async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(url, { signal })
+  } catch (caught) {
+    if (signal?.aborted) throw caught
+    throw new FinanceApiError('NETWORK')
+  }
+  const body: unknown = await response.json().catch(() => null)
+  if (response.ok && body !== null) return body as T
+  const error = (body as { error?: { code?: string; fields?: Record<string, string> } } | null)?.error
+  throw new FinanceApiError(error?.code ?? 'BAD_RESPONSE', error?.fields ?? {})
+}
+
+// 讀取資料(交易清單、篩選選項)的錯誤 → 給人看的訊息
+export function loadErrorMessage(error: unknown): string {
+  if (!(error instanceof FinanceApiError)) return '發生未預期的錯誤'
+  if (error.code === 'VALIDATION_FAILED') return '篩選條件不合法,請清除篩選後再試。'
+  if (error.code === 'NETWORK') return '連不到伺服器。'
+  return '伺服器發生錯誤,詳細內容在伺服器的紀錄裡。'
+}
+
 // 對帳單匯入的錯誤 → 給人看的訊息
 export function importErrorMessage(error: unknown): string {
   if (!(error instanceof FinanceApiError)) return '發生未預期的錯誤'

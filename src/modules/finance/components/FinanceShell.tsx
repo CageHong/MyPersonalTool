@@ -7,7 +7,10 @@ import styles from './FinanceShell.module.css'
 
 // finance 各頁共用的版面:左側欄(標題 + 導覽)、右邊是頁面內容。
 // 導覽只列已經做好的頁面
-const NAV = [{ href: '/finance/import', label: '匯入' }] as const
+const NAV = [
+  { href: '/finance/transactions', label: '交易' },
+  { href: '/finance/import', label: '匯入' },
+] as const
 
 export default function FinanceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
