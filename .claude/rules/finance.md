@@ -61,11 +61,11 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 ## 模組切分(`src/modules/finance/server/`)
 
 - **拆分的標準**:會因為不同的原因改動、依賴外部的東西、可以替換、可以單獨測試,符合任一條就拆。共用同一條不變量(表頭與分錄同一個 transaction、每個幣別加總為零)的東西不拆。
-- **模組**:`ledger`(帳本核心,唯一寫入交易的地方;收款人與別名、帳戶群組也在這裡)、`import`、`fx`、`classify`、`recurring`、`tags`(含旅行)、`budgets`、`reports`(含匯出 CSV)、`audit`(稽核)。目前已有 `ledger`、`fx`、`import`、`classify`、`recurring`、`tags`(目前只有查詢)。
+- **模組**:`ledger`(帳本核心,唯一寫入交易的地方;收款人與別名、帳戶群組也在這裡)、`import`、`fx`、`classify`、`recurring`、`tags`(含旅行)、`budgets`、`reports`(含匯出 CSV)、`audit`(稽核)。目前已有 `ledger`、`fx`、`import`、`classify`、`recurring`、`tags`。
 - `classify` 決定分類時只讀(讀取 + 純函式);週期項目的配對在 `recurring`,`classify` 呼叫它。規則表的寫入只在 `classify/rules.ts`;重新分類(`classify/reclassify.ts`)的寫入經過 ledger 的 `assignCategory`。
 - 交易清單的篩選、排序、分頁只在 `ledger/list.ts`(`listTransactions`)定義;要「符合某組條件的交易」的功能(報表、匯出、批量編輯)呼叫它,不另寫一份。篩選條件與網址參數的對應在 `lib/transactions.ts`。
 - 對帳單匯入的入口只有 `server/import/prepare.ts`(命令列與 API 都呼叫它);不要在 `tools/` 或 route handler 裡自己解析、合併、算計畫。
-- **寫入一律經過 ledger 的函式**;其他模組不直接寫交易相關的表。`reports`、`budgets`、`tags`、`audit` 只讀。
+- **寫入一律經過 ledger 的函式**;其他模組不直接寫交易相關的表(交易、分錄、交易身上的標籤)。`tags` 管理標籤本身(`finance_tags`),把標籤掛到交易上經過 ledger;`reports`、`budgets`、`audit` 只讀。
 - **帳戶餘額一律經過 `ledger/balances.ts`**(`getAccountBalance`、`getAccountBalances`)。系統帳戶(未分類、未分類收入、手續費、換匯)的 id 一律經過 `ledger/accounts.ts` 的 `getSystemAccounts`,不在別處寫名稱或 id。側欄、群組合計、淨值、可動用資金、信用卡可用餘額、報表都呼叫它,不自己寫分錄加總。原因:之後投資帳戶的市值是「持股 × 價格」,股價變動不產生分錄,屆時只改這個函式。
 - **fx 要能直接搬到平台層**:不匯入 finance 的其他程式、只透過公開函式(取匯率、換算、更新)使用、匯率表不跟其他表互相參照。要抓哪些幣別、從哪天開始,由 `tools/` 查好傳進去。來源轉接(`frankfurter.ts`)與查詢 / 換算 / 寫入(`index.ts`)分開,換來源只換前者。`convert` 回傳目標幣別最小單位的浮點數,多筆先加總再取整數。
 - **audit 與驗證工具不共用被驗證的實作**:`tools/verify-import.ts` 不匯入其他程式,直接比對資料庫;管線行為改了,驗證要用另一種算法跟著改,不能複製實作。

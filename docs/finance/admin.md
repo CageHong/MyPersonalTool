@@ -62,3 +62,20 @@
 - 對象規則只能指到支出分類(只用在付出);來源分類規則可以指到支出或收入分類。
 - 規則的「自動加標籤」(`assign_tags`)畫面不顯示,自動分類也不用。
 - 重新分類只動還記在「未分類」/「未分類收入」的交易:那條分錄換到決定的分類,`category_source` 記決定的來源(`scheduled`、`rule`、`payee_history`、`source_category`),配對到週期項目時一起記下。寫入經過 `ledger/transactions.ts` 的 `assignCategory`。
+
+## 標籤
+
+程式在 `server/tags/index.ts`(標籤本身);交易身上的標籤經過 `ledger/transactions.ts`(`tagTransactions`、`moveTagLinks`、`updateTransaction`)。形狀在 `lib/tags.ts`。
+
+| API | 作用 |
+|---|---|
+| `GET /api/finance/tags` | 全部標籤,附交易筆數,依名稱排序 |
+| `POST /api/finance/tags` | 新增 `{ name, startsOn?, endsOn? }` |
+| `PATCH /api/finance/tags/<id>` | 改名、日期範圍(`null` = 一般標籤) |
+| `POST /api/finance/tags/<id>/merge` | `{ targetId }`:這個標籤的交易都加上目標標籤(已經有的不重複),再刪掉這個 |
+| `DELETE /api/finance/tags/<id>` | 刪除;交易上的這個標籤由外鍵 cascade 一起拿掉 |
+| `GET /api/finance/tags/<id>/range` | 旅行標籤:範圍內、還沒有這個標籤的交易(預覽) |
+| `POST /api/finance/tags/<id>/range` | `{ transactionIds }`:選中的加上標籤;不在範圍內的不加 |
+
+- 名稱不能重複;日期範圍要成對,最後一天不早於第一天。範圍以 UTC 切日比對 `occurred_at`(跟交易清單的日期篩選相同)。
+- 日期範圍只是「加標籤」的線索:不會自動套用到新交易,邊緣的交易(出發前、回來後)在預覽裡取消勾選即可。

@@ -154,6 +154,9 @@ const ADMIN_REASONS: Record<string, string> = {
   not_payee_rule: '這不是對象規則。',
   not_source_rule: '這不是來源分類規則。',
   not_uncategorized: '這筆交易已經不是未分類。',
+  range_incomplete: '第一天和最後一天要一起填,或一起留空。',
+  before_start: '最後一天不能早於第一天。',
+  no_range: '這個標籤沒有日期範圍。',
 }
 
 export function adminErrorMessage(error: unknown): string {

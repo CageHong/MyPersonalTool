@@ -532,3 +532,38 @@ export function assignCategory(
   })
 }
 
+// 幫多筆交易加上同一個標籤(已經有的不重複);更新這些交易的 updated_at
+export function tagTransactions(
+  db: FinanceConn,
+  tagId: number,
+  transactionIds: readonly number[],
+  now: string = new Date().toISOString(),
+): void {
+  if (!transactionIds.length) return
+  const version = new Date(now).toISOString().replace('Z', '+00:00')
+  db.transaction((tx) => {
+    tx.insert(financeTransactionTags)
+      .values(transactionIds.map((transactionId) => ({ transactionId, tagId })))
+      .onConflictDoNothing()
+      .run()
+    tx.update(financeTransactions)
+      .set({ updatedAt: version })
+      .where(inArray(financeTransactions.id, [...transactionIds]))
+      .run()
+  })
+}
+
+// 合併標籤時:掛著 fromTagId 的交易改掛 toTagId(已經掛著的不重複),fromTagId 的連結全部拿掉
+export function moveTagLinks(db: FinanceConn, fromTagId: number, toTagId: number, now: string = new Date().toISOString()): void {
+  db.transaction((tx) => {
+    const ids = tx
+      .select({ id: financeTransactionTags.transactionId })
+      .from(financeTransactionTags)
+      .where(eq(financeTransactionTags.tagId, fromTagId))
+      .all()
+      .map((row) => row.id)
+    tagTransactions(tx, toTagId, ids, now)
+    tx.delete(financeTransactionTags).where(eq(financeTransactionTags.tagId, fromTagId)).run()
+  })
+}
+
