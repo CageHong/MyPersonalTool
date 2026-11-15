@@ -21,6 +21,7 @@ import { getAccountsWithLegacyId, getSystemAccounts } from '../ledger/accounts'
 import type { SystemAccounts } from '../ledger/accounts'
 import { lookupPayee, normalizePayeeText, resolvePayee } from '../ledger/payees'
 import { createTransaction, setTransactionPayee } from '../ledger/transactions'
+import { ValidationError } from '../errors'
 import { buildDraft, DraftError } from './draft'
 import type { DraftLookups, DraftTransaction } from './draft'
 
@@ -57,6 +58,8 @@ export type ImportPlan = {
   errors: { line: number; externalId: string | null; message: string }[]
   // 帳本裡這個來源的交易,檔案裡沒有的筆數(檔案只涵蓋一段期間時會有)
   missingFromFile: number
+  // 這個來源對應到的帳本帳戶(例:Wise 的各幣別帳戶);分錄落在這些帳戶的那一側是「來源那一側」
+  sourceAccountIds: number[]
 }
 
 export type ImportOptions = {
@@ -180,6 +183,7 @@ export function planImport(db: FinanceConn, parsed: ParseResult, options: Import
     skipped: parsed.skipped,
     errors: [],
     missingFromFile: 0,
+    sourceAccountIds: [...sourceAccountIds],
   }
   const seen = new Set<string>()
   for (const pending of parsed.transactions) {
@@ -317,9 +321,11 @@ export function mergeParseResults(results: readonly ParseResult[]): {
   }
 }
 
-export class ImportBlockedError extends Error {
+// 計畫裡有無法處理的列。是驗證錯誤的一種:API 回 400(fields.plan = 'blocked')
+export class ImportBlockedError extends ValidationError {
   constructor(public readonly count: number) {
-    super(`有 ${count} 列無法轉成分錄,先處理完才能套用`)
+    super({ plan: 'blocked' })
+    this.message = `有 ${count} 列無法轉成分錄,先處理完才能套用`
     this.name = 'ImportBlockedError'
   }
 }

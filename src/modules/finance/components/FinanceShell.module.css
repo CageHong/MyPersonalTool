@@ -1,0 +1,58 @@
+.layout {
+  display: flex;
+  /* 版面吃滿視窗高度,捲動交給各欄;頁面本身不捲 */
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* 側欄寬度跟 tasks 的左欄相同;是版面的值,不是共用 token */
+.sidebar {
+  display: flex;
+  flex: 0 0 15rem;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-right: 1px solid var(--color-divider);
+  background: var(--color-column-aside);
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* 跟 tasks 左欄的檢視同一套:hover 只換底色;選取 = 底色 + 左側色條 + 字重 */
+.link {
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  color: var(--color-nav-text);
+  font-size: var(--text-sm);
+}
+
+.link:not(.current):hover {
+  background: var(--color-nav-hover-bg);
+}
+
+.current {
+  box-shadow: inset var(--space-1) 0 0 var(--color-nav-selected-border);
+  background: var(--color-nav-selected-bg);
+  font-weight: var(--weight-semibold);
+}
+
+.main {
+  flex: 1;
+  /* 沒有這行的話,flex 子項不會縮到內容寬度以下 */
+  min-width: 0;
+  padding: var(--space-4);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+  background: var(--color-column-main);
+}

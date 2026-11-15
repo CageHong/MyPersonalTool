@@ -11,7 +11,31 @@
             └─ server/import  applyImport → 經過 ledger 寫入
 ```
 
-命令列:`npm run finance:import-statement -- <檔案> [<檔案> …] [--apply]`。不加 `--apply` 是試跑,只印報告。套用前把資料庫複製到 `finance.db.before-import`(每次覆蓋)。
+入口只有一個:`server/import/prepare.ts`。命令列與畫面都呼叫它,不各自解析、合併、算計畫:
+
+| 函式 | 做什麼 |
+|---|---|
+| `prepareImport` | 檔案文字 → 解析 → 合併 → 匯入計畫(只讀)。沒有檔案、認不出來源、缺欄位、不同來源混在一起是驗證錯誤(`fields.files`,認得出檔案時是帶檔名的說明) |
+| `summarizeImport` | 計畫 → 給人看的摘要(`lib/import-summary.ts` 的 `ImportSummary`),含計畫指紋與 `canApply` |
+| `previewStatementFiles` | 上面兩步合起來(試跑) |
+| `applyStatementFiles` | 重新準備一次 → 檢查 → 備份 → 套用 |
+
+**計畫指紋**:會被寫入的內容(新交易的時間、對象、備註、分錄、分類來源、週期項目;要補的對象)的 SHA-256。試跑與套用之間不存任何狀態:套用時重送同樣的檔案與試跑時的指紋,伺服器重算計畫,指紋不同(帳本在中間變了)就不寫,`fields.fingerprint = 'stale'`。其他擋套用的情況:檔案之間有衝突(`fields.plan = 'conflicts'`)、有無法處理的列(`ImportBlockedError`,`fields.plan = 'blocked'`)。
+
+**備份**:套用前用 `db/backup.ts` 的 `backupDatabase`(SQLite 的 `VACUUM INTO`)寫到 `finance.db.before-import`(位置在 `db/path.ts`,每次覆蓋)。
+
+**選項**:對象的後綴清單由 `server/import/options.ts` 的 `loadImportOptions` 讀(目前是 `import-v2.json` 的 `payeeSuffixes`)。
+
+命令列:`npm run finance:import-statement -- <檔案> [<檔案> …] [--apply]`。不加 `--apply` 是試跑,只印報告(從 `ImportSummary` 印)。
+
+畫面:`/finance/import`。選檔(可以多個)就試跑,顯示報告;「套用」只在 `canApply` 時能按;套用後自動再試跑一次,報告換成帳本現在的狀態。
+
+API(multipart/form-data,檔案的欄位名是 `files`,可以多個;檔案只在請求裡讀,不存到磁碟):
+
+| 端點 | 輸入 | 回傳 |
+|---|---|---|
+| `POST /api/finance/import/plan` | `files` | `ImportSummary` |
+| `POST /api/finance/import/apply` | `files`、`fingerprint` | `ImportResult`(`created`、`payeesFixed`、`backupPath`) |
 
 檔案(一個或多個:分段匯出、期間重疊)先用 `mergeParseResults` 合成一份。同一個 ID 出現在不同檔案時:會影響寫入的內容(種類、時間、金額、手續費、對象;沒有對方名稱時對象是備註欄)不同,列為衝突,都不匯入,有衝突就不能套用;只有 Wise 的備註(Note)或來源分類不同,用第一份檔案的,試跑報告另外列出來給人確認;只差在其他原始欄位的視為相同。同一份檔案裡 ID 重複不在合併時處理:重複的列原樣交給匯入計畫,列為無法處理。
 

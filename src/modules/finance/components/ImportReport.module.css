@@ -1,0 +1,103 @@
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.overviewRow {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* 標籤欄的寬度是這份摘要的版面值,不是共用 token */
+.overviewLabel {
+  flex: 0 0 8rem;
+  color: var(--color-text-muted);
+}
+
+.section {
+  border-top: 1px solid var(--color-row-border);
+  padding-top: var(--space-2);
+}
+
+.sectionTitle {
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.sectionBody {
+  padding-top: var(--space-2);
+}
+
+.alert {
+  color: var(--color-error-text);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+/* 表格比畫面寬時在這裡橫向捲動,不撐開整頁 */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-row-border);
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-row-border);
+  vertical-align: top;
+}
+
+.date,
+.number,
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.number {
+  text-align: right;
+}
+
+.amountLine {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.account {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* 等寬數字才能上下對齊;金額靠右 */
+.amount {
+  text-align: right;
+}
+
+.note {
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}

@@ -15,15 +15,14 @@ import { dirname, join } from 'node:path'
 import Database from 'better-sqlite3'
 import { sql } from 'drizzle-orm'
 import { applyMigrations, openDb } from '../db/index'
-import { toolDataPath } from '../../../platform/dataDir'
-import { DB_PATH } from '../db/path'
+import { DB_PATH, IMPORT_V2_CONFIG_PATH } from '../db/path'
 import * as t from '../db/schema'
 import { normalizePayeeText, payeeDisplayName } from '../server/ledger/payees'
 
 // v2 的資料庫在 PACR 自己的資料夾,不在平台的資料夾裡:從參數或 PACR_DATA_DIR 取得
 const V2_DB_PATH =
   process.argv[2] ?? (process.env.PACR_DATA_DIR ? join(process.env.PACR_DATA_DIR, 'finance.db') : '')
-const CONFIG_PATH = toolDataPath('finance', 'import-v2.json')
+const CONFIG_PATH = IMPORT_V2_CONFIG_PATH
 
 type Config = {
   payeeSuffixes?: string[]

@@ -1,0 +1,111 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.heading {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* 原生的檔案欄位藏起來,用 label 當按鈕;input 仍在 label 裡,鍵盤與螢幕閱讀器照樣用得到 */
+.fileLabel {
+  position: relative;
+}
+
+.fileInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.fileInput:disabled {
+  cursor: not-allowed;
+}
+
+/* input 拿到焦點時,外框畫在看得到的按鈕上 */
+.fileLabel:has(.fileInput:focus-visible) .fileButton {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.fileButton,
+.secondary {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.fileNames {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.primary {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-action-border);
+  border-radius: var(--radius);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: border-color, background-color, color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
+}
+
+.primary:disabled,
+.secondary:disabled {
+  border-color: var(--color-action-disabled-bg);
+  background: var(--color-action-disabled-bg);
+  color: var(--color-action-disabled-text);
+  cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
+}
+
+.status {
+  min-height: 1lh;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.error {
+  color: var(--color-error-text);
+}
+
+.result {
+  overflow-wrap: anywhere;
+}
+
+.path {
+  font-size: var(--text-sm);
+}

@@ -5,6 +5,7 @@ import type { RunResult } from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core'
 import { runMigrations } from '../../../platform/migrations'
+import { DB_PATH } from './path'
 import * as schema from './schema'
 
 export type FinanceDb = ReturnType<typeof openDb>
@@ -32,4 +33,20 @@ export const MIGRATIONS_FOLDER = join(process.cwd(), 'src/modules/finance/drizzl
 // 指令一律在 repo 根目錄執行
 export function applyMigrations(db: FinanceDb) {
   runMigrations(db, MIGRATIONS_FOLDER)
+}
+
+// route handler 用的共用連線(資料庫在 DB_PATH)。
+// next dev 的 HMR 會重新求值模組,不快取在 globalThis 的話每次存檔都多開一條連線。
+// 不在這裡套用 migration:結構變更一律由 finance:db:migrate 執行。
+// 資料庫不存在時不自動建立(建出來的會是沒有結構的空檔案),直接報錯
+const globalForDb = globalThis as unknown as { financeDb?: FinanceDb }
+
+export function getDb(): FinanceDb {
+  if (!globalForDb.financeDb) {
+    if (DB_PATH !== ':memory:' && !existsSync(DB_PATH)) {
+      throw new Error(`找不到 finance 的資料庫 ${DB_PATH}`)
+    }
+    globalForDb.financeDb = openDb(DB_PATH)
+  }
+  return globalForDb.financeDb
 }
