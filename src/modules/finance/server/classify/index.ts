@@ -21,7 +21,7 @@ import type { ScheduledItem } from '../recurring/index'
 export const PAYEE_HISTORY_MIN_SHARE = 0.8
 
 // 算對象歷史時採用的交易:分類是使用者給的(不含自動分類的結果,避免自己強化自己)
-const USER_GIVEN_SOURCES = ['legacy', 'correction'] as const
+const USER_GIVEN_SOURCES = ['legacy', 'correction', 'manual'] as const
 
 type AccountType = (typeof financeAccounts.$inferSelect)['type']
 

@@ -10,16 +10,18 @@ import {
   parseTransactionFilter,
 } from '../lib/transactions'
 import type { FinanceLookups, TransactionFilter, TransactionPage, TransactionRow } from '../lib/transactions'
+import TransactionEditor from './TransactionEditor'
 import TransactionFilters from './TransactionFilters'
 import TransactionTable from './TransactionTable'
 import styles from './TransactionsPage.module.css'
 
-// 交易清單(唯讀)。篩選條件放在網址參數:重新整理不會消失、瀏覽器的上一頁可以退回前一組條件。
+// 交易清單與單筆編輯。篩選條件放在網址參數:重新整理不會消失、瀏覽器的上一頁可以退回前一組條件。
 // 資料由伺服器篩選、一次一頁(keyset 分頁),捲到底自動載入下一頁。
 // 「載入中」不另外存:目前的查詢還沒有資料(也沒有錯誤)就是載入中
 
 const LIST_URL = '/api/finance/transactions'
 const LOOKUPS_URL = '/api/finance/lookups'
+const EDIT_PARAM = 'edit'
 
 type ListState = {
   // 這批資料對應的查詢字串;跟網址不同代表資料過時了
@@ -46,6 +48,9 @@ export default function TransactionsPage() {
   const parsed = useMemo(() => parseTransactionFilter(new URLSearchParams(searchParams.toString())), [searchParams])
   const filter = parsed.ok ? parsed.filter : EMPTY_FILTER
   const query = filterToSearchParams(filter).toString()
+  // 編輯中的交易(?edit=<id>):跟篩選條件分開,換篩選條件時保留
+  const editParam = searchParams.get(EDIT_PARAM)
+  const editId = editParam !== null && /^[1-9]\d*$/.test(editParam) ? Number(editParam) : null
 
   const [lookups, setLookups] = useState<FinanceLookups | null>(null)
   const [lookupsError, setLookupsError] = useState<string | null>(null)
@@ -124,12 +129,31 @@ export default function TransactionsPage() {
     return () => observer.disconnect()
   }, [loadMore])
 
-  // replace:打字搜尋時每個字不各留一筆瀏覽紀錄
-  function changeFilter(next: TransactionFilter, mode: 'push' | 'replace' = 'push') {
-    const search = filterToSearchParams(next).toString()
+  function navigate(params: URLSearchParams, mode: 'push' | 'replace') {
+    const search = params.toString()
     const url = search ? `${pathname}?${search}` : pathname
     if (mode === 'replace') router.replace(url, { scroll: false })
     else router.push(url, { scroll: false })
+  }
+
+  // replace:打字搜尋時每個字不各留一筆瀏覽紀錄
+  function changeFilter(next: TransactionFilter, mode: 'push' | 'replace' = 'push') {
+    const params = filterToSearchParams(next)
+    if (editId !== null) params.set(EDIT_PARAM, String(editId))
+    navigate(params, mode)
+  }
+
+  function setEditing(id: number | null) {
+    const params = filterToSearchParams(filter)
+    if (id !== null) params.set(EDIT_PARAM, String(id))
+    navigate(params, 'push')
+  }
+
+  // 存好之後:清單裡的那一列換成新的;選單重新取(可能新增了對象或標籤)。
+  // 改過之後不符合目前篩選條件的列先留著,重新整理或換條件時才消失
+  function replaceRow(row: TransactionRow) {
+    setList((prev) => (prev ? { ...prev, items: prev.items.map((item) => (item.id === row.id ? row : item)) } : prev))
+    setLookupsAttempt((n) => n + 1)
   }
 
   const message = lookupsError ?? currentError
@@ -167,28 +191,38 @@ export default function TransactionsPage() {
         canClear={!isFilterEmpty(filter) || !parsed.ok}
       />
 
-      {/* 換篩選條件時,新資料到之前先留著舊的列(淡化),表格不會整個閃掉 */}
-      {list && lookups && (
-        <div className={current ? undefined : styles.stale} aria-busy={!current}>
-          <TransactionTable
-            rows={list.items}
-            lookups={lookups}
-            expandedId={expandedId}
-            onToggle={(id) => setExpanded(expandedId === id ? null : { query, value: id })}
-          />
-        </div>
-      )}
+      <div className={styles.body}>
+        <div className={styles.listColumn}>
+          {/* 換篩選條件時,新資料到之前先留著舊的列(淡化),表格不會整個閃掉 */}
+          {list && lookups && (
+            <div className={current ? undefined : styles.stale} aria-busy={!current}>
+              <TransactionTable
+                rows={list.items}
+                lookups={lookups}
+                expandedId={expandedId}
+                editingId={editId}
+                onToggle={(id) => setExpanded(expandedId === id ? null : { query, value: id })}
+                onEdit={(id) => setEditing(id)}
+              />
+            </div>
+          )}
 
-      <div ref={sentinelRef} className={styles.status} role="status">
-        {message ? (
-          <>
-            <span className={styles.error}>{message}</span>{' '}
-            <button type="button" className={styles.retry} onClick={retry}>
-              重試
-            </button>
-          </>
-        ) : (
-          status
+          <div ref={sentinelRef} className={styles.status} role="status">
+            {message ? (
+              <>
+                <span className={styles.error}>{message}</span>{' '}
+                <button type="button" className={styles.retry} onClick={retry}>
+                  重試
+                </button>
+              </>
+            ) : (
+              status
+            )}
+          </div>
+        </div>
+
+        {editId !== null && lookups && (
+          <TransactionEditor id={editId} lookups={lookups} onClose={() => setEditing(null)} onSaved={replaceRow} />
         )}
       </div>
     </div>

@@ -47,8 +47,10 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 匯入不覆蓋帳本裡已經有的交易(用來源的 ID 判斷):分類、標籤、拆分、分錄都不動。唯一自動做的修正是「入帳、對象是帳戶持有人自己」的換成匯款人;金額不同只回報。
 - 匯入要能重複執行:同一份檔案套用兩次,第二次不寫任何東西。
 - 自動分類只補未分類的交易,不覆蓋使用者給過的分類。目前只用在匯入的新交易:匯入時直接寫成決定的分類,不先寫未分類再搬。
-- 自動分類的順序(付出):週期項目 → 對象規則 → 對象歷史 → 來源分類規則;入帳只看來源分類規則(指到支出分類 = 沖銷);換匯不分類。對象歷史只算使用者給的分類(`legacy`、`correction`、之後的手動編輯),不算自動分類的結果。細節在 `docs/finance/classify.md`。
+- 自動分類的順序(付出):週期項目 → 對象規則 → 對象歷史 → 來源分類規則;入帳只看來源分類規則(指到支出分類 = 沖銷);換匯不分類。對象歷史只算使用者給的分類(`legacy`、`correction`、`manual`),不算自動分類的結果。細節在 `docs/finance/classify.md`。
 - 針對個別交易的人工更正(拆分、收回、轉帳到自己的帳戶、對帳調整)是 ledger 的編輯操作,不靠設定檔。
+- 單筆編輯(分類、對象、日期時間、備註、標籤)只經過 `ledger/transactions.ts` 的 `updateTransaction`:帶上讀取時的 `updatedAt`,不同就拒絕;分類真的換了才把 `category_source` 改成 `manual`;金額與分錄的結構不在這裡改。細節在 `docs/finance/transactions.md` 的「編輯」。
+- `finance_settings` 的 `v2_retired_at`:第一次在畫面上編輯交易時寫入,之後 `finance:import-v2` 拒絕執行。讀寫只經過 `ledger/settings.ts`。
 
 ## 模組切分(`src/modules/finance/server/`)
 

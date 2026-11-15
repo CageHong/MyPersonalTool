@@ -55,3 +55,26 @@ export function matchPreset(from: string | undefined, to: string | undefined, to
   })
   return hit ? hit.key : 'custom'
 }
+
+// ── 編輯時的日期時間欄位(<input type="datetime-local" step="1">)───────
+// 欄位的值是瀏覽器所在時區的 YYYY-MM-DDTHH:MM:SS;存的是 UTC
+
+// UTC 的 ISO 8601 → 欄位的值
+export function toLocalInputValue(iso: string): string {
+  const date = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  )
+}
+
+// 欄位的值(秒可以省略)→ UTC 的 ISO 8601;不合法(含不存在的日期)時是 null
+export function fromLocalInputValue(value: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value)
+  if (!match) return null
+  const [year, month, day, hour, minute, second = '0'] = match.slice(1).map((part) => part ?? '0')
+  const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))
+  if (Number.isNaN(date.getTime()) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return null
+  return date.toISOString()
+}

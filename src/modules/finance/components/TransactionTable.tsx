@@ -23,6 +23,7 @@ const CATEGORY_SOURCE_LABELS: Record<string, string> = {
   payee_history: '對象歷史',
   source_category: '來源分類規則',
   correction: '人工更正',
+  manual: '手動',
 }
 
 const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
@@ -37,7 +38,10 @@ type Props = {
   rows: TransactionRow[]
   lookups: FinanceLookups
   expandedId: number | null
+  // 正在編輯的那一列(標示選取)
+  editingId: number | null
   onToggle: (id: number) => void
+  onEdit: (id: number) => void
 }
 
 // 分類欄:有損益的交易列分類(子分類帶上層);轉帳、換匯、期初餘額列類型
@@ -46,7 +50,7 @@ function categoryText(row: TransactionRow): string {
   return row.categories.map((c) => (c.parentName ? `${c.parentName} / ${c.name}` : c.name)).join('、')
 }
 
-export default function TransactionTable({ rows, lookups, expandedId, onToggle }: Props) {
+export default function TransactionTable({ rows, lookups, expandedId, editingId, onToggle, onEdit }: Props) {
   const { exponents, displayCurrency } = lookups
   return (
     <div className={styles.tableWrap}>
@@ -64,9 +68,12 @@ export default function TransactionTable({ rows, lookups, expandedId, onToggle }
         <tbody>
           {rows.map((row) => {
             const expanded = expandedId === row.id
+            const rowClass = [styles.row, expanded && styles.expanded, editingId === row.id && styles.editing]
+              .filter(Boolean)
+              .join(' ')
             return (
               <Fragment key={row.id}>
-                <tr className={expanded ? `${styles.row} ${styles.expanded}` : styles.row}>
+                <tr className={rowClass} aria-current={editingId === row.id ? 'true' : undefined}>
                   <td className={styles.date}>
                     <button
                       type="button"
@@ -111,7 +118,7 @@ export default function TransactionTable({ rows, lookups, expandedId, onToggle }
                 {expanded && (
                   <tr id={`tx-${row.id}`} className={styles.detailRow}>
                     <td colSpan={6}>
-                      <TransactionDetail row={row} exponents={exponents} />
+                      <TransactionDetail row={row} exponents={exponents} onEdit={() => onEdit(row.id)} />
                     </td>
                   </tr>
                 )}
@@ -124,9 +131,14 @@ export default function TransactionTable({ rows, lookups, expandedId, onToggle }
   )
 }
 
-function TransactionDetail({ row, exponents }: { row: TransactionRow; exponents: Record<string, number> }) {
+type DetailProps = { row: TransactionRow; exponents: Record<string, number>; onEdit: () => void }
+
+function TransactionDetail({ row, exponents, onEdit }: DetailProps) {
   return (
     <div className={styles.detail}>
+      <button type="button" className={styles.edit} onClick={onEdit}>
+        編輯
+      </button>
       <table className={styles.postings}>
         <thead>
           <tr>

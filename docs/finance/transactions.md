@@ -61,3 +61,29 @@ API 是 `GET /api/finance/transactions`,畫面是 `/finance/transactions`。篩�
   支出與收入(`mixed`)是兩邊相抵後的淨額。轉帳、換匯、期初餘額是 `null`,帶手續費的也一樣(手續費看分錄);
   缺匯率時也是 `null`。
 - **分錄(`postings`)**:全部分錄,依 `sort_order`。
+- **`updatedAt`**:最後修改的時間;編輯時原樣帶回去,用來判斷資料是不是舊的。
+
+## 編輯(單筆)
+
+程式在 `src/modules/finance/server/ledger/transactions.ts`(`updateTransaction`),請求的形狀與協定層的解析在
+`src/modules/finance/lib/edit.ts`。API:`GET /api/finance/transactions/<id>`(一列,形狀同清單)、
+`PATCH /api/finance/transactions/<id>`(成功時回傳改好的那一列)。畫面:清單網址加 `?edit=<id>` 打開右欄;
+換篩選條件時保留,關閉時拿掉。
+
+能改的只有下面這些;金額、分錄的增減、帳戶側都不能改(那是結構性編輯)。`PATCH` 只放要改的欄位:
+
+| 欄位 | 規則 |
+|---|---|
+| `expectedUpdatedAt` | 必填。打開時拿到的 `updatedAt`;跟資料庫不同(別的分頁或匯入改過)回 400 `expectedUpdatedAt: stale`,什麼都不寫 |
+| `occurredAt` | UTC 的 ISO 8601,存成 `YYYY-MM-DDTHH:MM:SS+00:00`。畫面用瀏覽器時區輸入日期與時刻(到秒) |
+| `note` | 去頭尾空白;空字串 = 清空;最長 1000 字 |
+| `payee` | `{ id }` 選既有的;`{ name }` 先比對別名、再找同名的,都沒有才新增收款人(並建立別名);`null` 清空 |
+| `categories` | `[{ postingId, accountId }]`:把那條分錄換到另一個分類,金額不變。分錄必須是這筆交易的支出 / 收入分錄;只能換成同類型的分類;手續費不能換進換出;封存的分類不能選(原本就是它的可以留著) |
+| `tags` | `{ ids, newNames }`:改完後的完整標籤。新名稱去頭尾空白,同名的已經存在就用它,沒有才新增(一般標籤,沒有日期範圍) |
+
+- 全部在同一個 DB transaction;任何一項不合法回 400、整筆不寫入(新建的收款人與標籤也不留下)。
+- 分類真的換了才改 `category_source`:改成 `manual`(對象歷史會採用它);換完之後全部都是「未分類」/「未分類收入」時是 `null`。
+- `updated_at` 存到毫秒(同一秒內連續編輯也分得出版本)。
+- 第一次編輯時一起寫入 `finance_settings` 的 `v2_retired_at`;之後 `finance:import-v2` 拒絕執行(它每次從空的資料庫重建,會洗掉畫面上的修改)。
+- 改了對象不會重新分類。改完之後不符合目前篩選條件的列先留在畫面上,重新整理或換條件時才消失。
+

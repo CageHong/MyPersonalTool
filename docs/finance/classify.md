@@ -21,7 +21,7 @@
 |---|---|---|
 | 1 | `scheduled` | 收款人相同、幣別相同、金額在範圍內、日期在範圍內(UTC 日期)、項目啟用中;分類那一側只有一個幣別。同時符合兩個以上時不配對、回報,繼續往下 |
 | 2 | `rule` | `finance_rules` 有這個收款人的規則(`match_field = payee`;啟用中、有指定分類;多條時取 `priority` 小的,再取 id 小的) |
-| 3 | `payee_history` | 同一個收款人,使用者給過的分類(`legacy`、`correction`)的借方分錄裡,最多的那個最上層分類佔比 ≥ 80%;記到那個最上層分類底下最常見的實際帳戶(同次數取 id 小的) |
+| 3 | `payee_history` | 同一個收款人,使用者給過的分類(`legacy`、`correction`、`manual`)的借方分錄裡,最多的那個最上層分類佔比 ≥ 80%;記到那個最上層分類底下最常見的實際帳戶(同次數取 id 小的) |
 | 4 | `source_category` | `finance_rules` 有這個來源分類的規則(`match_field = source_category`) |
 | — | NULL | 都沒有命中:維持「未分類」 |
 

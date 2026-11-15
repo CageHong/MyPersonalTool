@@ -34,6 +34,16 @@
   background: var(--color-row-selected-bg);
 }
 
+/* 正在右欄編輯的那一列:選取底色 + 左側色條(跟 tasks 的選取列同一套);色條寬度是版面值 */
+.editing,
+.editing:hover {
+  background: var(--color-row-selected-bg);
+}
+
+.editing td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-row-selected-border);
+}
+
 .right {
   text-align: right;
 }
@@ -120,4 +130,20 @@
 
 .meta dt {
   color: var(--color-text-muted);
+}
+
+.edit {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.edit:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
 }

@@ -161,6 +161,8 @@ export type TransactionRow = {
   note: string | null
   source: string
   categorySource: string | null
+  // 編輯時帶回去,用來判斷資料是不是舊的
+  updatedAt: string
   // 分類側(支出、收入)的帳戶,依分錄順序、不重複;子分類帶上層名稱
   categories: { id: number; name: string; parentName: string | null }[]
   legs: TransactionLeg[]
@@ -193,4 +195,6 @@ export type FinanceLookups = {
   }[]
   tags: { id: number; name: string; startsOn: string | null; endsOn: string | null }[]
   payees: { id: number; name: string; transactionCount: number }[]
+  // 系統帳戶的 id(編輯面板用:手續費不能換、未分類要列在選單裡)
+  system: { uncategorizedExpense: number; uncategorizedIncome: number; fee: number; exchange: number }
 }

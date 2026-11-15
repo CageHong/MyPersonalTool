@@ -1,0 +1,81 @@
+// 單筆編輯(分類、對象、日期時間、備註、標籤):API 請求的形狀與協定層的解析,前後端共用。
+// 這裡只檢查型別;業務規則(分類要同類型、對象存在、資料是不是舊的)在 server/ledger/transactions.ts。
+// 語意見 docs/finance/transactions.md 的「編輯」
+
+export const NOTE_MAX_LENGTH = 1000
+export const NAME_MAX_LENGTH = 200
+
+// 對象:選既有的、輸入名稱(比對別名,對不到才新增)、或清空
+export type PayeeChange = { id: number } | { name: string } | null
+
+// 把一條分類分錄換到另一個分類;金額不變
+export type CategoryChange = { postingId: number; accountId: number }
+
+export type TransactionPatch = {
+  // 讀取時的 updatedAt;資料庫裡的不一樣(別處改過)就拒絕
+  expectedUpdatedAt: string
+  // UTC 的 ISO 8601
+  occurredAt?: string
+  // 空字串 = 清空
+  note?: string | null
+  payee?: PayeeChange
+  categories?: CategoryChange[]
+  // 改完之後的完整標籤:既有的 id + 要新增的名稱(同名的已經存在就用它)
+  tags?: { ids: number[]; newNames: string[] }
+}
+
+export type PatchParse = { ok: true; patch: TransactionPatch } | { ok: false; fields: Record<string, string> }
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+const isId = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) > 0
+
+const KNOWN_KEYS = new Set(['expectedUpdatedAt', 'occurredAt', 'note', 'payee', 'categories', 'tags'])
+
+// 請求的 JSON → TransactionPatch。只看型別與形狀
+export function parseTransactionPatch(body: unknown): PatchParse {
+  if (!isObject(body)) return { ok: false, fields: { body: 'invalid' } }
+  const fields: Record<string, string> = {}
+  for (const key of Object.keys(body)) if (!KNOWN_KEYS.has(key)) fields[key] = 'unknown'
+
+  const patch: TransactionPatch = { expectedUpdatedAt: '' }
+  if (typeof body.expectedUpdatedAt === 'string' && body.expectedUpdatedAt) {
+    patch.expectedUpdatedAt = body.expectedUpdatedAt
+  } else fields.expectedUpdatedAt = 'required'
+
+  if ('occurredAt' in body) {
+    if (typeof body.occurredAt === 'string') patch.occurredAt = body.occurredAt
+    else fields.occurredAt = 'invalid'
+  }
+  if ('note' in body) {
+    if (body.note === null || typeof body.note === 'string') patch.note = body.note
+    else fields.note = 'invalid'
+  }
+  if ('payee' in body) {
+    const payee = body.payee
+    if (payee === null) patch.payee = null
+    else if (isObject(payee) && isId(payee.id) && Object.keys(payee).length === 1) patch.payee = { id: payee.id }
+    else if (isObject(payee) && typeof payee.name === 'string' && Object.keys(payee).length === 1) {
+      patch.payee = { name: payee.name }
+    } else fields.payee = 'invalid'
+  }
+  if ('categories' in body) {
+    const list = body.categories
+    if (Array.isArray(list) && list.every((c) => isObject(c) && isId(c.postingId) && isId(c.accountId))) {
+      patch.categories = list.map((c) => ({ postingId: c.postingId as number, accountId: c.accountId as number }))
+    } else fields.categories = 'invalid'
+  }
+  if ('tags' in body) {
+    const tags = body.tags
+    if (
+      isObject(tags) &&
+      Array.isArray(tags.ids) &&
+      tags.ids.every(isId) &&
+      Array.isArray(tags.newNames) &&
+      tags.newNames.every((name) => typeof name === 'string')
+    ) {
+      patch.tags = { ids: tags.ids as number[], newNames: tags.newNames as string[] }
+    } else fields.tags = 'invalid'
+  }
+  return Object.keys(fields).length ? { ok: false, fields } : { ok: true, patch }
+}

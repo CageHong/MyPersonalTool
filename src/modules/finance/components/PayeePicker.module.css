@@ -87,3 +87,12 @@
   padding: var(--space-1) var(--space-2);
   color: var(--color-text-muted);
 }
+
+/* 編輯面板:撐滿外層 */
+.fullWidth {
+  display: flex;
+}
+
+.fullWidth .input {
+  width: 100%;
+}

@@ -3,8 +3,8 @@ import { test } from 'node:test'
 import { sql } from 'drizzle-orm'
 import { applyMigrations, openDb } from '../../db/index'
 import type { TransactionFilter } from '../../lib/transactions'
-import { ValidationError } from '../errors'
-import { listTransactions } from './list'
+import { NotFoundError, ValidationError } from '../errors'
+import { getTransactionRow, listTransactions } from './list'
 
 // 虛構的帳本:每種交易類型至少一筆
 function freshDb() {
@@ -234,3 +234,12 @@ test('搜尋:_ 與 \\ 是一般字元', () => {
   assert.deepEqual(ids(db, { q: '\\' }), [22])
   assert.deepEqual(ids(db, { q: 'c\\d' }), [22])
 })
+
+test('getTransactionRow:跟清單裡的同一列相同;不存在是 NotFoundError', () => {
+  const db = freshDb()
+  const fromList = listTransactions(db, { order: 'desc' }).items.find((r) => r.id === 2)
+  assert.deepEqual(getTransactionRow(db, 2), fromList)
+  assert.equal(fromList?.updatedAt, '2026-01-01T00:00:00Z')
+  assert.throws(() => getTransactionRow(db, 999), NotFoundError)
+})
+

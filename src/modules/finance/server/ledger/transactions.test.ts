@@ -4,7 +4,8 @@ import { sql } from 'drizzle-orm'
 import type { FinanceDb } from '../../db/index'
 import { NotFoundError, ValidationError } from '../errors'
 import { ACCOUNTS, AT, freshLedger } from '../testing'
-import { createTransaction, setTransactionPayee, unbalancedCurrencies } from './transactions'
+import { getV2RetiredAt } from './settings'
+import { createTransaction, setTransactionPayee, unbalancedCurrencies, updateTransaction } from './transactions'
 import type { NewTransaction } from './transactions'
 
 const count = (db: FinanceDb, table: string) =>
@@ -196,3 +197,136 @@ test('週期項目:寫入 scheduledId;項目不存在時是驗證錯誤', () => 
     scheduledId: 'not_found',
   })
 })
+
+// ── 單筆編輯 ────────────────────────────────────────────────────
+
+const EDIT_AT = '2030-02-01T12:00:00.123Z'
+const EDIT_STAMP = '2030-02-01T12:00:00+00:00'
+const EDIT_VERSION = '2030-02-01T12:00:00.123+00:00'
+
+// 帳本 + 幾個分類、收款人、標籤,和一筆分類是 Food 的支出
+function editLedger() {
+  const db = freshLedger()
+  db.run(sql`INSERT INTO finance_accounts (id, name, type, is_active, created_at) VALUES
+             (20, 'Transport', 'expense', 1, ${AT}), (21, 'Salary', 'income', 1, ${AT}),
+             (22, 'Old Hobby', 'expense', 0, ${AT})`)
+  db.run(sql`INSERT INTO finance_payees (id, name, created_at) VALUES (1, 'Corner Shop', ${AT})`)
+  db.run(sql`INSERT INTO finance_tags (id, name, created_at) VALUES (1, 'Trip', ${AT}), (2, 'Gift', ${AT})`)
+  const id = createTransaction(db, expense({ categorySource: 'rule' }), AT)
+  db.run(sql`INSERT INTO finance_transaction_tags VALUES (${id}, 1)`)
+  const [food] = db.all<{ id: number }>(sql`SELECT id FROM finance_postings WHERE transaction_id = ${id} AND account_id = ${ACCOUNTS.food}`)
+  return { db, id, foodPosting: food.id }
+}
+
+const headerOf = (db: FinanceDb, id: number) =>
+  db.all<Record<string, unknown>>(
+    sql`SELECT occurred_at, payee_id, note, category_source, updated_at FROM finance_transactions WHERE id = ${id}`,
+  )[0]
+const tagsOf = (db: FinanceDb, id: number) =>
+  db.all<{ name: string }>(sql`SELECT g.name FROM finance_transaction_tags tt JOIN finance_tags g ON g.id = tt.tag_id
+                               WHERE tt.transaction_id = ${id} ORDER BY g.name`).map((r) => r.name)
+
+test('編輯:只改 patch 裡有的欄位;時間存成 +00:00 到秒;第一次編輯寫入 v2 停用', () => {
+  const { db, id } = editLedger()
+  assert.equal(getV2RetiredAt(db), null)
+  updateTransaction(db, id, { expectedUpdatedAt: AT, note: '  dinner  ', occurredAt: '2030-01-20T18:45:30.500Z' }, EDIT_AT)
+  assert.deepEqual(headerOf(db, id), {
+    occurred_at: '2030-01-20T18:45:30+00:00', payee_id: null, note: 'dinner', category_source: 'rule', updated_at: EDIT_VERSION,
+  })
+  assert.deepEqual(tagsOf(db, id), ['Trip'])
+  assert.equal(getV2RetiredAt(db), EDIT_STAMP)
+  // 第二次編輯不改停用的時間;備註清空
+  updateTransaction(db, id, { expectedUpdatedAt: EDIT_VERSION, note: '' }, '2030-03-01T00:00:00Z')
+  assert.equal(headerOf(db, id).note, null)
+  assert.equal(getV2RetiredAt(db), EDIT_STAMP)
+})
+
+test('編輯:資料是舊的(updatedAt 不同)時拒絕,資料庫不變;交易不存在是 NotFoundError', () => {
+  const { db, id } = editLedger()
+  assert.deepEqual(fieldsOf(() => updateTransaction(db, id, { expectedUpdatedAt: '2029-01-01T00:00:00+00:00', note: 'x' })), {
+    expectedUpdatedAt: 'stale',
+  })
+  assert.equal(headerOf(db, id).note, null)
+  assert.equal(getV2RetiredAt(db), null)
+  assert.throws(() => updateTransaction(db, 999, { expectedUpdatedAt: AT }), NotFoundError)
+})
+
+test('編輯分類:換到同類型的分類,記為 manual;回到未分類時分類來源是 null', () => {
+  const { db, id, foodPosting } = editLedger()
+  updateTransaction(db, id, { expectedUpdatedAt: AT, categories: [{ postingId: foodPosting, accountId: 20 }] }, EDIT_AT)
+  const accounts = db.all<{ account_id: number; amount: number }>(
+    sql`SELECT account_id, amount FROM finance_postings WHERE transaction_id = ${id} ORDER BY sort_order`,
+  )
+  assert.deepEqual(accounts, [{ account_id: ACCOUNTS.wiseEur, amount: -1230 }, { account_id: 20, amount: 1230 }])
+  assert.equal(headerOf(db, id).category_source, 'manual')
+  updateTransaction(db, id, { expectedUpdatedAt: EDIT_VERSION, categories: [{ postingId: foodPosting, accountId: ACCOUNTS.uncategorized }] }, '2030-03-01T00:00:00Z')
+  assert.equal(headerOf(db, id).category_source, null)
+})
+
+test('編輯分類:沒有換(同一個分類)時分類來源不變', () => {
+  const { db, id, foodPosting } = editLedger()
+  updateTransaction(db, id, { expectedUpdatedAt: AT, categories: [{ postingId: foodPosting, accountId: ACCOUNTS.food }] }, EDIT_AT)
+  assert.equal(headerOf(db, id).category_source, 'rule')
+})
+
+test('編輯分類:類型不同、帳戶側的分錄、手續費、封存、不存在、別筆交易的分錄都拒絕', () => {
+  const { db, id, foodPosting } = editLedger()
+  const other = createTransaction(db, expense({ occurredAt: '2030-01-16T09:30:00+00:00' }), AT)
+  const [otherPosting] = db.all<{ id: number }>(sql`SELECT id FROM finance_postings WHERE transaction_id = ${other} LIMIT 1`)
+  const [bankPosting] = db.all<{ id: number }>(sql`SELECT id FROM finance_postings WHERE transaction_id = ${id} AND account_id = ${ACCOUNTS.wiseEur}`)
+  const tryChange = (postingId: number, accountId: number) =>
+    fieldsOf(() => updateTransaction(db, id, { expectedUpdatedAt: AT, categories: [{ postingId, accountId }] }))
+  assert.deepEqual(tryChange(foodPosting, 21), { 'categories.0': 'type_mismatch' })
+  assert.deepEqual(tryChange(foodPosting, ACCOUNTS.fee), { 'categories.0': 'fee' })
+  assert.deepEqual(tryChange(foodPosting, 22), { 'categories.0': 'archived' })
+  assert.deepEqual(tryChange(foodPosting, 999), { 'categories.0': 'account_not_found' })
+  assert.deepEqual(tryChange(bankPosting.id, 20), { 'categories.0': 'not_a_category' })
+  assert.deepEqual(tryChange(otherPosting.id, 20), { 'categories.0': 'posting_not_found' })
+  assert.deepEqual(
+    fieldsOf(() => updateTransaction(db, id, { expectedUpdatedAt: AT, categories: [{ postingId: foodPosting, accountId: 20 }, { postingId: foodPosting, accountId: 20 }] })),
+    { 'categories.1': 'duplicate' },
+  )
+  const fee = createTransaction(db, { ...expense(), postings: [
+    { accountId: ACCOUNTS.wiseEur, amount: -100, currency: 'EUR' }, { accountId: ACCOUNTS.fee, amount: 100, currency: 'EUR' }] }, AT)
+  const [feePosting] = db.all<{ id: number }>(sql`SELECT id FROM finance_postings WHERE transaction_id = ${fee} AND account_id = ${ACCOUNTS.fee}`)
+  assert.deepEqual(fieldsOf(() => updateTransaction(db, fee, { expectedUpdatedAt: AT, categories: [{ postingId: feePosting.id, accountId: 20 }] })), { 'categories.0': 'fee' })
+})
+
+test('編輯對象:選既有的、輸入名稱(比對別名,對不到才新增)、清空', () => {
+  const { db, id } = editLedger()
+  db.run(sql`INSERT INTO finance_payee_aliases VALUES ('corner shop nv', 1)`)
+  updateTransaction(db, id, { expectedUpdatedAt: AT, payee: { id: 1 } }, EDIT_AT)
+  assert.equal(headerOf(db, id).payee_id, 1)
+  updateTransaction(db, id, { expectedUpdatedAt: EDIT_VERSION, payee: { name: 'CORNER SHOP NV' } }, '2030-02-02T00:00:00Z')
+  assert.equal(headerOf(db, id).payee_id, 1)
+  updateTransaction(db, id, { expectedUpdatedAt: '2030-02-02T00:00:00.000+00:00', payee: { name: ' New  Bakery ' } }, '2030-02-03T00:00:00Z')
+  const [bakery] = db.all<{ id: number; name: string }>(sql`SELECT id, name FROM finance_payees WHERE name = 'New Bakery'`)
+  assert.equal(headerOf(db, id).payee_id, bakery.id)
+  updateTransaction(db, id, { expectedUpdatedAt: '2030-02-03T00:00:00.000+00:00', payee: null }, '2030-02-04T00:00:00Z')
+  assert.equal(headerOf(db, id).payee_id, null)
+  assert.deepEqual(fieldsOf(() => updateTransaction(db, id, { expectedUpdatedAt: '2030-02-04T00:00:00.000+00:00', payee: { id: 999 } })), { payee: 'not_found' })
+  assert.deepEqual(fieldsOf(() => updateTransaction(db, id, { expectedUpdatedAt: '2030-02-04T00:00:00.000+00:00', payee: { name: '  ' } })), { payee: 'required' })
+})
+
+test('編輯標籤:給完整的集合;新名稱建立標籤,同名的已存在就用它', () => {
+  const { db, id } = editLedger()
+  updateTransaction(db, id, { expectedUpdatedAt: AT, tags: { ids: [2], newNames: [' Trip ', 'Picnic', 'Picnic'] } }, EDIT_AT)
+  assert.deepEqual(tagsOf(db, id), ['Gift', 'Picnic', 'Trip'])
+  assert.equal(count(db, 'finance_tags'), 3)
+  updateTransaction(db, id, { expectedUpdatedAt: EDIT_VERSION, tags: { ids: [], newNames: [] } }, '2030-03-01T00:00:00Z')
+  assert.deepEqual(tagsOf(db, id), [])
+  assert.deepEqual(fieldsOf(() => updateTransaction(db, id, { expectedUpdatedAt: '2030-03-01T00:00:00.000+00:00', tags: { ids: [99], newNames: [] } })), { tags: 'not_found' })
+})
+
+test('編輯:任何一項不合法時整筆不寫入(含新建的對象與標籤)', () => {
+  const { db, id } = editLedger()
+  const before = { payees: count(db, 'finance_payees'), tags: count(db, 'finance_tags') }
+  assert.deepEqual(
+    fieldsOf(() => updateTransaction(db, id, { expectedUpdatedAt: AT, payee: { name: 'Brand New' }, tags: { ids: [], newNames: ['Fresh'] }, occurredAt: '2030-02-30T00:00:00Z' })),
+    { occurredAt: 'invalid' },
+  )
+  assert.deepEqual({ payees: count(db, 'finance_payees'), tags: count(db, 'finance_tags') }, before)
+  assert.deepEqual(headerOf(db, id).updated_at, AT)
+  assert.equal(getV2RetiredAt(db), null)
+})
+

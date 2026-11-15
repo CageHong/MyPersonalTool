@@ -18,6 +18,7 @@ import { applyMigrations, openDb } from '../db/index'
 import { DB_PATH, IMPORT_V2_CONFIG_PATH } from '../db/path'
 import * as t from '../db/schema'
 import { normalizePayeeText, payeeDisplayName } from '../server/ledger/payees'
+import { getV2RetiredAt } from '../server/ledger/settings'
 
 // v2 的資料庫在 PACR 自己的資料夾,不在平台的資料夾裡:從參數或 PACR_DATA_DIR 取得
 const V2_DB_PATH =
@@ -40,6 +41,13 @@ function fail(message: string): never {
 function main() {
   if (!V2_DB_PATH) fail('要指定 v2 的資料庫:設定 PACR_DATA_DIR,或把 finance.db 的路徑當成參數')
   if (!existsSync(V2_DB_PATH)) fail(`找不到 ${V2_DB_PATH};先跑 v2/build.py`)
+  // 畫面上編輯過交易之後就不能再從 v2 重建:會洗掉那些修改
+  if (existsSync(DB_PATH)) {
+    const current = openDb(DB_PATH)
+    const retiredAt = getV2RetiredAt(current)
+    current.$client.close()
+    if (retiredAt) fail(`v2 已在 ${retiredAt} 停用(畫面上編輯過交易),不能再從 v2 重建這個資料庫`)
+  }
   const config: Config = existsSync(CONFIG_PATH) ? JSON.parse(readFileSync(CONFIG_PATH, 'utf-8')) : {}
   const suffixes = config.payeeSuffixes ?? []
   const norm = (raw: string) => normalizePayeeText(raw, suffixes)

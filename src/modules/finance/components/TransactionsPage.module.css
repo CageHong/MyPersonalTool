@@ -26,6 +26,19 @@
   color: var(--color-error-text);
 }
 
+/* 清單 + 編輯中時右邊的編輯欄 */
+.body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.listColumn {
+  flex: 1;
+  /* 沒有這行的話,flex 子項不會縮到內容寬度以下 */
+  min-width: 0;
+}
+
 .stale {
   opacity: 0.5;
 }

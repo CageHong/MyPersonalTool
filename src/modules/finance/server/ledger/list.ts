@@ -14,9 +14,10 @@ import type {
   TransactionPage,
   TransactionRow,
 } from '../../lib/transactions'
-import { ValidationError } from '../errors'
+import { NotFoundError, ValidationError } from '../errors'
 import { FxRateMissingError, convert } from '../fx/index'
 import { getSystemAccounts } from './accounts'
+import type { SystemAccounts } from './accounts'
 import { getCurrencyExponents, getDisplayCurrency } from './lookups'
 
 export const DEFAULT_PAGE_SIZE = 100
@@ -60,6 +61,7 @@ type HeaderRow = {
   note: string | null
   source: string
   categorySource: string | null
+  updatedAt: string
   payeeId: number | null
   payeeName: string | null
   kind: TransactionKind
@@ -77,6 +79,28 @@ type PostingRow = {
   memo: string | null
 }
 
+// 類型的 SQL 運算式(用在 FROM finance_transactions t 的查詢裡)
+function kindSql(system: SystemAccounts): SQL {
+  // 類型:依序判斷,先符合的優先。手續費不決定類型(換匯、支出、轉帳都可能帶手續費):
+  // 只有手續費、沒有其他分類時,動到兩個以上的資產 / 負債帳戶是轉帳,否則是支出
+  const has = (condition: SQL) =>
+    sql`EXISTS (SELECT 1 FROM finance_postings kp JOIN finance_accounts ka ON ka.id = kp.account_id
+                WHERE kp.transaction_id = t.id AND ${condition})`
+  const expenseOther = has(sql`ka.type = 'expense' AND ka.id <> ${system.fee}`)
+  const income = has(sql`ka.type = 'income'`)
+  const balanceAccounts = sql`(SELECT COUNT(DISTINCT kp.account_id) FROM finance_postings kp
+                               JOIN finance_accounts ka ON ka.id = kp.account_id
+                               WHERE kp.transaction_id = t.id AND ka.type IN ('asset', 'liability'))`
+  return sql`CASE
+      WHEN ${has(sql`ka.id = ${system.exchange}`)} THEN 'exchange'
+      WHEN ${has(sql`ka.type = 'equity'`)} THEN 'opening'
+      WHEN ${expenseOther} AND ${income} THEN 'mixed'
+      WHEN ${expenseOther} THEN 'expense'
+      WHEN ${income} THEN 'income'
+      WHEN ${has(sql`ka.id = ${system.fee}`)} AND ${balanceAccounts} < 2 THEN 'expense'
+      ELSE 'transfer' END`
+}
+
 export function listTransactions(
   db: FinanceDb,
   filter: TransactionFilter,
@@ -89,24 +113,7 @@ export function listTransactions(
   const cursor = page.cursor === undefined ? undefined : decodeCursor(page.cursor)
   const system = getSystemAccounts(db)
 
-  // 類型:依序判斷,先符合的優先。手續費不決定類型(換匯、支出、轉帳都可能帶手續費):
-  // 只有手續費、沒有其他分類時,動到兩個以上的資產 / 負債帳戶是轉帳,否則是支出
-  const has = (condition: SQL) =>
-    sql`EXISTS (SELECT 1 FROM finance_postings kp JOIN finance_accounts ka ON ka.id = kp.account_id
-                WHERE kp.transaction_id = t.id AND ${condition})`
-  const expenseOther = has(sql`ka.type = 'expense' AND ka.id <> ${system.fee}`)
-  const income = has(sql`ka.type = 'income'`)
-  const balanceAccounts = sql`(SELECT COUNT(DISTINCT kp.account_id) FROM finance_postings kp
-                               JOIN finance_accounts ka ON ka.id = kp.account_id
-                               WHERE kp.transaction_id = t.id AND ka.type IN ('asset', 'liability'))`
-  const kindExpr = sql`CASE
-      WHEN ${has(sql`ka.id = ${system.exchange}`)} THEN 'exchange'
-      WHEN ${has(sql`ka.type = 'equity'`)} THEN 'opening'
-      WHEN ${expenseOther} AND ${income} THEN 'mixed'
-      WHEN ${expenseOther} THEN 'expense'
-      WHEN ${income} THEN 'income'
-      WHEN ${has(sql`ka.id = ${system.fee}`)} AND ${balanceAccounts} < 2 THEN 'expense'
-      ELSE 'transfer' END`
+  const kindExpr = kindSql(system)
 
   const conditions: SQL[] = []
   const posting = (condition: SQL) =>
@@ -154,10 +161,7 @@ export function listTransactions(
   const orderBy = desc ? sql`ORDER BY t.occurred_at DESC, t.id DESC` : sql`ORDER BY t.occurred_at ASC, t.id ASC`
   // 多取一筆,用來判斷有沒有下一頁
   const headers = db.all<HeaderRow>(sql`
-    SELECT t.id, t.occurred_at AS occurredAt, t.note, t.source, t.category_source AS categorySource,
-           t.payee_id AS payeeId, py.name AS payeeName, ${kindExpr} AS kind
-    FROM finance_transactions t
-    LEFT JOIN finance_payees py ON py.id = t.payee_id
+    ${headerSelect(kindExpr)}
     ${where} ${orderBy} LIMIT ${limit + 1}`)
 
   const hasMore = headers.length > limit
@@ -167,6 +171,21 @@ export function listTransactions(
     items: buildRows(db, pageRows),
     nextCursor: hasMore && last ? encodeCursor({ occurredAt: last.occurredAt, id: last.id }) : null,
   }
+}
+
+function headerSelect(kindExpr: SQL): SQL {
+  return sql`
+    SELECT t.id, t.occurred_at AS occurredAt, t.note, t.source, t.category_source AS categorySource,
+           t.updated_at AS updatedAt, t.payee_id AS payeeId, py.name AS payeeName, ${kindExpr} AS kind
+    FROM finance_transactions t
+    LEFT JOIN finance_payees py ON py.id = t.payee_id`
+}
+
+// 單筆交易的列(編輯之後回傳給畫面);不存在時丟 NotFoundError
+export function getTransactionRow(db: FinanceDb, id: number): TransactionRow {
+  const headers = db.all<HeaderRow>(sql`${headerSelect(kindSql(getSystemAccounts(db)))} WHERE t.id = ${id}`)
+  if (!headers.length) throw new NotFoundError('Transaction', id)
+  return buildRows(db, headers)[0]
 }
 
 // 一頁的表頭 → 完整的列(分錄、標籤、帳戶側、折合金額)
@@ -228,6 +247,7 @@ function buildRows(db: FinanceDb, headers: HeaderRow[]): TransactionRow[] {
       note: header.note,
       source: header.source,
       categorySource: header.categorySource,
+      updatedAt: header.updatedAt,
       categories,
       legs: legs.filter((l) => l.amount !== 0),
       displayAmount: displayAmountOf(db, header, own, exponents, display),

@@ -46,7 +46,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 
 ## 目錄結構
 
-- `src/app/<工具>/` — 頁面(網址 `/<工具>`);`src/app/page.tsx` 只把 `/` 轉址到 `/tasks`
+- `src/app/<工具>/` — 頁面(網址 `/<工具>`);`src/app/page.tsx` 是首頁(各工具的入口)
 - `src/app/api/<工具>/` — route handler(網址一律以 `/api/<工具>/` 開頭,沒有例外)
 - `src/app/api/_lib/` — route handler 共用的 HTTP 輔助函式
 - `src/app/globals.css` — 全站共用的 CSS 變數(`:root`)
