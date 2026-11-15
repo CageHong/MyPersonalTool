@@ -4,6 +4,7 @@ paths:
   - "src/app/finance/**"
   - "src/app/api/finance/**"
   - "packages/statement-parsers/**"
+  - "packages/receipt-parsers/**"
 ---
 
 # finance(複式簿記記帳)
@@ -72,6 +73,12 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 全部是純函式,沒有依賴。內容:各來源解析器、統一的「待匯入交易」型別、來源偵測、去重 key(有來源 ID 用 ID,沒有用 日期 + 金額 + 幣別)。
 - 套件輸出的金額是十進位字串、帳戶是來源自己的代號(例:`wise:EUR`)。換成最小貨幣單位的整數(用 `finance_currencies.exponent`)、對應到帳本的帳戶與收款人,在 finance 的 `import` 模組做。
 - 預覽確認、比對既有交易、寫入留在 finance(經過 ledger)。
+
+## 收據解析(`packages/receipt-parsers/`)
+
+- npm workspaces 的套件 `@personal-tools/receipt-parsers`;套件自己的規則在 `packages/receipt-parsers/CLAUDE.md`,動它之前先讀。目前的來源:比利時 Lidl(網站匯出的 JSON,明細是 HTML)、比利時 AH(app 匯出的 JSON)。
+- 跟 `statement-parsers` 互不匯入。全部是純函式、沒有依賴;輸出統一的收據(總額、付款、依收據順序的品項與折扣行、`balanced`),金額是十進位字串。
+- 折扣不分攤到品項、押金不特別處理;配對交易、品項分類、寫入帳本都在 finance 做(還沒做)。
 
 ## 測試與資料
 

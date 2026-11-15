@@ -15,7 +15,7 @@
 | 要動的路徑 | 屬於 | 先讀 |
 |---|---|---|
 | `src/modules/tasks/`、`src/app/tasks/`、`src/app/api/tasks/` | tasks | `.claude/rules/tasks.md` |
-| `src/modules/finance/`、`src/app/finance/`、`src/app/api/finance/`、`packages/statement-parsers/` | finance | `.claude/rules/finance.md` |
+| `src/modules/finance/`、`src/app/finance/`、`src/app/api/finance/`、`packages/statement-parsers/`、`packages/receipt-parsers/` | finance | `.claude/rules/finance.md` |
 | `src/platform/`、`src/app/api/_lib/`、`src/app/globals.css`、`src/app/layout.tsx`、`src/app/page.tsx`、根目錄的設定檔 | 平台 | 本檔、`docs/platform/` |
 
 工具規則可以比本檔嚴,不能放寬;看起來衝突時先停下來問。新增工具時:加一個 `.claude/rules/<工具>.md`(`paths` 涵蓋上表那幾類位置),並在上表加一列。
@@ -58,7 +58,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
   - `drizzle/` — migration 檔(進版控);設定在 `drizzle.config.ts`,用 `npm run <工具>:db:generate` 產生。套用一律經過 `src/platform/migrations.ts` 的 `runMigrations`(`npm run <工具>:db:migrate` 是工具自己的 `tools/migrate.ts`),不直接用 `drizzle-kit migrate` 或 Drizzle 的 `migrate`。每個工具有一支測試(`db/migrations.test.ts`)檢查最新的 migration 不會弄丟資料;它的種子照倒數第二版的 schema 寫,migration 改到種子用到的欄位時跟著更新。已經套用過的 migration 不改 `meta/_journal.json` 的 `when`(Drizzle 用它判斷哪些還沒套用)
   - 工具額外的資料夾寫在工具規則檔
 - `src/platform/` — 各工具共用、不屬於任何一個工具的程式:資料夾位置 `dataDir.ts`、套用 migration 的 `migrations.ts`、業務錯誤的基底 `errors.ts`;測試輔助在 `testing/`
-- `packages/<套件>/` — npm workspaces 的套件(目前有 `statement-parsers`):不匯入 `src/` 的任何東西;`src/` 的程式從套件名稱 `@personal-tools/<套件>` 匯入
+- `packages/<套件>/` — npm workspaces 的套件(目前有 `statement-parsers`、`receipt-parsers`):不匯入 `src/` 的任何東西;`src/` 的程式從套件名稱 `@personal-tools/<套件>` 匯入
 - 資料庫不在 repo 裡:`<資料夾>/<工具>/`,資料夾由 `PERSONAL_TOOLS_DATA_DIR` 指定,預設是 repo 旁邊的 `personal-tools-data/`
 
 **依賴方向**:模組可以匯入 `src/platform/`,`src/platform/` 不匯入模組。模組之間不互相匯入(schema、server 函式、型別都不行);共用的東西放 `src/platform/`。每個工具自己一個 SQLite 檔,表名加工具前綴。
