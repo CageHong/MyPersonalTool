@@ -16,6 +16,7 @@ import {
   financeUnbalanced,
 } from '../../db/schema'
 import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH } from '../../lib/edit'
+import type { DeletedImportRow } from '../../lib/balance-accounts'
 import type { NewTransactionInput, PayeeChange, TransactionPatch } from '../../lib/edit'
 import { NotFoundError, ValidationError } from '../errors'
 import { getSystemAccounts } from './accounts'
@@ -564,6 +565,53 @@ export function moveTagLinks(db: FinanceConn, fromTagId: number, toTagId: number
       .map((row) => row.id)
     tagTransactions(tx, toTagId, ids, now)
     tx.delete(financeTransactionTags).where(eq(financeTransactionTags.tagId, fromTagId)).run()
+  })
+}
+
+// 刪掉過的匯入交易(finance_deleted_external_ids),新的在前;摘要取自刪除當時的快照
+export function listDeletedImports(db: FinanceConn): DeletedImportRow[] {
+  const rows = db.select().from(financeDeletedExternalIds).all()
+  const payeeNames = new Map(db.select({ id: financePayees.id, name: financePayees.name }).from(financePayees).all().map((p) => [p.id, p.name]))
+  return rows
+    .map((row) => {
+      let occurredAt: string | null = null
+      let payee: string | null = null
+      const amounts = new Map<string, number>()
+      try {
+        const snapshot = JSON.parse(row.snapshot) as {
+          header?: { occurredAt?: string; payeeId?: number | null }
+          postings?: { amount: number; currency: string }[]
+        }
+        occurredAt = snapshot.header?.occurredAt ?? null
+        payee = snapshot.header?.payeeId != null ? (payeeNames.get(snapshot.header.payeeId) ?? null) : null
+        for (const p of snapshot.postings ?? []) {
+          if (p.amount > 0) amounts.set(p.currency, (amounts.get(p.currency) ?? 0) + p.amount)
+        }
+      } catch {
+        // 壞掉的快照:只列 ID
+      }
+      return {
+        externalId: row.externalId,
+        source: row.source,
+        deletedAt: row.deletedAt,
+        occurredAt,
+        payee,
+        amounts: [...amounts].map(([currency, amount]) => ({ currency, amount })),
+      }
+    })
+    .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+}
+
+// 取消刪除:從 finance_deleted_external_ids 拿掉,下次匯入同一份檔案時這筆會重新加進來
+export function forgetDeletedImport(db: FinanceConn, externalId: string, now: string = new Date().toISOString()): void {
+  db.transaction((tx) => {
+    const removed = tx
+      .delete(financeDeletedExternalIds)
+      .where(eq(financeDeletedExternalIds.externalId, externalId))
+      .returning()
+      .all()
+    if (!removed.length) throw new ValidationError({ externalId: 'not_found' })
+    markV2Retired(tx, toStoredTimestamp(now))
   })
 }
 

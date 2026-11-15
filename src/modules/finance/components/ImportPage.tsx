@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { importErrorMessage, postForm } from '../lib/api'
 import type { ImportResult, ImportSummary } from '../lib/import-summary'
+import DeletedImports from './DeletedImports'
 import ImportReport from './ImportReport'
 import styles from './ImportPage.module.css'
 
@@ -134,6 +135,8 @@ export default function ImportPage() {
       )}
 
       {summary && <ImportReport summary={summary} />}
+
+      <DeletedImports />
     </div>
   )
 }

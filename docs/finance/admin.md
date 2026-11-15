@@ -79,3 +79,26 @@
 
 - 名稱不能重複;日期範圍要成對,最後一天不早於第一天。範圍以 UTC 切日比對 `occurred_at`(跟交易清單的日期篩選相同)。
 - 日期範圍只是「加標籤」的線索:不會自動套用到新交易,邊緣的交易(出發前、回來後)在預覽裡取消勾選即可。
+
+## 帳戶(資產 / 負債)
+
+程式在 `server/ledger/balance-accounts.ts`,形狀與子類型清單在 `lib/balance-accounts.ts`。餘額經過 `ledger/balances.ts`。
+
+| API | 作用 |
+|---|---|
+| `GET /api/finance/accounts` | 全部資產、負債帳戶:子類型、幣別、餘額、交易筆數 |
+| `POST /api/finance/accounts` | 新增 `{ name, type, subtype, currency }` |
+| `PATCH /api/finance/accounts/<id>` | 改名、子類型、封存 |
+
+- 子類型:資產 `bank`、`cash`、`broker`、`receivable`(代墊款)、`deposit`(保證金)、`prepaid`;負債 `credit_card`、`loan`。
+- 幣別建立後不能改(有固定幣別的帳戶,分錄幣別要一致)。同類型、最上層名稱不能重複。
+- 封存:新增交易、分錄編輯的帳戶選單選不到;舊交易照常。刪除帳戶、群組、信用卡明細在里程碑 c。
+
+## 刪掉過的匯入交易
+
+在匯入頁下方(`components/DeletedImports.tsx`)。程式在 `ledger/transactions.ts`(`listDeletedImports`、`forgetDeletedImport`)。
+
+| API | 作用 |
+|---|---|
+| `GET /api/finance/import/deleted` | `finance_deleted_external_ids` 的清單,附刪除當時的日期、對象、金額(取自快照) |
+| `DELETE /api/finance/import/deleted` | `{ externalId }`:取消刪除;下次匯入同一份檔案時這筆會重新加進來(用來源的內容,刪除前做過的修改不會回來) |

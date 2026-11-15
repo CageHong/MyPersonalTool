@@ -13,12 +13,13 @@ const NAV = [
   { href: '/finance/import', label: '匯入' },
 ] as const
 
-// 管理:分類、收款人、規則、標籤、帳戶(做好的才列)
+// 管理:分類、收款人、規則、標籤、帳戶
 const ADMIN_NAV = [
   { href: '/finance/categories', label: '分類' },
   { href: '/finance/payees', label: '收款人' },
   { href: '/finance/rules', label: '規則' },
   { href: '/finance/tags', label: '標籤' },
+  { href: '/finance/accounts', label: '帳戶' },
 ] as const
 
 export default function FinanceShell({ children }: { children: ReactNode }) {

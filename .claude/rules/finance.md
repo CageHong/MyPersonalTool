@@ -52,7 +52,7 @@ finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python �
 - 針對個別交易的人工更正(拆分、收回、轉帳到自己的帳戶、對帳調整)是 ledger 的編輯操作,不靠設定檔。
 - 單筆編輯(分類、對象、日期時間、備註、標籤、整組替換分錄)只經過 `ledger/transactions.ts` 的 `updateTransaction`:帶上讀取時的 `updatedAt`,不同就拒絕;分類或分錄真的換了才重算 `category_source`(有使用者選的分類 = `manual`,否則 `null`)。細節在 `docs/finance/transactions.md` 的「編輯」。
 - 手動新增(畫面上的新增交易、對帳調整)只經過 `ledger/transactions.ts` 的 `createManualTransaction`;範本(`lib/templates.ts`)只把表單變成分錄,不寫入。
-- 收款人的管理(改名、合併、別名、刪除)在 `ledger/payees.ts`。
+- 收款人的管理(改名、合併、別名、刪除)在 `ledger/payees.ts`;資產 / 負債帳戶的管理在 `ledger/balance-accounts.ts`(幣別建立後不能改)。
 - 分類的管理(新增、改名、換上層、排序、封存、合併、刪除)只經過 `ledger/categories.ts`;規則寫在 `docs/finance/admin.md`。管理頁的寫入一樣寫入 `v2_retired_at`。
 - 刪除交易只經過 `ledger/transactions.ts` 的 `deleteTransaction`:有來源 ID 的把 ID 記進 `finance_deleted_external_ids`,匯入看到這個 ID 就不加回來。其他查詢(餘額、清單、分類)不用管這張表。
 - 整組替換分錄(`updateTransaction` 的 `postings`)跟新增交易用同一套分錄檢查(`validatePostings`)。
