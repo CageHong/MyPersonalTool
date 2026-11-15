@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import MonthCalendar from './MonthCalendar'
 import RecurrenceCustomFields from './RecurrenceCustomFields'
 import type { RuleState } from './RecurrenceSummary'
-import { addDays, formatShortDate, nextWeekday, onOrNextWeekday, parseIso, todayIso } from '@/modules/tasks/lib/date'
+import { addDays, formatShortDate, nextWeekday, onOrNextWeekday, parseIso } from '@/modules/tasks/lib/date'
 import { describeRule, expandRule, firstOccurrence } from '@/modules/tasks/lib/recurrence'
 import {
   initialDraft,
@@ -34,6 +34,7 @@ export type DueDateResult = { dueDate: string | null; recurrence: RecurrenceRequ
 
 type Props = {
   dueDate: string | null
+  today: string
   // 唯一的關閉通知,只從 <dialog> 的 close 事件發出;焦點由呼叫端移回觸發鈕
   onClose: (result: DueDateResult) => void
   // 有傳才顯示「重複」「結束」兩列。沒有規則時 rule 是 null;
@@ -60,15 +61,15 @@ function formatUntil(iso: string): string {
   return `直到 ${year}/${month}/${day}`
 }
 
-export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
+export default function DueDateDialog({ dueDate, today, onClose, recurrence }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   // 確定與清除先記下結果再 close();close 事件讀它。呼叫端只在開啟時掛載,每次開啟都從 null 開始
   const resultRef = useRef<DueDateResult>(null)
   // 還沒有截止日時草稿預設今天,月曆一開就停在今天那格;實際值不變,仍然要按確定才寫入。
   // 呼叫端都是開啟時才掛載,所以初始值每次開啟都會重算
-  const [draft, setDraft] = useState<DueDateDraft>({ dueDate: dueDate ?? todayIso() })
+  const [draft, setDraft] = useState<DueDateDraft>({ dueDate: dueDate ?? today })
   // 草稿一開就有值;清除是直接關閉送 null,不經過草稿
-  const currentDate = draft.dueDate ?? todayIso()
+  const currentDate = draft.dueDate ?? today
 
   // 規則:沒有規則是 null;載入中(含呼叫端判斷資料過期)或載入失敗時重複列不能展開
   const ruleState = recurrence?.rule ?? null
@@ -147,7 +148,6 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
     setScreen({ view: next, focus })
   }
 
-  const today = todayIso()
   const shortcuts = [
     { label: '今天', value: today },
     { label: '明天', value: addDays(today, 1) },
@@ -298,6 +298,7 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
 
         <MonthCalendar
           value={draft.dueDate}
+          today={today}
           onSelect={(iso) => setDraft((current) => ({ ...current, dueDate: iso }))}
           // 預覽:接下來符合規則的日期;until 之後、錨點之前的 expandRule 本身就不會給
           marked={spec === null ? undefined : (first, last) => new Set(expandRule(spec, first, last))}
@@ -521,6 +522,7 @@ export default function DueDateDialog({ dueDate, onClose, recurrence }: Props) {
         {byDate && (
           <MonthCalendar
             value={endEdit.until}
+            today={today}
             onSelect={(iso) => {
               setEndEdit({ until: iso, date: iso })
               setEndError(null)

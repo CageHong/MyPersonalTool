@@ -6,12 +6,13 @@ import DueDateTrigger from './DueDateTrigger'
 // 右欄的截止日由 TaskDetail 自己組(同一個觸發鈕與對話框,加上重複設定)
 type Props = {
   value: string | null
+  today: string
   // 月曆彈窗按確定才呼叫;選好按確定才存是截止日的儲存時機
   onSelect: (dueDate: string | null) => void
   showEmpty: boolean
 }
 
-export default function DueDateMenu({ value, onSelect, showEmpty }: Props) {
+export default function DueDateMenu({ value, today, onSelect, showEmpty }: Props) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
@@ -28,6 +29,7 @@ export default function DueDateMenu({ value, onSelect, showEmpty }: Props) {
       {open && (
         <DueDateDialog
           dueDate={value}
+          today={today}
           // 對話框已經 close(),背景不再 inert,觸發鈕才聚焦得到。先移焦點再存:
           // 儲存時記錄的焦點位置才會是觸發鈕,任務因此離開視圖時才找得到遞補列
           onClose={(result) => {

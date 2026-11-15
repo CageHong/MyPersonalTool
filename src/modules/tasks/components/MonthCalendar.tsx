@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { addMonths, monthDays, parseIso, todayIso, weekdayHeaders } from '@/modules/tasks/lib/date'
+import { addMonths, monthDays, parseIso, weekdayHeaders } from '@/modules/tasks/lib/date'
 import styles from './MonthCalendar.module.css'
 
 type Props = {
   value: string | null
+  today: string
   onSelect: (iso: string) => void
   // 目前顯示的月份裡要淡色標示的日期(重複規則的預覽);翻月份時用新的範圍重算
   marked?: (first: string, last: string) => ReadonlySet<string>
@@ -14,8 +15,7 @@ function monthOf(iso: string) {
   return { year, month }
 }
 
-export default function MonthCalendar({ value, onSelect, marked }: Props) {
-  const today = todayIso()
+export default function MonthCalendar({ value, today, onSelect, marked }: Props) {
   const [view, setView] = useState(() => monthOf(value ?? today))
 
   // value 跳到別的月份時(例如按了快捷鍵)月曆跟著翻頁;使用者自己翻月份不受影響

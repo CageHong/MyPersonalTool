@@ -83,6 +83,7 @@ type Props = {
   // 退場列用它找最新狀態(剛勾完成的列以已勾選的樣子退場)
   allTasks: Task[]
   view: ViewId
+  today: string
   loading: boolean
   error: string | null
   selectedId: number | null
@@ -101,6 +102,7 @@ export default function TaskList({
   overdueCounts,
   allTasks,
   view,
+  today,
   loading,
   error,
   selectedId,
@@ -167,7 +169,7 @@ export default function TaskList({
         <ViewSettingsMenu settings={settings} onChange={onChangeSettings} />
       </header>
 
-      <NewTaskForm onCreate={onCreate} onCreateMany={onCreateMany} />
+      <NewTaskForm today={today} onCreate={onCreate} onCreateMany={onCreateMany} />
 
       {error !== null && (
         <p className={styles.error} role="alert">

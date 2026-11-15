@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { formatListDate, formatListDay, monthDays, weekdayHeaders } from './date'
+import {
+  formatListDate,
+  formatListDay,
+  monthDays,
+  msUntilNextLocalMidnight,
+  weekdayHeaders,
+} from './date'
 
 describe('formatListDate', () => {
   // 2026-09-19 是週六:本週只剩明天(週日),9/21–9/27 是下週
@@ -61,5 +67,34 @@ describe('formatListDay', () => {
     assert.equal(formatListDay('2026-09-23', '2026-09-19'), '9.23')
     assert.equal(formatListDay('2027-01-05', '2026-09-19'), '2027.1.5')
     assert.equal(formatListDay('2025-12-31', '2026-09-19'), '2025.12.31')
+  })
+})
+
+describe('msUntilNextLocalMidnight', () => {
+  test('returns milliseconds from an ordinary time of day to next midnight', () => {
+    // 10:30 距離午夜 13.5 小時
+    const now = new Date(2026, 8, 19, 10, 30, 0, 0)
+    assert.equal(msUntilNextLocalMidnight(now), 13.5 * 3600 * 1000)
+  })
+
+  test('returns 1000ms at 23:59:59.000', () => {
+    const now = new Date(2026, 8, 19, 23, 59, 59, 0)
+    assert.equal(msUntilNextLocalMidnight(now), 1000)
+  })
+
+  test('accounts for daylight saving time transition day', () => {
+    const previousTz = process.env.TZ
+    process.env.TZ = 'Europe/Berlin'
+    try {
+      // 2026-03-29 夏令時間開始(02:00 → 03:00),整天只有 23 小時;01:00 距離午夜是 22 小時
+      const dstStart = new Date(2026, 2, 29, 1, 0, 0, 0)
+      assert.equal(msUntilNextLocalMidnight(dstStart), 22 * 3600 * 1000)
+    } finally {
+      if (previousTz === undefined) {
+        delete process.env.TZ
+      } else {
+        process.env.TZ = previousTz
+      }
+    }
   })
 })

@@ -7,6 +7,7 @@ import type { NewTask } from '@/modules/tasks/lib/tasks'
 import styles from './NewTaskForm.module.css'
 
 type Props = {
+  today: string
   // 新增列的錯誤走泛用路徑,顯示在中欄新增列正下方,不做欄位標示
   onCreate: (input: NewTask) => Promise<ApiError | null>
   // 批次貼上:每一行一筆,整批成功才建立
@@ -16,7 +17,7 @@ type Props = {
 // 整列是一個草稿單位,送出成功後一次清掉;形狀就是 POST 要送的那三個欄位
 const EMPTY: NewTask = { title: '', dueDate: null, priority: 0 }
 
-export default function NewTaskForm({ onCreate, onCreateMany }: Props) {
+export default function NewTaskForm({ today, onCreate, onCreateMany }: Props) {
   const [draft, setDraft] = useState<NewTask>(EMPTY)
   // 自己送出的請求還沒回來時擋掉第二次送出(同 NewChecklistItemForm)。
   // 不停用也不設 readOnly:使用者可以接著打下一筆。
@@ -84,6 +85,7 @@ export default function NewTaskForm({ onCreate, onCreateMany }: Props) {
         {/* 日期與優先級都是草稿,只寫回 draft,不送 PATCH */}
         <DueDateMenu
           value={draft.dueDate}
+          today={today}
           onSelect={(dueDate) => setDraft((current) => ({ ...current, dueDate }))}
           showEmpty={false}
         />
