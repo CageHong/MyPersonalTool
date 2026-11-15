@@ -1,0 +1,160 @@
+/* 沒有內距,這樣點到 dialog 本身就一定是點到 backdrop(跟 ConfirmDialog 同一個做法) */
+.dialog {
+  padding: 0;
+  border: 1px solid var(--color-dialog-border);
+  border-radius: var(--radius);
+  background: var(--color-dialog-bg);
+  color: var(--color-text);
+}
+
+.dialog::backdrop {
+  background: var(--color-backdrop);
+}
+
+/* 這個對話框的版面寬度,不是共用 token */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(30rem, calc(100vw - 4 * var(--space-3)));
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+}
+
+.templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* 範本:看起來像一排按鈕的單選;選中的用選取底色 + 框線 */
+.template {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.template:has(.radio:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.selected {
+  border-color: var(--color-row-selected-border);
+  background: var(--color-row-selected-bg);
+}
+
+.radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.label {
+  color: var(--color-field-label);
+  font-weight: var(--weight-semibold);
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-field-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-field-text);
+  font: inherit;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--color-field-border-invalid);
+}
+
+.input::placeholder {
+  color: var(--color-field-placeholder);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.columns {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--color-error-text);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-dialog-section-line);
+}
+
+.cancel {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-action-border);
+  border-radius: var(--radius);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+  font: inherit;
+  cursor: pointer;
+  /* 停用樣式延後出現、立即解除;見 globals.css 的 --disabled-delay */
+  transition-property: border-color, background-color, color, cursor;
+  transition-duration: 0s;
+  transition-behavior: allow-discrete;
+}
+
+.primary:disabled {
+  border-color: var(--color-action-disabled-bg);
+  background: var(--color-action-disabled-bg);
+  color: var(--color-action-disabled-text);
+  cursor: not-allowed;
+  transition-delay: var(--disabled-delay);
+}
+
+.input:focus-visible,
+.cancel:focus-visible,
+.primary:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

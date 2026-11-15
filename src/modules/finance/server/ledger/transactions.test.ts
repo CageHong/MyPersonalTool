@@ -6,6 +6,7 @@ import { NotFoundError, ValidationError } from '../errors'
 import { ACCOUNTS, AT, freshLedger } from '../testing'
 import { getV2RetiredAt } from './settings'
 import {
+  createManualTransaction,
   createTransaction,
   deleteTransaction,
   setTransactionPayee,
@@ -432,3 +433,53 @@ test('刪除:資料是舊的時拒絕、不存在是 NotFoundError', () => {
   assert.throws(() => deleteTransaction(db, 999, AT), NotFoundError)
 })
 
+// ── 手動新增 ────────────────────────────────────────────────────
+
+test('手動新增:source manual、時間存成到秒、對象可以是新名稱、有分類時分類來源 manual', () => {
+  const { db } = editLedger()
+  const id = createManualTransaction(db, {
+    occurredAt: '2030-03-05T08:15:42.900Z',
+    payee: { name: 'Fresh Market' },
+    note: '  weekly ',
+    postings: [
+      { accountId: ACCOUNTS.wiseEur, amount: -2500, currency: 'EUR', memo: null },
+      { accountId: ACCOUNTS.food, amount: 2500, currency: 'EUR', memo: ' veg ' },
+    ],
+  }, EDIT_AT)
+  const [row] = db.all<Record<string, unknown>>(
+    sql`SELECT t.occurred_at, t.source, t.note, t.category_source, t.updated_at, p.name AS payee
+        FROM finance_transactions t LEFT JOIN finance_payees p ON p.id = t.payee_id WHERE t.id = ${id}`,
+  )
+  assert.deepEqual(row, {
+    occurred_at: '2030-03-05T08:15:42+00:00', source: 'manual', note: 'weekly', category_source: 'manual',
+    updated_at: EDIT_VERSION, payee: 'Fresh Market',
+  })
+  assert.deepEqual(postingsOf(db, id).map((p) => p.memo), [null, 'veg'])
+  assert.equal(getV2RetiredAt(db), EDIT_STAMP)
+})
+
+test('手動新增:轉帳沒有分類來源;不平或對象空白時整筆不寫入', () => {
+  const { db } = editLedger()
+  db.run(sql`INSERT INTO finance_accounts (id, name, type, subtype, currency, created_at) VALUES (30, 'Savings', 'asset', 'bank', 'EUR', ${AT})`)
+  const id = createManualTransaction(db, {
+    occurredAt: '2030-03-05T08:00:00Z', payee: null, note: null,
+    postings: [
+      { accountId: ACCOUNTS.wiseEur, amount: -1000, currency: 'EUR', memo: null },
+      { accountId: 30, amount: 1000, currency: 'EUR', memo: null },
+    ],
+  })
+  assert.equal(headerOf(db, id).category_source, null)
+  const before = count(db, 'finance_transactions')
+  assert.deepEqual(fieldsOf(() => createManualTransaction(db, {
+    occurredAt: '2030-03-05T08:00:00Z', payee: { name: 'Shop' }, note: null,
+    postings: [
+      { accountId: ACCOUNTS.wiseEur, amount: -1000, currency: 'EUR', memo: null },
+      { accountId: ACCOUNTS.food, amount: 900, currency: 'EUR', memo: null },
+    ],
+  })), { postings: 'unbalanced:EUR' })
+  assert.deepEqual(fieldsOf(() => createManualTransaction(db, {
+    occurredAt: 'nope', payee: { name: ' ' }, note: null, postings: [],
+  })), { payee: 'required' })
+  assert.equal(count(db, 'finance_transactions'), before)
+  assert.equal(count(db, 'finance_payees'), 1)
+})

@@ -10,6 +10,7 @@ import {
   parseTransactionFilter,
 } from '../lib/transactions'
 import type { FinanceLookups, TransactionFilter, TransactionPage, TransactionRow } from '../lib/transactions'
+import NewTransactionDialog from './NewTransactionDialog'
 import TransactionEditor from './TransactionEditor'
 import TransactionFilters from './TransactionFilters'
 import TransactionTable from './TransactionTable'
@@ -62,6 +63,7 @@ export default function TransactionsPage() {
   // 按「重試」時加一,讓對應的 effect 重新取
   const [lookupsAttempt, setLookupsAttempt] = useState(0)
   const [listAttempt, setListAttempt] = useState(0)
+  const [adding, setAdding] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -186,7 +188,22 @@ export default function TransactionsPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.heading}>交易</h1>
+        <button type="button" className={styles.add} onClick={() => setAdding(true)} disabled={!lookups}>
+          新增交易
+        </button>
       </header>
+      {adding && lookups && (
+        <NewTransactionDialog
+          lookups={lookups}
+          onClose={() => setAdding(false)}
+          onCreated={(row) => {
+            // 新的那一筆不一定在目前這一頁的範圍裡:重新取第一頁,並打開右欄
+            setListAttempt((n) => n + 1)
+            setLookupsAttempt((n) => n + 1)
+            setEditing(row.id)
+          }}
+        />
+      )}
 
       {!parsed.ok && <p className={styles.error}>網址裡的篩選條件不合法,目前顯示全部交易。</p>}
 

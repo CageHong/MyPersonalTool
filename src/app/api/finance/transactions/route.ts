@@ -1,9 +1,11 @@
-// 交易清單:網址參數是篩選條件(lib/transactions.ts 定義參數名)加上分頁的 cursor、limit。
-// 回傳一頁交易與下一頁的 cursor
+// 交易清單。GET:網址參數是篩選條件(lib/transactions.ts 定義參數名)加上分頁的 cursor、limit,
+// 回傳一頁交易與下一頁的 cursor。POST:手動新增一筆,body 是 lib/edit.ts 的 NewTransactionInput,回傳新的那一列(201)
 import { getDb } from '@/modules/finance/db'
+import { parseNewTransaction } from '@/modules/finance/lib/edit'
 import { parseTransactionFilter } from '@/modules/finance/lib/transactions'
-import { listTransactions } from '@/modules/finance/server/ledger/list'
-import { errorResponse, handleError } from '@/app/api/_lib/http'
+import { getTransactionRow, listTransactions } from '@/modules/finance/server/ledger/list'
+import { createManualTransaction } from '@/modules/finance/server/ledger/transactions'
+import { errorResponse, handleError, readJsonObject } from '@/app/api/_lib/http'
 
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams
@@ -26,3 +28,22 @@ export async function GET(request: Request): Promise<Response> {
     return handleError('[GET /api/finance/transactions]', error, 'Not found')
   }
 }
+
+export async function POST(request: Request): Promise<Response> {
+  const body = await readJsonObject(request)
+  if (!body) {
+    return errorResponse(400, 'VALIDATION_FAILED', 'Request body must be a JSON object', { body: 'invalid_json' })
+  }
+  const parsed = parseNewTransaction(body)
+  if (!parsed.ok) {
+    return errorResponse(400, 'VALIDATION_FAILED', 'Invalid transaction', parsed.fields)
+  }
+  try {
+    const db = getDb()
+    const id = createManualTransaction(db, parsed.input)
+    return Response.json(getTransactionRow(db, id), { status: 201 })
+  } catch (error) {
+    return handleError('[POST /api/finance/transactions]', error, 'Not found')
+  }
+}
+

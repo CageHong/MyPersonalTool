@@ -16,7 +16,7 @@ import {
   financeUnbalanced,
 } from '../../db/schema'
 import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH } from '../../lib/edit'
-import type { TransactionPatch } from '../../lib/edit'
+import type { NewTransactionInput, PayeeChange, TransactionPatch } from '../../lib/edit'
 import { NotFoundError, ValidationError } from '../errors'
 import { getSystemAccounts } from './accounts'
 import { resolvePayee } from './payees'
@@ -312,18 +312,8 @@ export function updateTransaction(
     }
 
     if (patch.payee !== undefined) {
-      if (patch.payee === null) header.payeeId = null
-      else if ('id' in patch.payee) {
-        const exists = tx.select({ id: financePayees.id }).from(financePayees).where(eq(financePayees.id, patch.payee.id)).all()
-        if (exists.length) header.payeeId = patch.payee.id
-        else fields.payee = 'not_found'
-      } else {
-        const name = patch.payee.name.trim()
-        if (name === '') fields.payee = 'required'
-        else if (name.length > NAME_MAX_LENGTH) fields.payee = 'too_long'
-        // 對象名稱是使用者自己打的,不去掉付款處理商的後綴
-        else header.payeeId = resolvePayee(tx, name, [], now)
-      }
+      const payeeId = resolvePayeeChange(tx, patch.payee, fields, now)
+      if (payeeId !== undefined) header.payeeId = payeeId
     }
 
     // 分類:每一條指定的分錄換到同類型的另一個分類。手續費是匯入時的結構,不能換進換出
@@ -456,6 +446,63 @@ export function updateTransaction(
     if (residual.length) throw new ValidationError({ postings: 'unbalanced' })
 
     markV2Retired(tx, stamp)
+  })
+}
+
+// 對象的輸入 → 收款人 id(新增與編輯共用的規則);不合法時在 fields 記下原因、回傳 undefined
+function resolvePayeeChange(
+  tx: FinanceConn,
+  payee: PayeeChange,
+  fields: Record<string, string>,
+  now: string,
+): number | null | undefined {
+  if (payee === null) return null
+  if ('id' in payee) {
+    const exists = tx.select({ id: financePayees.id }).from(financePayees).where(eq(financePayees.id, payee.id)).all()
+    if (exists.length) return payee.id
+    fields.payee = 'not_found'
+    return undefined
+  }
+  const name = payee.name.trim()
+  if (name === '') fields.payee = 'required'
+  else if (name.length > NAME_MAX_LENGTH) fields.payee = 'too_long'
+  // 對象名稱是使用者自己打的,不去掉付款處理商的後綴
+  else return resolvePayee(tx, name, [], now)
+  return undefined
+}
+
+// 手動新增一筆交易(畫面上的「新增交易」、對帳調整),回傳 id。分錄的檢查跟匯入相同;
+// 分類來源:有使用者選的分類是 manual,否則 null。寫入「v2 已停用」
+export function createManualTransaction(
+  db: FinanceConn,
+  input: NewTransactionInput,
+  now: string = new Date().toISOString(),
+): number {
+  const version = new Date(now).toISOString().replace('Z', '+00:00')
+  return db.transaction((tx) => {
+    const fields: Record<string, string> = {}
+    const note = input.note?.trim() ?? ''
+    if (note.length > NOTE_MAX_LENGTH) fields.note = 'too_long'
+    const payeeId = resolvePayeeChange(tx, input.payee, fields, now)
+    if (Object.keys(fields).length) throw new ValidationError(fields)
+    const occurredAt = isValidUtcTimestamp(input.occurredAt) ? toStoredTimestamp(input.occurredAt) : input.occurredAt
+    const id = createTransaction(
+      tx,
+      {
+        occurredAt,
+        payeeId: payeeId ?? null,
+        note: note === '' ? null : note,
+        source: 'manual',
+        postings: input.postings.map((p) => ({ ...p, memo: p.memo?.trim() || null })),
+      },
+      version,
+    )
+    const categorySource = categorySourceAfterEdit(tx, id)
+    if (categorySource) {
+      tx.update(financeTransactions).set({ categorySource }).where(eq(financeTransactions.id, id)).run()
+    }
+    markV2Retired(tx, toStoredTimestamp(now))
+    return id
   })
 }
 

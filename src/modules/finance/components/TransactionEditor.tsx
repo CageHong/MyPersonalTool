@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { deleteRequest, editErrorMessage, getJson, loadErrorMessage, patchJson } from '../lib/api'
+import { categoryOptions } from '../lib/accounts'
 import { fromLocalInputValue, toLocalInputValue } from '../lib/date'
 import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH } from '../lib/edit'
 import type { TransactionPatch } from '../lib/edit'
@@ -133,27 +134,6 @@ function editablePostings(row: TransactionRow, lookups: FinanceLookups): Posting
   return row.postings.filter(
     (p) => (p.accountType === 'expense' || p.accountType === 'income') && p.accountId !== lookups.system.fee,
   )
-}
-
-// 分類選單的選項:同類型、不含手續費;封存的只有目前選的那個列出來。上層之後接它的子分類
-function categoryOptions(lookups: FinanceLookups, type: 'expense' | 'income', current: number) {
-  const usable = lookups.accounts.filter(
-    (a) => a.type === type && a.id !== lookups.system.fee && (a.isActive || a.id === current),
-  )
-  const names = new Map(lookups.accounts.map((a) => [a.id, a.name]))
-  const tops = usable.filter((a) => a.parentId === null)
-  const children = usable.filter((a) => a.parentId !== null)
-  const options = tops.flatMap((top) => [
-    { id: top.id, label: top.name },
-    ...children.filter((c) => c.parentId === top.id).map((c) => ({ id: c.id, label: `${top.name} / ${c.name}` })),
-  ])
-  // 上層本身不能選(封存、或不是同類型)的子分類放最後
-  for (const child of children) {
-    if (!options.some((o) => o.id === child.id)) {
-      options.push({ id: child.id, label: `${names.get(child.parentId ?? 0) ?? ''} / ${child.name}` })
-    }
-  }
-  return options
 }
 
 function EditorForm({

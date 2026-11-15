@@ -91,3 +91,18 @@ API 是 `GET /api/finance/transactions`,畫面是 `/finance/transactions`。篩�
 - 第一次編輯(含刪除)時一起寫入 `finance_settings` 的 `v2_retired_at`;之後 `finance:import-v2` 拒絕執行(它每次從空的資料庫重建,會洗掉畫面上的修改)。
 - 改了對象不會重新分類。改完之後不符合目前篩選條件的列先留在畫面上,重新整理或換條件時才消失。
 
+## 新增(手動記帳)
+
+程式在 `ledger/transactions.ts`(`createManualTransaction`,內部呼叫 `createTransaction`),請求的形狀在 `lib/edit.ts`
+(`NewTransactionInput`),範本在 `lib/templates.ts`。API:`POST /api/finance/transactions`(201,回傳新的那一列)。
+畫面:清單上方的「新增交易」打開對話框;存好之後重新取第一頁、打開那一筆的右欄。
+
+- body:`occurredAt`(UTC)、`payee`(同編輯;省略 = 沒有)、`note`(省略 = 沒有)、`postings`(檢查跟匯入的新增相同)。`source = 'manual'`,沒有來源 ID。
+- 分類來源:有使用者選的分類是 `manual`,否則 `null`。第一次新增也會寫入 `v2_retired_at`。
+- 範本只負責把表單變成平衡的分錄,存進去就是一般的交易:
+  - 支出 / 收入:帳戶 + 金額 + 分類(預設未分類 / 未分類收入)+ 對象;幣別取帳戶的。
+  - 轉帳:兩個同幣別的帳戶;幣別不同要用換匯。
+  - 換匯:兩個不同幣別的帳戶與各自的金額,兩個幣別各自對到系統帳戶「換匯」。手續費之後用分錄編輯器加。
+  - 對帳調整:帳戶、日期、實際餘額。帳上餘額取 `GET /api/finance/accounts/<id>/balance?asOf=<日期>`(那一天結束時,以 UTC 切日),
+    差額 = 實際 − 帳上;帳上多了(差額為負)記到支出分類,帳上少了記到收入分類,預設未分類。交易時間是那一天 `23:59:59Z`,備註預設「對帳調整」。
+

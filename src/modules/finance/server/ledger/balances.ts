@@ -6,6 +6,7 @@
 import { and, eq, inArray, lte, sql } from 'drizzle-orm'
 import type { FinanceDb } from '../../db/index'
 import { financeAccounts, financePostings, financeTransactions } from '../../db/schema'
+import { ValidationError } from '../errors'
 
 export type AccountBalance = {
   accountId: number
@@ -51,3 +52,15 @@ export function getAccountBalance(db: FinanceDb, accountId: number, asOf?: strin
   if (!balance) throw new NotBalanceAccountError(accountId)
   return balance
 }
+
+// 給 API 用(對帳調整):帳戶不是 asset / liability、日期格式不對時是 ValidationError
+export function getAccountBalanceForInput(db: FinanceDb, accountId: number, asOf?: string): AccountBalance {
+  if (asOf !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(asOf)) throw new ValidationError({ asOf: 'invalid' })
+  try {
+    return getAccountBalance(db, accountId, asOf)
+  } catch (error) {
+    if (error instanceof NotBalanceAccountError) throw new ValidationError({ account: 'not_balance_account' })
+    throw error
+  }
+}
+

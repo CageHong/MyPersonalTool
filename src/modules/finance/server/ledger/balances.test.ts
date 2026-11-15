@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { sql } from 'drizzle-orm'
 import { applyMigrations, openDb } from '../../db/index'
-import { NotBalanceAccountError, getAccountBalance, getAccountBalances } from './balances'
+import { ValidationError } from '../errors'
+import { NotBalanceAccountError, getAccountBalance, getAccountBalanceForInput, getAccountBalances } from './balances'
 
 function freshDb() {
   const db = openDb(':memory:')
@@ -52,3 +53,11 @@ test('分類、權益帳戶、不存在的帳戶沒有餘額', () => {
   assert.throws(() => getAccountBalance(db, 11), NotBalanceAccountError)
   assert.throws(() => getAccountBalance(db, 999), NotBalanceAccountError)
 })
+
+test('getAccountBalanceForInput:同 getAccountBalance;日期格式不對、不是資產負債帳戶時是 ValidationError', () => {
+  const db = freshDb()
+  assert.deepEqual(getAccountBalanceForInput(db, 1), getAccountBalance(db, 1))
+  assert.throws(() => getAccountBalanceForInput(db, 1, '2026/01/01'), ValidationError)
+  assert.throws(() => getAccountBalanceForInput(db, 9999), ValidationError)
+})
+

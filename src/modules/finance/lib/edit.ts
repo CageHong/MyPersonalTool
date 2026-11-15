@@ -37,6 +37,34 @@ const isId = (value: unknown): value is number => Number.isSafeInteger(value) &&
 
 const KNOWN_KEYS = new Set(['expectedUpdatedAt', 'occurredAt', 'note', 'payee', 'categories', 'postings', 'tags'])
 
+// 分錄的陣列;形狀不對時是 null
+function parsePostings(list: unknown): PostingInput[] | null {
+  const valid =
+    Array.isArray(list) &&
+    list.every(
+      (p) =>
+        isObject(p) &&
+        isId(p.accountId) &&
+        Number.isSafeInteger(p.amount) &&
+        typeof p.currency === 'string' &&
+        (p.memo === undefined || p.memo === null || typeof p.memo === 'string'),
+    )
+  if (!valid) return null
+  return (list as Record<string, unknown>[]).map((p) => ({
+    accountId: p.accountId as number,
+    amount: p.amount as number,
+    currency: p.currency as string,
+    memo: (p.memo as string | null | undefined) ?? null,
+  }))
+}
+
+function parsePayee(payee: unknown): PayeeChange | undefined {
+  if (payee === null) return null
+  if (isObject(payee) && isId(payee.id) && Object.keys(payee).length === 1) return { id: payee.id }
+  if (isObject(payee) && typeof payee.name === 'string' && Object.keys(payee).length === 1) return { name: payee.name }
+  return undefined
+}
+
 // 請求的 JSON → TransactionPatch。只看型別與形狀
 export function parseTransactionPatch(body: unknown): PatchParse {
   if (!isObject(body)) return { ok: false, fields: { body: 'invalid' } }
@@ -57,12 +85,9 @@ export function parseTransactionPatch(body: unknown): PatchParse {
     else fields.note = 'invalid'
   }
   if ('payee' in body) {
-    const payee = body.payee
-    if (payee === null) patch.payee = null
-    else if (isObject(payee) && isId(payee.id) && Object.keys(payee).length === 1) patch.payee = { id: payee.id }
-    else if (isObject(payee) && typeof payee.name === 'string' && Object.keys(payee).length === 1) {
-      patch.payee = { name: payee.name }
-    } else fields.payee = 'invalid'
+    const payee = parsePayee(body.payee)
+    if (payee === undefined) fields.payee = 'invalid'
+    else patch.payee = payee
   }
   if ('categories' in body) {
     const list = body.categories
@@ -71,25 +96,9 @@ export function parseTransactionPatch(body: unknown): PatchParse {
     } else fields.categories = 'invalid'
   }
   if ('postings' in body) {
-    const list = body.postings
-    const valid =
-      Array.isArray(list) &&
-      list.every(
-        (p) =>
-          isObject(p) &&
-          isId(p.accountId) &&
-          Number.isSafeInteger(p.amount) &&
-          typeof p.currency === 'string' &&
-          (p.memo === undefined || p.memo === null || typeof p.memo === 'string'),
-      )
-    if (valid) {
-      patch.postings = (list as Record<string, unknown>[]).map((p) => ({
-        accountId: p.accountId as number,
-        amount: p.amount as number,
-        currency: p.currency as string,
-        memo: (p.memo as string | null | undefined) ?? null,
-      }))
-    } else fields.postings = 'invalid'
+    const postings = parsePostings(body.postings)
+    if (postings) patch.postings = postings
+    else fields.postings = 'invalid'
     if ('categories' in body) fields.categories = 'with_postings'
   }
   if ('tags' in body) {
@@ -106,3 +115,35 @@ export function parseTransactionPatch(body: unknown): PatchParse {
   }
   return Object.keys(fields).length ? { ok: false, fields } : { ok: true, patch }
 }
+
+// ── 新增交易(手動記帳) ──────────────────────────────────────────
+
+export type NewTransactionInput = {
+  // UTC 的 ISO 8601
+  occurredAt: string
+  payee: PayeeChange
+  note: string | null
+  postings: PostingInput[]
+}
+
+export type NewTransactionParse = { ok: true; input: NewTransactionInput } | { ok: false; fields: Record<string, string> }
+
+const NEW_KEYS = new Set(['occurredAt', 'payee', 'note', 'postings'])
+
+// 請求的 JSON → NewTransactionInput。只看型別與形狀;payee、note 可以省略(= 沒有)
+export function parseNewTransaction(body: unknown): NewTransactionParse {
+  if (!isObject(body)) return { ok: false, fields: { body: 'invalid' } }
+  const fields: Record<string, string> = {}
+  for (const key of Object.keys(body)) if (!NEW_KEYS.has(key)) fields[key] = 'unknown'
+  const occurredAt = typeof body.occurredAt === 'string' ? body.occurredAt : null
+  if (occurredAt === null) fields.occurredAt = 'required'
+  const payee = 'payee' in body ? parsePayee(body.payee) : null
+  if (payee === undefined) fields.payee = 'invalid'
+  const note = body.note === undefined || body.note === null ? null : typeof body.note === 'string' ? body.note : undefined
+  if (note === undefined) fields.note = 'invalid'
+  const postings = parsePostings(body.postings)
+  if (postings === null) fields.postings = 'invalid'
+  if (Object.keys(fields).length) return { ok: false, fields }
+  return { ok: true, input: { occurredAt: occurredAt!, payee: payee!, note: note!, postings: postings! } }
+}
+

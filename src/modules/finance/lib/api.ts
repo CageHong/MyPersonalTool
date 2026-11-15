@@ -41,11 +41,20 @@ export async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> 
 }
 
 // PATCH JSON,回傳 JSON。失敗時 throw FinanceApiError
-export async function patchJson<T>(url: string, body: unknown): Promise<T> {
+export function patchJson<T>(url: string, body: unknown): Promise<T> {
+  return sendJson<T>('PATCH', url, body)
+}
+
+// POST JSON,回傳 JSON。失敗時 throw FinanceApiError
+export function postJson<T>(url: string, body: unknown): Promise<T> {
+  return sendJson<T>('POST', url, body)
+}
+
+async function sendJson<T>(method: 'PATCH' | 'POST', url: string, body: unknown): Promise<T> {
   let response: Response
   try {
     response = await fetch(url, {
-      method: 'PATCH',
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
