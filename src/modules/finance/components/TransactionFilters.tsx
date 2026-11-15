@@ -52,6 +52,12 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
 
   const set = (patch: Partial<TransactionFilter>) => onChange({ ...filter, ...patch })
 
+  // 清除篩選時連搜尋框正在打、還沒寫進網址的字一起清掉;text 變了,上面還在等的計時器也會被取消
+  function clear() {
+    setText('')
+    onClear()
+  }
+
   // 期間快捷用的「今天」:開頁時算一次就好(快捷是月、年為單位,跨日不影響)
   const [today] = useState(() => localToday())
   const preset = matchPreset(filter.from, filter.to, today)
@@ -189,7 +195,7 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
         <option value="asc">由舊到新</option>
       </select>
 
-      <button type="button" className={styles.clear} onClick={onClear} disabled={!canClear}>
+      <button type="button" className={styles.clear} onClick={clear} disabled={!canClear && text.trim() === ''}>
         清除篩選
       </button>
     </div>

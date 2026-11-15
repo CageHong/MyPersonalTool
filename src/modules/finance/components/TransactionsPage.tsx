@@ -54,6 +54,9 @@ export default function TransactionsPage() {
   const [loadingMore, setLoadingMore] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<ForQuery<number> | null>(null)
   const moreRequest = useRef<AbortController | null>(null)
+  // 按「重試」時加一,讓對應的 effect 重新取
+  const [lookupsAttempt, setLookupsAttempt] = useState(0)
+  const [listAttempt, setListAttempt] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -63,7 +66,7 @@ export default function TransactionsPage() {
         if (!controller.signal.aborted) setLookupsError(loadErrorMessage(caught))
       })
     return () => controller.abort()
-  }, [])
+  }, [lookupsAttempt])
 
   // 篩選條件變了就從第一頁重新取;進行中的上一個查詢(含載入下一頁)取消
   useEffect(() => {
@@ -79,7 +82,7 @@ export default function TransactionsPage() {
         if (!controller.signal.aborted) setError({ query, value: loadErrorMessage(caught) })
       })
     return () => controller.abort()
-  }, [query])
+  }, [query, listAttempt])
 
   const current = list?.query === query ? list : null
   const currentError = error?.query === query ? error.value : null
@@ -99,7 +102,11 @@ export default function TransactionsPage() {
         setLoadingMore(null)
       })
       .catch((caught: unknown) => {
-        if (controller.signal.aborted) return
+        // 換了篩選條件而被取消:新查詢的第一頁失敗時不會清 loadingMore,所以這裡要清
+        if (controller.signal.aborted) {
+          setLoadingMore((value) => (value === cursor ? null : value))
+          return
+        }
         setError({ query, value: loadErrorMessage(caught) })
         setLoadingMore(null)
       })
@@ -126,6 +133,17 @@ export default function TransactionsPage() {
   }
 
   const message = lookupsError ?? currentError
+  // 第一頁失敗就重取第一頁;載入下一頁失敗只要清掉錯誤,底部的哨兵還在畫面裡,會自動再載入
+  function retry() {
+    if (lookupsError) {
+      setLookupsError(null)
+      setLookupsAttempt((n) => n + 1)
+    }
+    if (currentError) {
+      setError(null)
+      if (!current) setListAttempt((n) => n + 1)
+    }
+  }
   let status: string
   if (!current || !lookups) status = '載入中…'
   else if (loadingMore) status = `已載入 ${current.items.length} 筆,載入更多中…`
@@ -146,7 +164,7 @@ export default function TransactionsPage() {
         lookups={lookups}
         onChange={changeFilter}
         onClear={() => changeFilter({ ...EMPTY_FILTER, order: filter.order })}
-        canClear={!isFilterEmpty(filter)}
+        canClear={!isFilterEmpty(filter) || !parsed.ok}
       />
 
       {/* 換篩選條件時,新資料到之前先留著舊的列(淡化),表格不會整個閃掉 */}
@@ -162,7 +180,16 @@ export default function TransactionsPage() {
       )}
 
       <div ref={sentinelRef} className={styles.status} role="status">
-        {message ? <span className={styles.error}>{message}</span> : status}
+        {message ? (
+          <>
+            <span className={styles.error}>{message}</span>{' '}
+            <button type="button" className={styles.retry} onClick={retry}>
+              重試
+            </button>
+          </>
+        ) : (
+          status
+        )}
       </div>
     </div>
   )

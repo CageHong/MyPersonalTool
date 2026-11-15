@@ -84,7 +84,11 @@ export default function ImportPage() {
             accept=".csv,text/csv"
             multiple
             disabled={busy !== null}
-            onChange={(event) => selectFiles(event.target.files)}
+            onChange={(event) => {
+              selectFiles(event.target.files)
+              // 清掉選擇,改過內容的同一個檔案再選一次也會觸發 onChange
+              event.target.value = ''
+            }}
           />
         </label>
         <span className={styles.fileNames}>

@@ -166,8 +166,8 @@ export default function ImportReport({ summary }: { summary: ImportSummary }) {
 
       <Section title="Target fee 不為零(金額欄已經扣掉,請確認)" count={summary.targetFees.length}>
         <Table head={['日期', 'ID', 'Target fee']}>
-          {summary.targetFees.map((row) => (
-            <tr key={row.externalId}>
+          {summary.targetFees.map((row, index) => (
+            <tr key={`${row.externalId}:${index}`}>
               <td className={styles.date}>{formatLocalDate(row.occurredAt)}</td>
               <td>{row.externalId}</td>
               <td className={styles.number}>
