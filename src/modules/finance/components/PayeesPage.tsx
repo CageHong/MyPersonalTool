@@ -1,14 +1,16 @@
 'use client'
 
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { adminErrorMessage, getJson, loadErrorMessage, sendNoContent } from '../lib/api'
 import { NAME_MAX_LENGTH } from '../lib/edit'
-import type { PayeeAdminRow } from '../lib/payees'
+import { PAYEE_SORTS, parsePayeeSort, sortPayees } from '../lib/payees'
+import type { PayeeAdminRow, PayeeSort } from '../lib/payees'
 import ConfirmDialog from './ConfirmDialog'
 import PayeePicker from './PayeePicker'
 import styles from './AdminPage.module.css'
 
-// 收款人管理:清單(搜尋、交易筆數)→ 右欄改名、別名(移到別人、刪除)、合併、刪除。
+// 收款人管理:清單(搜尋、排序:名稱或交易筆數,放在網址參數 sort)→ 右欄改名、別名(移到別人、刪除)、合併、刪除。
 // 合併 = 交易、別名、規則、週期項目改指向目標,再刪掉來源;取代 import-v2.json 的 payeeMerges
 
 const URL = '/api/finance/payees'
@@ -19,6 +21,17 @@ export default function PayeesPage() {
   const [attempt, setAttempt] = useState(0)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [query, setQuery] = useState('')
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const sort = parsePayeeSort(searchParams.get('sort'))
+  function chooseSort(next: PayeeSort) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === 'name') params.delete('sort')
+    else params.set('sort', next)
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -36,8 +49,9 @@ export default function PayeesPage() {
   const reload = () => setAttempt((n) => n + 1)
   const selected = payees?.find((p) => p.id === selectedId) ?? null
   const q = query.trim().toLowerCase()
-  const visible = (payees ?? []).filter(
-    (p) => !q || p.name.toLowerCase().includes(q) || p.aliases.some((a) => a.includes(q)),
+  const visible = sortPayees(
+    (payees ?? []).filter((p) => !q || p.name.toLowerCase().includes(q) || p.aliases.some((a) => a.includes(q))),
+    sort,
   )
 
   return (
@@ -66,6 +80,18 @@ export default function PayeesPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
+            <select
+              className={styles.input}
+              aria-label="排序"
+              value={sort}
+              onChange={(event) => chooseSort(parsePayeeSort(event.target.value))}
+            >
+              {PAYEE_SORTS.map(({ key, label }) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
             <ul className={styles.list}>
               {visible.map((p) => (
                 <li key={p.id}>
