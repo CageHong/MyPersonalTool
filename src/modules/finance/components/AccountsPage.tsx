@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { adminErrorMessage, getJson, loadErrorMessage, postJson, sendNoContent } from '../lib/api'
+import { notifyLedgerChanged } from '../lib/ledger-events'
 import { SUBTYPES } from '../lib/balance-accounts'
 import type { BalanceAccountRow, BalanceAccountType } from '../lib/balance-accounts'
 import { NAME_MAX_LENGTH } from '../lib/edit'
@@ -40,7 +41,11 @@ export default function AccountsPage() {
     return () => controller.abort()
   }, [attempt])
 
-  const reload = () => setAttempt((n) => n + 1)
+  // 改了帳戶(新增、改名、封存)也通知側欄重新取
+  const reload = () => {
+    setAttempt((n) => n + 1)
+    notifyLedgerChanged()
+  }
   const selected = accounts?.find((a) => a.id === selectedId) ?? null
 
   return (

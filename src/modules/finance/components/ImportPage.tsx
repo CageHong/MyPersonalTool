@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { importErrorMessage, postForm } from '../lib/api'
+import { notifyLedgerChanged } from '../lib/ledger-events'
 import type { ImportResult, ImportSummary } from '../lib/import-summary'
 import DeletedImports from './DeletedImports'
 import ImportReport from './ImportReport'
@@ -62,6 +63,7 @@ export default function ImportPage() {
       setBusy(null)
       return
     }
+    notifyLedgerChanged()
     // 套用之後重新試跑一次,報告換成帳本現在的狀態(剛寫入的會變成「已經在帳本裡」)
     await runPlan(files)
   }

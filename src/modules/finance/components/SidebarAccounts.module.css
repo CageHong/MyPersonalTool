@@ -1,0 +1,130 @@
+/* 側欄的淨資產與帳戶清單 */
+.worth {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.worth dt {
+  color: var(--color-field-label);
+  font-size: var(--text-xs);
+}
+
+.worth dd {
+  margin: 0;
+}
+
+.worthAmount {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.warning {
+  color: var(--color-error-text);
+  font-size: var(--text-xs);
+}
+
+.retry {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.accounts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+/* 區塊標題(跟導覽的分組標題同一套字) */
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-field-label);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chevron {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.groups,
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.group,
+.account {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-nav-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.group {
+  font-weight: var(--weight-semibold);
+}
+
+/* 帳戶縮排在群組底下(對齊群組名稱,略過箭頭的寬度) */
+.account {
+  padding-left: var(--space-5);
+}
+
+.group:hover,
+.account:hover {
+  background: var(--color-nav-hover-bg);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zero {
+  color: var(--color-text-muted);
+}
+
+.heading:focus-visible,
+.group:focus-visible,
+.account:focus-visible,
+.retry:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}

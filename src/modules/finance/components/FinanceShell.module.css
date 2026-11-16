@@ -14,6 +14,21 @@
   padding: var(--space-3);
   border-right: 1px solid var(--color-divider);
   background: var(--color-column-aside);
+  /* 帳戶清單展開時可能比視窗高:側欄自己捲 */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+}
+
+/* 側欄捲動時各區塊維持原本的高度,不被壓扁 */
+.sidebar > * {
+  flex-shrink: 0;
+}
+
+.top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .title {
@@ -59,7 +74,6 @@
 
 /* 導覽的分組標題(「管理」) */
 .group {
-  margin-top: var(--space-3);
   padding: 0 var(--space-2);
   color: var(--color-field-label);
   font-size: var(--text-xs);

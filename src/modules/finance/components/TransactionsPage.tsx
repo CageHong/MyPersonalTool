@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getJson, loadErrorMessage } from '../lib/api'
+import { notifyLedgerChanged } from '../lib/ledger-events'
 import {
   EMPTY_FILTER,
   filterToSearchParams,
@@ -160,6 +161,7 @@ export default function TransactionsPage() {
     setList((prev) => (prev ? { ...prev, items: prev.items.map((item) => (item.id === row.id ? row : item)) } : prev))
     setLookupsAttempt((n) => n + 1)
     setRevision((n) => n + 1)
+    notifyLedgerChanged()
   }
 
   // 刪掉之後:從清單拿掉、關閉右欄
@@ -167,6 +169,7 @@ export default function TransactionsPage() {
     setList((prev) => (prev ? { ...prev, items: prev.items.filter((item) => item.id !== id) } : prev))
     setLookupsAttempt((n) => n + 1)
     setRevision((n) => n + 1)
+    notifyLedgerChanged()
     setEditing(null)
   }
 
@@ -206,6 +209,7 @@ export default function TransactionsPage() {
             setListAttempt((n) => n + 1)
             setLookupsAttempt((n) => n + 1)
             setRevision((n) => n + 1)
+            notifyLedgerChanged()
             setEditing(row.id)
           }}
         />
