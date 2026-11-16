@@ -9,6 +9,7 @@ import styles from './FinanceShell.module.css'
 // finance 各頁共用的版面:左側欄由上到下是欄頭(標題、淨資產、可動用資金)、主導覽、帳戶清單(可收合)、管理;
 // 右邊是頁面內容。導覽只列已經做好的頁面
 const NAV = [
+  { href: '/finance', label: '總覽' },
   { href: '/finance/transactions', label: '交易' },
   { href: '/finance/reports', label: '報表' },
   { href: '/finance/scheduled', label: '固定支出' },
@@ -29,7 +30,8 @@ export default function FinanceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const worth = useNetWorth()
   const link = (item: { href: string; label: string }) => {
-    const current = pathname === item.href || pathname.startsWith(`${item.href}/`)
+    // 總覽(/finance)只有自己那一頁算目前的頁面,不然所有 finance 頁都會被標成總覽
+    const current = pathname === item.href || (item.href !== '/finance' && pathname.startsWith(`${item.href}/`))
     return (
       <Link
         key={item.href}

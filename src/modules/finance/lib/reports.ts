@@ -1,4 +1,5 @@
 // 報表:API 回傳的形狀,前後端共用。金額都是顯示幣別的最小貨幣單位(整數)
+import type { NetWorth } from './net-worth'
 
 export type SummaryCategory = {
   id: number
@@ -103,4 +104,24 @@ export type TripReport = {
   // 依開始日期由新到舊
   trips: TripReportItem[]
   missingRate: number
+}
+
+// 總覽頁(預設頁):其他報表的縮小版,一次取回
+export type Overview = {
+  currency: string
+  exponents: Record<string, number>
+  // 用來切「本月」的日期(瀏覽器的今天)
+  today: string
+  thisMonth: { from: string; to: string; summary: TransactionSummary }
+  lastMonth: { from: string; to: string; summary: TransactionSummary }
+  netWorth: NetWorth
+  // 含本月的過去 12 個月
+  recent: MonthlyReport
+  // 本月的固定支出:每月一次的項目全列(已扣 / 未扣),其他頻率的只列本月有扣的
+  scheduled: ScheduledReportItem[]
+  // 進行中的旅行(今天在日期範圍內);沒有就是最近開始的一趟;都沒有是 null
+  trip: (TripReportItem & { ongoing: boolean }) | null
+  uncategorized: number
+  // 帳本最後一筆交易的日期(UTC);沒有交易是 null
+  lastTransactionDate: string | null
 }

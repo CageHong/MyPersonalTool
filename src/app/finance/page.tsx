@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation'
+import OverviewPage from '@/modules/finance/components/OverviewPage'
 
-// /finance 的預設頁是交易清單
+// /finance 的預設頁是總覽
 export default function FinanceHome() {
-  redirect('/finance/transactions')
+  return <OverviewPage />
 }
