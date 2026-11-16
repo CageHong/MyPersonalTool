@@ -64,6 +64,7 @@ type HeaderRow = {
   updatedAt: string
   payeeId: number | null
   payeeName: string | null
+  scheduledId: number | null
   kind: TransactionKind
 }
 
@@ -101,6 +102,16 @@ function kindSql(system: SystemAccounts): SQL {
       ELSE 'transfer' END`
 }
 
+// 分類篩選涵蓋的分類帳戶:選的分類本身 + 它的子分類(分類只有兩層)。沒有分類篩選時回傳 null。
+// 清單用它判斷「有分錄記在這些分類」,報表用它決定只加總這些分類的分錄
+export function categoryFilterAccountIds(db: FinanceDb, filter: TransactionFilter): number[] | null {
+  if (!filter.categoryId) return null
+  const rows = db.all<{ id: number }>(
+    sql`SELECT id FROM finance_accounts WHERE id = ${filter.categoryId} OR parent_id = ${filter.categoryId}`,
+  )
+  return rows.map((r) => r.id)
+}
+
 export function listTransactions(
   db: FinanceDb,
   filter: TransactionFilter,
@@ -121,10 +132,12 @@ export function listTransactions(
   if (filter.from) conditions.push(sql`substr(t.occurred_at, 1, 10) >= ${filter.from}`)
   if (filter.to) conditions.push(sql`substr(t.occurred_at, 1, 10) <= ${filter.to}`)
   if (filter.accountId) conditions.push(posting(sql`fp.account_id = ${filter.accountId}`))
-  if (filter.categoryId) {
+  const categoryIds = categoryFilterAccountIds(db, filter)
+  if (categoryIds) {
     conditions.push(
-      posting(sql`fp.account_id IN (SELECT id FROM finance_accounts
-                                    WHERE id = ${filter.categoryId} OR parent_id = ${filter.categoryId})`),
+      categoryIds.length
+        ? posting(sql`fp.account_id IN (${sql.join(categoryIds.map((id) => sql`${id}`), sql`, `)})`)
+        : sql`0`,
     )
   }
   if (filter.tagId) {
@@ -176,7 +189,8 @@ export function listTransactions(
 function headerSelect(kindExpr: SQL): SQL {
   return sql`
     SELECT t.id, t.occurred_at AS occurredAt, t.note, t.source, t.category_source AS categorySource,
-           t.updated_at AS updatedAt, t.payee_id AS payeeId, py.name AS payeeName, ${kindExpr} AS kind
+           t.updated_at AS updatedAt, t.payee_id AS payeeId, py.name AS payeeName,
+           t.scheduled_id AS scheduledId, ${kindExpr} AS kind
     FROM finance_transactions t
     LEFT JOIN finance_payees py ON py.id = t.payee_id`
 }
@@ -247,6 +261,7 @@ function buildRows(db: FinanceDb, headers: HeaderRow[]): TransactionRow[] {
       note: header.note,
       source: header.source,
       categorySource: header.categorySource,
+      scheduledId: header.scheduledId,
       updatedAt: header.updatedAt,
       categories,
       legs: legs.filter((l) => l.amount !== 0),

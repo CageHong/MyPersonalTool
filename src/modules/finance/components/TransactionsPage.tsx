@@ -13,6 +13,7 @@ import type { FinanceLookups, TransactionFilter, TransactionPage, TransactionRow
 import NewTransactionDialog from './NewTransactionDialog'
 import TransactionEditor from './TransactionEditor'
 import TransactionFilters from './TransactionFilters'
+import TransactionSummary from './TransactionSummary'
 import TransactionTable from './TransactionTable'
 import styles from './TransactionsPage.module.css'
 
@@ -64,6 +65,8 @@ export default function TransactionsPage() {
   const [lookupsAttempt, setLookupsAttempt] = useState(0)
   const [listAttempt, setListAttempt] = useState(0)
   const [adding, setAdding] = useState(false)
+  // 帳本改了(新增、編輯、刪除)就加一,期間摘要重新取
+  const [revision, setRevision] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -156,12 +159,14 @@ export default function TransactionsPage() {
   function replaceRow(row: TransactionRow) {
     setList((prev) => (prev ? { ...prev, items: prev.items.map((item) => (item.id === row.id ? row : item)) } : prev))
     setLookupsAttempt((n) => n + 1)
+    setRevision((n) => n + 1)
   }
 
   // 刪掉之後:從清單拿掉、關閉右欄
   function removeRow(id: number) {
     setList((prev) => (prev ? { ...prev, items: prev.items.filter((item) => item.id !== id) } : prev))
     setLookupsAttempt((n) => n + 1)
+    setRevision((n) => n + 1)
     setEditing(null)
   }
 
@@ -200,6 +205,7 @@ export default function TransactionsPage() {
             // 新的那一筆不一定在目前這一頁的範圍裡:重新取第一頁,並打開右欄
             setListAttempt((n) => n + 1)
             setLookupsAttempt((n) => n + 1)
+            setRevision((n) => n + 1)
             setEditing(row.id)
           }}
         />
@@ -217,6 +223,7 @@ export default function TransactionsPage() {
 
       <div className={styles.body}>
         <div className={styles.listColumn}>
+          {lookups && <TransactionSummary query={query} revision={revision} exponents={lookups.exponents} />}
           {/* 換篩選條件時,新資料到之前先留著舊的列(淡化),表格不會整個閃掉 */}
           {list && lookups && (
             <div className={current ? undefined : styles.stale} aria-busy={!current}>

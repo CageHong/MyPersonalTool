@@ -66,6 +66,7 @@ API 是 `GET /api/finance/transactions`,畫面是 `/finance/transactions`。篩�
   支出與收入(`mixed`)是兩邊相抵後的淨額。轉帳、換匯、期初餘額是 `null`,帶手續費的也一樣(手續費看分錄);
   缺匯率時也是 `null`。
 - **分錄(`postings`)**:全部分錄,依 `sort_order`。
+- **`scheduledId`**:配對到的週期項目;報表把這種交易的支出算成固定支出。
 - **`updatedAt`**:最後修改的時間;編輯時原樣帶回去,用來判斷資料是不是舊的。
 
 ## 編輯(單筆)

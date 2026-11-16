@@ -1,0 +1,124 @@
+/* 期間摘要:清單上方一列合計,分類明細展開在下面 */
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-row-border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+
+.stale {
+  opacity: 0.5;
+}
+
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+}
+
+.totals dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.totals dd {
+  margin: 0;
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.totals .amount {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.breakdown {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 筆數、缺匯率、展開按鈕靠右 */
+.side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.error,
+.warning {
+  color: var(--color-error-text);
+}
+
+.button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+
+.table {
+  border-collapse: collapse;
+}
+
+.caption {
+  padding-bottom: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-align: left;
+}
+
+.table th,
+.table td {
+  padding: 0 var(--space-3) var(--space-1) 0;
+  font-weight: inherit;
+  text-align: left;
+}
+
+.table td.amount {
+  text-align: right;
+}
+
+.share {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.child th {
+  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.child .amount {
+  color: var(--color-text-muted);
+}

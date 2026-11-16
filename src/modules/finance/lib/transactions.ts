@@ -161,6 +161,8 @@ export type TransactionRow = {
   note: string | null
   source: string
   categorySource: string | null
+  // 配對到的週期項目(報表把它算成固定支出);沒有是 null
+  scheduledId: number | null
   // 編輯時帶回去,用來判斷資料是不是舊的
   updatedAt: string
   // 分類側(支出、收入)的帳戶,依分錄順序、不重複;子分類帶上層名稱
