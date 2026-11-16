@@ -24,6 +24,10 @@
   vertical-align: top;
 }
 
+.row {
+  cursor: pointer;
+}
+
 .row:hover {
   background: var(--color-row-hover-bg);
 }
@@ -74,7 +78,6 @@
   flex-direction: column;
 }
 
-.note,
 .muted {
   color: var(--color-text-muted);
 }
@@ -107,6 +110,13 @@
 
 .postings {
   border-collapse: collapse;
+}
+
+/* 備註佔滿詳細區的一整行,在分錄表上面;保留換行 */
+.noteBlock {
+  flex-basis: 100%;
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 .postings th,

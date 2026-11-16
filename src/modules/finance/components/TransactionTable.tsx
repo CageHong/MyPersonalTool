@@ -7,7 +7,7 @@ import { KIND_LABELS } from '../lib/transactions'
 import type { AccountType, FinanceLookups, TransactionRow } from '../lib/transactions'
 import styles from './TransactionTable.module.css'
 
-// 交易清單的表格:一筆交易一列,點日期展開看全部分錄。只顯示,不改資料
+// 交易清單的表格:一筆交易一列,點那一列任何地方展開看備註與全部分錄(鍵盤用日期按鈕)。只顯示,不改資料
 
 const SOURCE_LABELS: Record<string, string> = {
   wise_csv: 'Wise CSV',
@@ -73,21 +73,32 @@ export default function TransactionTable({ rows, lookups, expandedId, editingId,
               .join(' ')
             return (
               <Fragment key={row.id}>
-                <tr className={rowClass} aria-current={editingId === row.id ? 'true' : undefined}>
+                <tr
+                  className={rowClass}
+                  aria-current={editingId === row.id ? 'true' : undefined}
+                  onClick={() => {
+                    // 拖曳選取文字(例如複製對象名稱)時不展開
+                    if (window.getSelection()?.toString()) return
+                    onToggle(row.id)
+                  }}
+                >
                   <td className={styles.date}>
+                    {/* 給鍵盤與螢幕報讀器用的展開按鈕;滑鼠點整列由上面的 onClick 處理,這裡不再往上傳 */}
                     <button
                       type="button"
                       className={styles.toggle}
                       aria-expanded={expanded}
                       aria-controls={`tx-${row.id}`}
-                      onClick={() => onToggle(row.id)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onToggle(row.id)
+                      }}
                     >
                       {formatLocalDate(row.occurredAt)}
                     </button>
                   </td>
                   <td className={styles.payee}>
                     <span>{row.payee?.name ?? '—'}</span>
-                    {row.note && <span className={styles.note}>{row.note}</span>}
                   </td>
                   <td>
                     <span>{categoryText(row)}</span>
@@ -136,6 +147,11 @@ type DetailProps = { row: TransactionRow; exponents: Record<string, number>; onE
 function TransactionDetail({ row, exponents, onEdit }: DetailProps) {
   return (
     <div className={styles.detail}>
+      {row.note && (
+        <p className={styles.noteBlock}>
+          <span className={styles.muted}>備註</span> {row.note}
+        </p>
+      )}
       <button type="button" className={styles.edit} onClick={onEdit}>
         編輯
       </button>
