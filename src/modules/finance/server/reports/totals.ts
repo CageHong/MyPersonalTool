@@ -1,4 +1,4 @@
-// 報表共用的加總:符合條件的交易 → 每一格(月份、分類、是否固定)的金額。
+// 報表共用的加總:符合條件的交易 → 每一格(月份、分類、週期項目)的金額;有週期項目的支出 = 固定。
 // 交易一律經過 ledger 的 listTransactions;每條分類分錄用交易當天的匯率換成顯示幣別,
 // 同一格先加總再取整數,報表上其他數字(各分類、各月、合計)都是這些整數相加,彼此對得上
 import type { FinanceDb } from '../../db/index'
@@ -13,7 +13,10 @@ export type Cell = {
   month: string
   categoryId: number
   type: 'expense' | 'income'
+  // 支出且交易配對到週期項目 = 固定
   fixed: boolean
+  // 配對到的週期項目(只記支出;收入一律 null)
+  scheduledId: number | null
   // 顯示幣別的最小貨幣單位;支出為正、收入為正。collectTotals 回傳時已取整數
   amount: number
 }
@@ -24,6 +27,8 @@ export type Totals = {
   cells: Cell[]
   // 每個月算進去的交易筆數
   transactionsByMonth: Map<string, number>
+  // 每個週期項目:算進去的交易筆數、期間內最近一筆的時間
+  bySchedule: Map<number, { count: number; lastAt: string }>
   // 缺匯率、整筆沒有算進去的交易筆數
   missingRate: number
 }
@@ -38,6 +43,7 @@ export function collectTotals(db: FinanceDb, filter: TransactionFilter): Totals 
 
   const raw = new Map<string, Cell>()
   const transactionsByMonth = new Map<string, number>()
+  const bySchedule = new Map<number, { count: number; lastAt: string }>()
   let missingRate = 0
 
   let cursor: string | undefined
@@ -61,6 +67,7 @@ export function collectTotals(db: FinanceDb, filter: TransactionFilter): Totals 
             type: p.accountType,
             // 固定與否只分支出;收入一律不算固定
             fixed: p.accountType === 'expense' && fixed,
+            scheduledId: p.accountType === 'expense' ? row.scheduledId : null,
             amount: sign * convert(db, p.amount, source, target, date),
           })
         }
@@ -72,8 +79,16 @@ export function collectTotals(db: FinanceDb, filter: TransactionFilter): Totals 
       }
       if (!parts.length) continue
       transactionsByMonth.set(month, (transactionsByMonth.get(month) ?? 0) + 1)
+      if (row.scheduledId !== null) {
+        const seen = bySchedule.get(row.scheduledId)
+        if (!seen) bySchedule.set(row.scheduledId, { count: 1, lastAt: row.occurredAt })
+        else {
+          seen.count += 1
+          if (row.occurredAt > seen.lastAt) seen.lastAt = row.occurredAt
+        }
+      }
       for (const part of parts) {
-        const key = `${part.month}|${part.categoryId}|${part.fixed ? 1 : 0}`
+        const key = `${part.month}|${part.categoryId}|${part.scheduledId ?? ''}`
         const cell = raw.get(key)
         if (cell) cell.amount += part.amount
         else raw.set(key, { ...part })
@@ -83,7 +98,7 @@ export function collectTotals(db: FinanceDb, filter: TransactionFilter): Totals 
   } while (cursor)
 
   const cells = [...raw.values()].map((cell) => ({ ...cell, amount: Math.round(cell.amount) }))
-  return { currency: display, accounts, cells, transactionsByMonth, missingRate }
+  return { currency: display, accounts, cells, transactionsByMonth, bySchedule, missingRate }
 }
 
 export type Amounts = { expense: { total: number; fixed: number; variable: number }; income: number; net: number }

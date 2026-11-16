@@ -2,7 +2,7 @@
 //
 // 配對條件:收款人相同 + 幣別相同 + 金額在 [amountMin, amountMax] + 日期在 [startsOn, endsOn](有設定時)
 // + 項目是啟用的。日期用交易時間的 UTC 日期。同時符合兩個以上的項目時不配對,交給呼叫的人回報。
-import { eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import type { FinanceConn } from '../../db/index'
 import { financeScheduledTransactions } from '../../db/schema'
 
@@ -69,4 +69,48 @@ export function matchScheduled(
   if (hits.length === 0) return { status: 'none' }
   if (hits.length === 1) return { status: 'matched', item: hits[0] }
   return { status: 'ambiguous', itemIds: hits.map((item) => item.id) }
+}
+
+// 全部週期項目的名稱(含停用的),依名稱;篩選選單用
+export function listScheduledNames(db: FinanceConn): { id: number; name: string; isActive: boolean }[] {
+  return db
+    .select({
+      id: financeScheduledTransactions.id,
+      name: financeScheduledTransactions.name,
+      isActive: financeScheduledTransactions.isActive,
+    })
+    .from(financeScheduledTransactions)
+    .orderBy(asc(financeScheduledTransactions.name))
+    .all()
+}
+
+export type ScheduledDetail = {
+  id: number
+  name: string
+  categoryId: number
+  categoryName: string
+  // 分類是子分類時的上層名稱
+  categoryParent: string | null
+  payeeName: string
+  amountMin: number
+  amountMax: number
+  currency: string
+  frequency: 'weekly' | 'monthly' | 'yearly'
+  interval: number
+  isActive: boolean
+}
+
+// 全部週期項目(含停用的)與分類、收款人的名稱;固定支出報表用
+export function listScheduledDetails(db: FinanceConn): ScheduledDetail[] {
+  return db
+    .all<Omit<ScheduledDetail, 'isActive'> & { isActive: number }>(sql`
+      SELECT s.id, s.name, s.account_id AS categoryId, a.name AS categoryName, parent.name AS categoryParent,
+             py.name AS payeeName, s.amount_min AS amountMin, s.amount_max AS amountMax, s.currency,
+             s.frequency, s.interval, s.is_active AS isActive
+      FROM finance_scheduled_transactions s
+      JOIN finance_accounts a ON a.id = s.account_id
+      LEFT JOIN finance_accounts parent ON parent.id = a.parent_id
+      JOIN finance_payees py ON py.id = s.payee_id
+      ORDER BY s.name`)
+    .map((row) => ({ ...row, isActive: Boolean(row.isActive) }))
 }

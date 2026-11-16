@@ -12,6 +12,7 @@ const lookups: FinanceLookups = {
   accounts: [acc(1, 'asset', 'EUR'), acc(2, 'asset', 'EUR'), acc(3, 'asset', 'USD'), acc(10, 'expense', null), acc(20, 'income', null)],
   tags: [],
   payees: [],
+  scheduled: [],
   system: { uncategorizedExpense: 10, uncategorizedIncome: 20, fee: 11, exchange: 30 },
 }
 const sum = (postings: { amount: number; currency: string }[], currency: string) =>

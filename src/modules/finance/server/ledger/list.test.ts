@@ -140,6 +140,18 @@ test('分類:選上層包含子分類,選子分類只有它自己', () => {
   assert.deepEqual(ids(db, { categoryId: 12 }), [3])
 })
 
+test('週期項目:配對到那個項目的交易;每一列帶 scheduledId', () => {
+  const db = freshDb()
+  db.run(sql`INSERT INTO finance_scheduled_transactions
+             (id, name, account_id, payee_id, amount_min, amount_max, currency, frequency, created_at)
+             VALUES (1, 'Rail pass', 12, 2, 1000, 1500, 'EUR', 'monthly', 'x')`)
+  db.run(sql`UPDATE finance_transactions SET scheduled_id = 1 WHERE id = 3`)
+  assert.deepEqual(ids(db, { scheduledId: 1 }), [3])
+  const rows = listTransactions(db, { order: 'desc' }).items
+  assert.equal(rows.find((r) => r.id === 3)?.scheduledId, 1)
+  assert.equal(rows.find((r) => r.id === 2)?.scheduledId, null)
+})
+
 test('標籤、收款人、類型、未分類', () => {
   const db = freshDb()
   assert.deepEqual(ids(db, { tagId: 1 }), [3])

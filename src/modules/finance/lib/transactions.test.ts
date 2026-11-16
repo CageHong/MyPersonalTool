@@ -11,7 +11,7 @@ test('沒有參數 = 空的篩選、由新到舊', () => {
 
 test('每個參數都解析成對應的欄位;空字串當作沒給;不認識的參數不理會', () => {
   assert.deepEqual(
-    parse('from=2026-01-01&to=2026-01-31&account=3&category=10&tag=2&payee=7&kind=expense&uncategorized=1&q=%20cafe%20&order=asc&cursor=x&limit=5&note='),
+    parse('from=2026-01-01&to=2026-01-31&account=3&category=10&tag=2&payee=7&scheduled=4&kind=expense&uncategorized=1&q=%20cafe%20&order=asc&cursor=x&limit=5&note='),
     {
       ok: true,
       filter: {
@@ -21,6 +21,7 @@ test('每個參數都解析成對應的欄位;空字串當作沒給;不認識的
         categoryId: 10,
         tagId: 2,
         payeeId: 7,
+        scheduledId: 4,
         kind: 'expense',
         uncategorized: true,
         q: 'cafe',
@@ -40,7 +41,7 @@ test('不合法的值逐欄列出', () => {
 })
 
 test('寫成網址參數再解析回來不變;預設值不寫出來', () => {
-  const filter: TransactionFilter = { from: '2026-01-01', categoryId: 4, kind: 'transfer', uncategorized: true, q: 'a b', order: 'asc' }
+  const filter: TransactionFilter = { from: '2026-01-01', categoryId: 4, scheduledId: 2, kind: 'transfer', uncategorized: true, q: 'a b', order: 'asc' }
   assert.deepEqual(parseTransactionFilter(filterToSearchParams(filter)), { ok: true, filter })
   assert.equal(filterToSearchParams(EMPTY_FILTER).toString(), '')
 })

@@ -7,6 +7,7 @@ import { getJson, loadErrorMessage } from '../lib/api'
 import { onLedgerChanged } from '../lib/ledger-events'
 import { formatMoney } from '../lib/money'
 import type { NetWorth, SidebarGroup } from '../lib/net-worth'
+import { transactionsHref } from '../lib/transactions'
 import styles from './SidebarAccounts.module.css'
 
 // 側欄的淨資產、可動用資金與帳戶清單(唯讀)。換頁或帳本改了(ledger-events)就重新取。
@@ -149,7 +150,7 @@ export function SidebarAccounts({ data, error, onRetry }: ListProps) {
                     {group.accounts.map((account) => (
                       <li key={account.id}>
                         <Link
-                          href={`/finance/transactions?account=${account.id}`}
+                          href={transactionsHref({ accountId: account.id })}
                           className={account.balance === 0 ? `${styles.account} ${styles.zero}` : styles.account}
                         >
                           <span className={styles.name}>

@@ -11,6 +11,8 @@ import styles from './FinanceShell.module.css'
 const NAV = [
   { href: '/finance/transactions', label: '交易' },
   { href: '/finance/reports', label: '報表' },
+  { href: '/finance/scheduled', label: '固定支出' },
+  { href: '/finance/trips', label: '旅行' },
   { href: '/finance/import', label: '匯入' },
 ] as const
 

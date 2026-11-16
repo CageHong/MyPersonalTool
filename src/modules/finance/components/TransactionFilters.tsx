@@ -187,6 +187,21 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
 
       <select
         className={styles.field}
+        aria-label="週期項目"
+        value={filter.scheduledId ?? ''}
+        onChange={(event) => set({ scheduledId: idOf(event.target.value) })}
+      >
+        <option value="">所有週期項目</option>
+        {lookups?.scheduled.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+            {item.isActive ? '' : '(已停用)'}
+          </option>
+        ))}
+      </select>
+
+      <select
+        className={styles.field}
         aria-label="類型"
         value={filter.kind ?? ''}
         onChange={(event) => set({ kind: (event.target.value || undefined) as TransactionKind | undefined })}

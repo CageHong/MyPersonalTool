@@ -146,6 +146,7 @@ export function listTransactions(
     )
   }
   if (filter.payeeId) conditions.push(sql`t.payee_id = ${filter.payeeId}`)
+  if (filter.scheduledId) conditions.push(sql`t.scheduled_id = ${filter.scheduledId}`)
   if (filter.uncategorized) {
     conditions.push(
       posting(sql`fp.account_id IN (${system.uncategorizedExpense}, ${system.uncategorizedIncome})`),

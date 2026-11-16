@@ -47,3 +47,60 @@ export type MonthlyReport = {
   incomeCategories: SummaryCategory[]
   missingRate: number
 }
+
+// 固定支出報表的一列(一個週期項目)
+export type ScheduledReportItem = {
+  id: number
+  name: string
+  category: { id: number; name: string; parentName: string | null }
+  payee: string
+  // 預期金額的範圍(原幣,最小貨幣單位)
+  amountMin: number
+  amountMax: number
+  currency: string
+  frequency: 'weekly' | 'monthly' | 'yearly'
+  interval: number
+  isActive: boolean
+  // 期間內配對到的交易
+  count: number
+  // 顯示幣別
+  total: number
+  // total ÷ 期間的月數
+  perMonth: number
+  // 期間內最近一筆(UTC 的 ISO 8601);沒有是 null
+  lastAt: string | null
+}
+
+export type ScheduledReport = {
+  currency: string
+  exponents: Record<string, number>
+  from: string | null
+  to: string | null
+  months: number
+  // 啟用中的在前,各自依合計由大到小;停用、期間內又沒有交易的不列
+  items: ScheduledReportItem[]
+  total: number
+  perMonth: number
+  missingRate: number
+}
+
+// 旅行報表的一趟(有日期範圍的標籤)
+export type TripReportItem = {
+  tagId: number
+  name: string
+  startsOn: string | null
+  endsOn: string | null
+  transactionCount: number
+  // 顯示幣別;支出為正
+  expense: number
+  income: number
+  expenseCategories: SummaryCategory[]
+}
+
+export type TripReport = {
+  currency: string
+  exponents: Record<string, number>
+  // 依開始日期由新到舊
+  trips: TripReportItem[]
+  missingRate: number
+}

@@ -23,6 +23,7 @@ const lookups: FinanceLookups = {
   ],
   tags: [],
   payees: [],
+  scheduled: [],
   system: { uncategorizedExpense: 99, uncategorizedIncome: 98, fee: 12, exchange: 97 },
 }
 

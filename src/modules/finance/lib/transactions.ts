@@ -28,6 +28,8 @@ export type TransactionFilter = {
   categoryId?: number
   tagId?: number
   payeeId?: number
+  // 配對到這個週期項目的交易
+  scheduledId?: number
   kind?: TransactionKind
   // 有分錄記在「未分類」或「未分類收入」
   uncategorized?: boolean
@@ -48,6 +50,7 @@ const P = {
   categoryId: 'category',
   tagId: 'tag',
   payeeId: 'payee',
+  scheduledId: 'scheduled',
   kind: 'kind',
   uncategorized: 'uncategorized',
   q: 'q',
@@ -82,7 +85,7 @@ export function parseTransactionFilter(params: URLSearchParams): FilterParseResu
   }
   if (filter.from && filter.to && filter.from > filter.to) fields[P.to] = 'before_from'
 
-  for (const key of ['accountId', 'categoryId', 'tagId', 'payeeId'] as const) {
+  for (const key of ['accountId', 'categoryId', 'tagId', 'payeeId', 'scheduledId'] as const) {
     const value = get(P[key])
     if (value === undefined) continue
     if (/^[1-9]\d*$/.test(value)) filter[key] = Number(value)
@@ -125,11 +128,18 @@ export function filterToSearchParams(filter: TransactionFilter): URLSearchParams
   if (filter.categoryId) params.set(P.categoryId, String(filter.categoryId))
   if (filter.tagId) params.set(P.tagId, String(filter.tagId))
   if (filter.payeeId) params.set(P.payeeId, String(filter.payeeId))
+  if (filter.scheduledId) params.set(P.scheduledId, String(filter.scheduledId))
   if (filter.kind) params.set(P.kind, filter.kind)
   if (filter.uncategorized) params.set(P.uncategorized, '1')
   if (filter.q) params.set(P.q, filter.q)
   if (filter.order !== 'desc') params.set(P.order, filter.order)
   return params
+}
+
+// 交易清單的網址(報表、側欄點下去用)
+export function transactionsHref(filter: Omit<TransactionFilter, 'order'>): string {
+  const query = filterToSearchParams({ order: 'desc', ...filter }).toString()
+  return query ? `/finance/transactions?${query}` : '/finance/transactions'
 }
 
 export function isFilterEmpty(filter: TransactionFilter): boolean {
@@ -197,6 +207,8 @@ export type FinanceLookups = {
   }[]
   tags: { id: number; name: string; startsOn: string | null; endsOn: string | null }[]
   payees: { id: number; name: string; transactionCount: number }[]
+  // 週期項目(篩選選單用),依名稱
+  scheduled: { id: number; name: string; isActive: boolean }[]
   // 系統帳戶的 id(編輯面板用:手續費不能換、未分類要列在選單裡)
   system: { uncategorizedExpense: number; uncategorizedIncome: number; fee: number; exchange: number }
 }

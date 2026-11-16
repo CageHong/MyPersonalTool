@@ -15,6 +15,7 @@ API 是 `GET /api/finance/transactions`,畫面是 `/finance/transactions`。篩�
 | `category` | 有任何分錄記在這個分類;上層分類包含它的子分類 |
 | `tag` | 交易掛了這個標籤 |
 | `payee` | 交易的對象 |
+| `scheduled` | 配對到這個週期項目(`scheduled_id`)|
 | `kind` | 交易類型(見下) |
 | `uncategorized=1` | 有分錄記在「未分類」或「未分類收入」 |
 | `q` | 收款人名稱、收款人別名、備註、分錄備註部分相符;不分大小寫只對英文字母;`%`、`_` 是一般字元;最長 100 字 |
