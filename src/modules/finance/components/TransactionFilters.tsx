@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { RANGE_PRESETS, localToday, matchPreset, presetRange } from '../lib/date'
+import { RANGE_PRESETS, localToday, matchPreset, presetRange, rangeLabel, shiftRange } from '../lib/date'
 import type { RangePreset } from '../lib/date'
 import { KIND_LABELS, SEARCH_MAX_LENGTH, TRANSACTION_KINDS } from '../lib/transactions'
 import type { FinanceLookups, TransactionFilter, TransactionKind } from '../lib/transactions'
@@ -65,6 +65,9 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
     if (value === 'all') set({ from: undefined, to: undefined })
     else if (value !== 'custom') set(presetRange(value as RangePreset, today))
   }
+  // ◀ ▶:完整的月或年才能切換,其他期間是 null(按鈕停用)
+  const previous = shiftRange(filter.from, filter.to, -1)
+  const next = shiftRange(filter.from, filter.to, 1)
 
   const accounts = lookups?.accounts.filter((a) => a.type === 'asset' || a.type === 'liability') ?? []
   const categoryGroups = (['expense', 'income'] as const).map((type) => {
@@ -94,6 +97,16 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
       />
 
       <div className={styles.range}>
+        <button
+          type="button"
+          className={styles.step}
+          aria-label="上一期"
+          title="上一期"
+          disabled={!previous}
+          onClick={() => previous && set(previous)}
+        >
+          ◀
+        </button>
         <select
           className={styles.field}
           aria-label="期間"
@@ -106,8 +119,18 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
               {label}
             </option>
           ))}
-          {preset === 'custom' && <option value="custom">自訂</option>}
+          {preset === 'custom' && <option value="custom">{rangeLabel(filter.from, filter.to) ?? '自訂'}</option>}
         </select>
+        <button
+          type="button"
+          className={styles.step}
+          aria-label="下一期"
+          title="下一期"
+          disabled={!next}
+          onClick={() => next && set(next)}
+        >
+          ▶
+        </button>
         <DateField label="開始日期" value={filter.from} max={filter.to} onChange={(from) => set({ from })} />
         <span className={styles.muted}>–</span>
         <DateField label="結束日期" value={filter.to} min={filter.from} onChange={(to) => set({ to })} />

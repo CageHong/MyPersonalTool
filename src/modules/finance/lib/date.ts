@@ -56,6 +56,41 @@ export function matchPreset(from: string | undefined, to: string | undefined, to
   return hit ? hit.key : 'custom'
 }
 
+// ── 期間的前後切換(◀ ▶)──────────────────────────────────────
+// 目前的期間剛好是一個完整的月(1 號到月底)或完整的年(1/1 到 12/31)才能切換,一次移一期;
+// 自訂長度與全部期間不能切換(回傳 null,按鈕停用)。不管是哪個快捷選出來的都一樣
+
+export type RangeStep = 'month' | 'year'
+
+export function rangeStep(from: string | undefined, to: string | undefined): RangeStep | null {
+  if (!from || !to) return null
+  const start = partsOf(from)
+  if (start.day !== 1) return null
+  if (start.monthIndex === 0 && to === isoOf(start.year, 11, 31)) return 'year'
+  if (to === isoOf(start.year, start.monthIndex + 1, 0)) return 'month'
+  return null
+}
+
+export function shiftRange(
+  from: string | undefined,
+  to: string | undefined,
+  direction: -1 | 1,
+): { from: string; to: string } | null {
+  const step = rangeStep(from, to)
+  if (!step || !from) return null
+  const { year, monthIndex } = partsOf(from)
+  if (step === 'year') return { from: isoOf(year + direction, 0, 1), to: isoOf(year + direction, 11, 31) }
+  return { from: isoOf(year, monthIndex + direction, 1), to: isoOf(year, monthIndex + direction + 1, 0) }
+}
+
+// 完整的月或年的名稱(期間選單在對不上快捷時顯示它,不顯示「自訂」);其他期間回傳 null
+export function rangeLabel(from: string | undefined, to: string | undefined): string | null {
+  const step = rangeStep(from, to)
+  if (!step || !from) return null
+  const { year, monthIndex } = partsOf(from)
+  return step === 'year' ? `${year} 年` : `${year} 年 ${monthIndex + 1} 月`
+}
+
 // ── 編輯時的日期時間欄位(<input type="datetime-local" step="1">)───────
 // 欄位的值是瀏覽器所在時區的 YYYY-MM-DDTHH:MM:SS;存的是 UTC
 
