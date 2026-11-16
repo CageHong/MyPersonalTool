@@ -10,6 +10,7 @@ import styles from './FinanceShell.module.css'
 // 右邊是頁面內容。導覽只列已經做好的頁面
 const NAV = [
   { href: '/finance/transactions', label: '交易' },
+  { href: '/finance/reports', label: '報表' },
   { href: '/finance/import', label: '匯入' },
 ] as const
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { matchPreset, presetRange, rangeLabel, rangeStep, shiftRange } from './date'
+import { matchPreset, monthRange, presetRange, rangeLabel, rangeStep, reportRange, shiftRange } from './date'
 
 test('期間快捷:本月、上月、今年給完整期間;過去 30 天含今天', () => {
   assert.deepEqual(presetRange('thisMonth', '2026-11-15'), { from: '2026-11-01', to: '2026-11-30' })
@@ -44,4 +44,17 @@ test('期間名稱:完整的月與年', () => {
   assert.equal(rangeLabel('2026-09-01', '2026-09-30'), '2026 年 9 月')
   assert.equal(rangeLabel('2025-01-01', '2025-12-31'), '2025 年')
   assert.equal(rangeLabel('2026-09-01', '2026-09-29'), null)
+})
+
+test('報表期間:過去 12 個月含本月、今年、去年、全部', () => {
+  assert.deepEqual(reportRange('last12', '2026-11-16'), { from: '2025-12-01', to: '2026-11-30' })
+  assert.deepEqual(reportRange('last12', '2026-01-05'), { from: '2025-02-01', to: '2026-01-31' })
+  assert.deepEqual(reportRange('thisYear', '2026-11-16'), { from: '2026-01-01', to: '2026-12-31' })
+  assert.deepEqual(reportRange('lastYear', '2026-11-16'), { from: '2025-01-01', to: '2025-12-31' })
+  assert.deepEqual(reportRange('all', '2026-11-16'), {})
+})
+
+test('月份 → 日期範圍', () => {
+  assert.deepEqual(monthRange('2028-02'), { from: '2028-02-01', to: '2028-02-29' })
+  assert.deepEqual(monthRange('2026-12'), { from: '2026-12-01', to: '2026-12-31' })
 })

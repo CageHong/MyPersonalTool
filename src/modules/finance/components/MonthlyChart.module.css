@@ -1,0 +1,85 @@
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.info {
+  min-height: 1lh;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 月份多到比畫面寬時橫向捲動 */
+.scroll {
+  overflow-x: auto;
+}
+
+.grid {
+  stroke: var(--color-chart-grid);
+  stroke-width: 1;
+}
+
+.axis {
+  fill: var(--color-chart-label);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.hit {
+  fill: transparent;
+}
+
+.slot {
+  cursor: pointer;
+  outline: none;
+}
+
+.active .hit {
+  fill: var(--color-row-hover-bg);
+}
+
+.slot:focus-visible .hit {
+  stroke: var(--color-focus-ring);
+  stroke-width: var(--focus-ring-width);
+}
+
+.fixed {
+  fill: var(--color-chart-fixed);
+}
+
+.variable {
+  fill: var(--color-chart-variable);
+}
+
+.break {
+  stroke: var(--color-chart-break);
+  stroke-width: 2;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.swatchFixed,
+.swatchVariable {
+  display: inline-block;
+  width: var(--space-3);
+  height: var(--space-2);
+  margin-left: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.swatchFixed {
+  margin-left: 0;
+  background: var(--color-chart-fixed);
+}
+
+.swatchVariable {
+  background: var(--color-chart-variable);
+}

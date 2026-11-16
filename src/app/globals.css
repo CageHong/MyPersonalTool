@@ -216,6 +216,15 @@
   --color-nav-selected-bg: var(--palette-cream);
   --color-nav-selected-border: var(--palette-rust);
 
+  /* ---- 圖表(finance 的報表) ----
+     固定支出用深色、變動用淺色:疊在一起時固定在下面、比較穩;正式的分類色在 finance 配色時再定 */
+  --color-chart-fixed: var(--palette-stone-deep);
+  --color-chart-variable: var(--palette-tan);
+  --color-chart-grid: var(--palette-tan);
+  --color-chart-label: var(--palette-stone-deep);
+  /* 被截斷的長條頂端的斷裂記號,畫在長條上 */
+  --color-chart-break: var(--palette-cream);
+
   /* ---- 動作 ---- */
   --color-action-bg: var(--palette-rust);
   --color-action-border: var(--palette-rust);

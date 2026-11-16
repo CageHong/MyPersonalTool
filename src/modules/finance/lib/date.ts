@@ -56,6 +56,37 @@ export function matchPreset(from: string | undefined, to: string | undefined, to
   return hit ? hit.key : 'custom'
 }
 
+// ── 報表的期間 ───────────────────────────────────────────────
+// 「過去 12 個月」是含本月在內的 12 個完整月份;all = 不限(從第一筆到最後一筆交易)
+
+export const REPORT_PRESETS = [
+  { key: 'last12', label: '過去 12 個月' },
+  { key: 'thisYear', label: '今年' },
+  { key: 'lastYear', label: '去年' },
+  { key: 'all', label: '全部' },
+] as const
+export type ReportPreset = (typeof REPORT_PRESETS)[number]['key']
+
+export function reportRange(preset: ReportPreset, today: string): { from?: string; to?: string } {
+  const { year, monthIndex } = partsOf(today)
+  switch (preset) {
+    case 'last12':
+      return { from: isoOf(year, monthIndex - 11, 1), to: isoOf(year, monthIndex + 1, 0) }
+    case 'thisYear':
+      return { from: isoOf(year, 0, 1), to: isoOf(year, 11, 31) }
+    case 'lastYear':
+      return { from: isoOf(year - 1, 0, 1), to: isoOf(year - 1, 11, 31) }
+    case 'all':
+      return {}
+  }
+}
+
+// YYYY-MM → 那個月的第一天與最後一天
+export function monthRange(month: string): { from: string; to: string } {
+  const { year, monthIndex } = partsOf(`${month}-01`)
+  return { from: isoOf(year, monthIndex, 1), to: isoOf(year, monthIndex + 1, 0) }
+}
+
 // ── 期間的前後切換(◀ ▶)──────────────────────────────────────
 // 目前的期間剛好是一個完整的月(1 號到月底)或完整的年(1/1 到 12/31)才能切換,一次移一期;
 // 自訂長度與全部期間不能切換(回傳 null,按鈕停用)。不管是哪個快捷選出來的都一樣

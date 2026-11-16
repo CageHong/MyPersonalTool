@@ -23,3 +23,27 @@ export type TransactionSummary = {
   // 缺匯率、沒有算進去的交易筆數
   missingRate: number
 }
+
+export type ReportAmounts = {
+  expense: { total: number; fixed: number; variable: number }
+  income: number
+  net: number
+}
+
+// 每月報表(報表頁)
+export type MonthlyReport = {
+  currency: string
+  // 幣別 → 小數位數(顯示金額用)
+  exponents: Record<string, number>
+  // 實際用到的期間(沒給開始或結束時,從第一筆或到最後一筆交易的那個月)
+  from: string | null
+  to: string | null
+  // 期間內的每個月(含沒有交易的月份),由舊到新
+  months: (ReportAmounts & { month: string; transactionCount: number })[]
+  total: ReportAmounts
+  // 合計 ÷ 月數,四捨五入
+  average: ReportAmounts
+  expenseCategories: SummaryCategory[]
+  incomeCategories: SummaryCategory[]
+  missingRate: number
+}
