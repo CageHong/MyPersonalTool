@@ -13,7 +13,7 @@ paths:
 
 ## repo 外的文件
 
-finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python 程式(v1、v2 管線)與資料在 repo 外的工作資料夾 `~/Documents/main_vault/setup_pacr/`。這些含個人財務資料,不進這個 repo。
+finance 的進度(`STATUS.md`)、決策紀錄(`DECISIONS.md`)、舊版 Python 程式(v1、v2 管線)與資料在 repo 外的工作資料夾 `~/Developer/main_vault/setup_pacr/`。這些含個人財務資料,不進這個 repo。
 
 - 動 finance 之前先讀那邊的 `STATUS.md` 與 `DECISIONS.md`;沒有連接那個資料夾時先問。
 - 新決策寫進那邊的 `DECISIONS.md`;工作結束時更新那邊的 `STATUS.md`。
