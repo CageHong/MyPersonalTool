@@ -47,7 +47,6 @@ export default function FinanceShell({ children }: { children: ReactNode }) {
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
         <header className={styles.top}>
-          <p className={styles.title}>finance</p>
           <SidebarWorth data={worth.data} />
         </header>
         <nav className={styles.nav} aria-label="finance">

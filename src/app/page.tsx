@@ -1,24 +1,6 @@
 import Link from 'next/link'
+import { TOOLS } from '@/platform/tools'
 import styles from './page.module.css'
-
-type ToolEntry = {
-  href: '/tasks' | '/finance'
-  name: string
-  description: string
-}
-
-const TOOLS: readonly ToolEntry[] = [
-  {
-    href: '/tasks',
-    name: '任務',
-    description: '待辦、重複任務、習慣',
-  },
-  {
-    href: '/finance',
-    name: 'finance',
-    description: '複式簿記記帳',
-  },
-]
 
 export default function Home() {
   return (

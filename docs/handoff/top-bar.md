@@ -54,7 +54,27 @@
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `src/platform/tools.ts`:集中定義 `TOOLS`（`tasks`、`finance`）、`findToolByPathname`、`toolLastUrlKey`、`isValidToolUrl` 與 `resolveToolHref`。
+  - `src/platform/tools.test.ts`:補上 2 支測試涵蓋工具路徑匹配與儲存網址驗證/退回邏輯。
+  - `src/app/_shell/AppShell.tsx`、`AppShell.module.css`:建立外層 `100dvh` flex column 容器（`TopBar` + 可縮放 `.content`）。
+  - `src/app/_shell/TopBar.tsx`、`TopBar.module.css`:實作全域頂列（高度 `--space-5` 並加註高度待決、九宮格 disclosure 按鈕 `aria-expanded`+`aria-controls`、目前工具名稱、右側狀態列空位）、`<nav>` 切換面板（開啟時才讀 `localStorage`、點外部關閉、`Esc` 關閉並回焦點至按鈕）及 `<Suspense>` 包覆的 `LastUrlTracker`。
+  - `src/app/layout.tsx`:在 `<body>` 內以 `<AppShell>` 包住 `{children}`。
+  - `src/app/page.tsx`、`src/app/page.module.css`:首頁工具入口改從 `@/platform/tools` 匯入 `TOOLS`,`.page` 補上 `width: 100%` 維持置中寬度。
+  - `src/modules/finance/components/FinanceShell.tsx`、`FinanceShell.module.css`:移除側欄頂部 `finance` 標題與 `.title` 樣式,`.layout` 由 `height: 100dvh` 改為 `flex: 1; min-height: 0;`。
+  - `src/modules/tasks/components/ThreeColumnLayout.module.css`:`.layout` 由 `height: 100dvh` 改為 `flex: 1; min-height: 0;`（`PageSkeleton` 共用同組 class,一併填滿頂列以下區域不跳動）。
+  - `docs/platform/backlog.md`:將「工具切換頂列」標為第一階段完成。
 - 沒做什麼、為什麼:
+  - 未實作快捷鍵:依審查修正指示 0 與更新後的 `docs/platform/decisions.md` §7,取消快捷鍵功能。
+  - 未實作狀態列內容:依任務卡規格,第一階段只留空位。
 - 每個完成條件怎麼驗證的:
+  - `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`:全過（527/527 tests pass,含 `platform/tools` 2 支測試）。
+  - `npm run build` + `npm run start -p 3099` 並以瀏覽器實測（viewport 845×861）:
+    - 首頁（`personal-tools`）、`/tasks?view=habits`（`任務`）、`/finance/transactions`（`finance`）皆顯示 32px 頂列且無 hydration 警告或 console 錯誤（僅假資料環境無 finance DB 使 `/api/finance/*` 回 500,版面正常）。
+    - 從 `/tasks?view=habits` 切到 finance 後,打開九宮格可見 `任務` 連結指向 `/tasks?view=habits`,點擊後成功回到 habits 檢視。
+    - 鍵盤操作:九宮格按鈕具 `aria-expanded` 與 `aria-controls`（無 `aria-haspopup`）,Enter/Space 開啟 `<nav>` 面板、Tab 依序走訪三個連結、`Esc` 關閉並把焦點還給按鈕、點面板外區域關閉。
+    - 版面與捲軸:tasks（`ThreeColumnLayout` 與共用 `ThreeColumnLayout.module.css` 的 `PageSkeleton`）及 finance 側欄（已無 `finance` 標題）皆位於頂列下方 `y: 32` 填滿剩餘高度 `829px`,整頁 `html`/`body` 為 `845×861`,無外層垂直捲軸。
 - 最可能出錯的地方:
+  - `PageSkeleton` 與 `ThreeColumnLayout` 共用 `ThreeColumnLayout.module.css` 的 `.layout`,若未來有人在 `TasksLayout` 外多包一層未設 `flex: 1; min-height: 0; display: flex; flex-direction: column;` 的容器,會讓高度撐開或縮扁。
+  - `LastUrlTracker` 使用 `useSearchParams()` 並包在 `<Suspense fallback={null}>` 內;雖已驗證 `next build` 靜態預渲染與 hydration 皆無警告,但若未來把 `useSearchParams()` 移出 Suspense 邊界會導致 build 失敗。
 - 疑問:
+  - 無。

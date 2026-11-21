@@ -1,7 +1,8 @@
 .layout {
   display: flex;
-  /* 版面自己吃滿視窗高度,捲動交給各欄;頁面本身不捲 */
-  height: 100dvh;
+  /* 版面自己吃滿頂列以下的高度,捲動交給各欄;頁面本身不捲 */
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
