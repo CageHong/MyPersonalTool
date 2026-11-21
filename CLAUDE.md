@@ -131,6 +131,15 @@ finance 的畫面直接用同一套色票與語意層,不另設主題色、不�
 4. 改了行為就在同一次修改裡更新對應的 `docs/<層>/` 檔;新定案的決策追加到該層的 `decisions.md`(決策紀錄在 repo 外的工具,寫到它在 repo 外的紀錄)。
 5. commit 訊息加前綴:`tasks:`、`finance:`,平台層級或跨工具的用 `platform:`。
 
+## 交給 Antigravity(AG)
+
+使用者有 Antigravity(Gemini,簡稱 AG)當副線,token 比主線便宜得多(分工見 `docs/platform/decisions.md` §6,AG 的規則在 `AGENTS.md`)。
+
+- 使用者要開始實作某件事時,先判斷能不能交給 AG,能的話主動提醒並建議怎麼拆卡;主線保留決策、規格、測試、審查、finance 寫入交易的程式。
+- 任務卡放在 `~/Developer/TT/gemini/personal-tools/docs/handoff/<任務名>.md`,照 `docs/handoff/_template.md`;卡要短,引用 `decisions.md` 章節,不重述規則。
+- 邏輯複雜的切片先寫測試再交出去;大的、要探索的卡標「先擬計畫」。
+- 審查時先讀 AG 的回報與 `git diff --stat`,再看回報指出的風險點與測試,不從頭讀整個模組。
+
 ## 語言
 
 與我對話一律用**繁體中文**。程式碼、變數名、commit message 用英文。

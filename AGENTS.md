@@ -21,3 +21,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 不執行會寫入資料的指令:`--apply`、`finance:import-v2`、`finance:fx-update`。
 - 程式碼、測試、註解裡的名稱與數字一律虛構。
 - 完成條件:先跑一次 `npx next typegen`(產生路由的型別,沒有它 `tsc` 會在 `src/app/` 報找不到 `RouteContext`、`LayoutProps`),再讓 `npx tsc --noEmit`、`npm run lint`、`npm test` 全過;在任務卡底部寫回報(做了什麼、沒做什麼、疑問)。
+- 任務卡寫「先擬計畫」時:先讀程式碼,在卡的「實作計畫」寫出要改的檔案與步驟,commit 後停下,等主線確認才實作。
+- 任務卡附了主線寫的測試時:測試就是規格,不要改測試來讓它通過;覺得測試有錯就停下寫進回報。
+- 回報除了做了什麼、沒做什麼、疑問,還要寫:每個完成條件怎麼驗證的、你覺得最可能出錯的地方。
