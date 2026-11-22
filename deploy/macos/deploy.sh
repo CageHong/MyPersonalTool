@@ -35,7 +35,7 @@ if [[ ! -f "$PLIST_PATH" ]]; then
     PROD_DATA_DIR="<from plist: PERSONAL_TOOLS_DATA_DIR>"
     PROD_DIST_DIR="<from plist: NEXT_DIST_DIR>"
   else
-    echo "ERROR: 找不到已安裝的 plist（$PLIST_PATH），請先執行 npm run deploy:install" >&2
+    echo "ERROR: 找不到已安裝的 plist（${PLIST_PATH}），請先執行 npm run deploy:install" >&2
     exit 1
   fi
 else
@@ -75,7 +75,7 @@ fi
 echo "[3/6] 停止正式版服務..."
 launchctl bootout "$SERVICE_TARGET" 2>/dev/null || true
 
-echo "[4/6] 套用資料庫 migration（PERSONAL_TOOLS_DATA_DIR=$PROD_DATA_DIR）..."
+echo "[4/6] 套用資料庫 migration（PERSONAL_TOOLS_DATA_DIR=${PROD_DATA_DIR}）..."
 if ! PERSONAL_TOOLS_DATA_DIR="$PROD_DATA_DIR" npm run tasks:db:migrate; then
   echo "ERROR: deploy 失敗於第 4 步（tasks:db:migrate 失敗）。正式版已維持停止，請修正問題後重新執行 npm run deploy。" >&2
   exit 1
@@ -85,7 +85,7 @@ if ! PERSONAL_TOOLS_DATA_DIR="$PROD_DATA_DIR" npm run finance:db:migrate; then
   exit 1
 fi
 
-echo "[5/6] 建置正式版（NEXT_DIST_DIR=$PROD_DIST_DIR）..."
+echo "[5/6] 建置正式版（NEXT_DIST_DIR=${PROD_DIST_DIR}）..."
 if ! NODE_ENV=production NEXT_DIST_DIR="$PROD_DIST_DIR" PERSONAL_TOOLS_DATA_DIR="$PROD_DATA_DIR" npm run build; then
   echo "ERROR: deploy 失敗於第 5 步（next build 失敗）。正式版已維持停止，請修正問題後重新執行 npm run deploy。" >&2
   exit 1
