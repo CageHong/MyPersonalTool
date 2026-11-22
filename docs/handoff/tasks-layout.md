@@ -80,7 +80,7 @@
 
 ## 主線審查(2026-11-22)
 
-方向對,以下 7 點改進計畫後直接實作,不用再等確認。先 `git merge main`:§6k 新增了三列(縮放順序、自動收合時按鈕停用、待決兩項定案)。
+方向對,以下 7 點改進計畫後直接實作,不用再等確認。主線已把 main 併進本分支:§6k 新增了三列(縮放順序、自動收合時按鈕停用、待決兩項定案)。
 
 1. **抽屜不放在中欄 `<section>` 裡。** 中欄是 `overflow-y: auto` 的捲動容器,絕對定位的子元素會跟清單一起捲走;`captureFocus` 用 `column.contains(active)` 判斷焦點在中欄,抽屜放進去會把右欄的焦點誤判成中欄。改成右欄 `<section>` 只畫一份,收合且有選取時改套抽屜的 class(絕對定位蓋在中欄右側,`.layout` 設 `position: relative`)。從抽屜按展開時 `TaskDetail` / `HabitDetail` 不重新掛載、草稿保留,`key` 規則不動;`DetailDrawer` 不另外包右欄內容,只需要關閉鈕。
 2. **縮放順序寫進 `resolveLayout`**(§6k):先縮中欄到 360,再把左右欄縮到最小寬度(依各自超出最小值的部分等比例縮),都到底才自動收右欄、再收左欄。回傳實際畫出的 `leftWidth`、`rightWidth`,加上 `autoLeftCollapsed`、`autoRightCollapsed`。測試加:縮放順序(中欄先、兩側後)、自動收合旗標。
