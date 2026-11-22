@@ -90,8 +90,6 @@ if ! NODE_ENV=production NEXT_DIST_DIR="$PROD_DIST_DIR" PERSONAL_TOOLS_DATA_DIR=
   echo "ERROR: deploy 失敗於第 5 步（next build 失敗）。正式版已維持停止，請修正問題後重新執行 npm run deploy。" >&2
   exit 1
 fi
-# Next.js 依 NEXT_DIST_DIR 建置時會自動改寫 tsconfig.json 加入 .next-prod/types，還原以免下次 deploy 卡在第 1 步
-git checkout -- tsconfig.json
 
 echo "[6/6] 啟動正式版服務..."
 if ! launchctl bootstrap "$GUI_DOMAIN" "$PLIST_PATH"; then

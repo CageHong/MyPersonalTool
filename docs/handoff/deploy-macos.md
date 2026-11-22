@@ -184,3 +184,22 @@
   3. **`next build` 帶 `NEXT_DIST_DIR=.next-prod` 會自動改寫 `tsconfig.json`**:實測 Next.js 會將 `.next-prod/types/**/*.ts` 寫入 `tsconfig.json`,導致工作區變髒、下次 `deploy.sh` 第 1 步會被擋下;已在 `deploy.sh` 第 5 步 build 成功後加上 `git checkout -- tsconfig.json`。
 - 疑問:
   - 是否要由主線在 `eslint.config.mjs` 的 `globalIgnores` 補上 `".next-prod/**"`?
+
+## 主線審查(2026-11-22):小修後完成
+
+整體通過。回答疑問並改掉一個做法:
+
+1. **`eslint.config.mjs`**:可以改,在 `globalIgnores` 加 `".next-prod/**"`。
+2. **不要用 `git checkout -- tsconfig.json` 還原**:build 失敗時這行跑不到,工作區會留著髒的 `tsconfig.json`,下次 deploy 卡在第 1 步,而且使用者不會知道為什麼。改成把 `.next-prod/types/**/*.ts`(以及 Next.js 實際會加的其他 `.next-prod` 路徑)**直接寫進 `tsconfig.json` 的 `include` 並 commit**,讓 Next.js 沒東西可改。`tsconfig.json` 這次可以改,只限 `include`。
+3. 改完後重跑一次你的手動驗證(以 `.next-prod` build),**build 完立刻 `git status --porcelain`,結果必須是空的**(`next-env.d.ts` 若也被改寫,一樣用這個方式處理並寫進回報)。
+
+回報只需補一段「小修」:改了哪些、`git status --porcelain` 的結果。
+
+### 小修
+- **改了哪些**：
+  - `eslint.config.mjs`：`globalIgnores` 加入 `".next-prod/**"`。
+  - `tsconfig.json`：`include` 加入 `".next-prod/types/**/*.ts"` 與 `".next-prod/dev/types/**/*.ts"`（僅改 `include`）。
+  - `deploy/macos/deploy.sh`：移除第 5 步 build 後的 `git checkout -- tsconfig.json`。
+- **驗證結果**：
+  - 以 `NODE_ENV=production NEXT_DIST_DIR=.next-prod` 執行 `npm run build` 後，`tsconfig.json` 與 `next-env.d.ts` 均未被改寫；commit 後重跑 build 並立即執行 `git status --porcelain`（不含既有的未追蹤 `docs/handoff/*.md` 卡片檔）結果為空；`.next-prod/` 存在時執行 `npm run lint` 亦通過。
+  - `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`（527/527）全數通過。
