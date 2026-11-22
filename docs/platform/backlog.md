@@ -8,9 +8,9 @@
 
 ## 待做
 
-- **常駐運行**(`docs/platform/decisions.md` §9):已完成 `deploy/macos/`（plist 範本、install/uninstall/deploy 腳本、README）、`NEXT_DIST_DIR` 輸出資料夾分離、`npm run deploy*` 與 SQLite WAL；待使用者於本機主 repo 執行 `npm run deploy:install` 與 `npm run deploy` 實際安裝，並待通知 runner（另一張卡）接上同一套範本機制。
+- **常駐運行**(§9):完成(2026-11-22),正式版在 `localhost:3100`。通知 runner 要用同一套範本機制(`deploy/macos/*.plist.template`)加第二個 job。
 - **手機存取**(§9):`tailscale serve`。要做,不急。
-- **通知**(`docs/platform/decisions.md` §8):`src/platform/notify/`(Telegram 發送層完成);launchd runner 待做,第一個使用者是習慣提醒。需要使用者先用 BotFather 開新 bot。
+- **通知**(`docs/platform/decisions.md` §8):`src/platform/notify/`(Telegram 發送層完成);launchd runner 待做,第一個使用者是習慣提醒。新 bot 已開、`notify/telegram.json` 已放好(2026-11-22)。
 - **工具切換頂列**(`docs/platform/decisions.md` §7):第一階段完成(頂列、九宮格面板、`src/platform/tools.ts`、首頁入口改讀它、回到上次網址)。狀態列等摘要 API。待決:頂列高度。
 - **首頁**(`docs/platform/decisions.md` §4):第一段(只有工具入口)完成;第二段待做,在 finance 的報表(`reports` 模組)做好後加摘要小工具,由各工具提供小工具元件與摘要 API。
 - **新套件要加進 `transpilePackages`**:`packages/` 的套件直接匯出 TypeScript 原始碼。Next.js 的程式(頁面、route handler、它們匯入的模組)第一次匯入某個套件時,把套件名稱加進 `next.config.ts` 的 `transpilePackages`(目前有 `statement-parsers`)。
