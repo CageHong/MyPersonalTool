@@ -10,7 +10,7 @@
 
 1. checklist(已完成)
 2. 重複任務、習慣(資料層與 API 已完成;重複任務的 UI 已完成,習慣 UI 為 H2)
-3. 版面 session:三欄可拖拉欄寬、右欄先縮後隱藏、抽屜覆蓋
+3. 版面 session:規則已定,見 `docs/tasks/decisions.md` §6k(欄寬拖拉、左右欄收合、抽屜)
 4. 中欄的分組、排序、置頂(已完成,提前到版面 session 之前;決策見 `docs/tasks/decisions.md` §6d)
 5. 目標最小實體(決策見 `docs/tasks/decisions.md` §6e)
 6. 右欄的分類指派(需要 `list` 表與 `task.listId`)
@@ -51,8 +51,6 @@
 
 | 項目 | 回頭點 |
 |---|---|
-| 三欄響應式(可拖拉欄寬、右欄先縮後隱藏、抽屜覆蓋) | 版面 session,checklist 與習慣功能穩定後 |
-| 抽屜:是否出現只看網址有無 `task`;關閉鈕 = 移除 `task`;寬度沿用右欄 | 版面 session |
 | 載入字型檔 | 手機或 Windows 筆電常用時,與共用設計系統一起 |
 | Google Calendar 單向推送(Task → GCal) | task manager 功能穩定後 |
 | `NotFoundError` 帶資源類型(`ValidationError` / `NotFoundError` 搬到 `src/modules/tasks/server/errors.ts` 已在 R1 完成) | 有第二個工具的 server 模組時 |
