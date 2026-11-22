@@ -1,11 +1,12 @@
 // 必須是第一個 import:在 db 連線建立前切到記憶體資料庫
 import '../test/setup'
 import assert from 'node:assert/strict'
+import { eq } from 'drizzle-orm'
 import { before, beforeEach, describe, test } from 'node:test'
 import { applyMigrations, db } from '../db'
-import { habit, task, taskNotificationSent, taskNotificationSetting, taskReminder } from '../db/schema'
+import { habit, task, taskNotificationSent, taskNotificationSetting, taskRecurrenceRule, taskReminder } from '../db/schema'
 import { addLog, createHabit, pauseHabit, removeLog } from './habits'
-import { createRuleFromTask } from './recurrence'
+import { createRuleFromTask, updateRule } from './recurrence'
 import { createReminder, updateReminder, type Reminder } from './reminders'
 import { createTask, listTasks, updateTask } from './tasks'
 import { ValidationError } from './errors'
@@ -383,6 +384,43 @@ describe('excludeFromSummary', () => {
     const hr = habitReminder(h.id, '19:00')
 
     assert.deepEqual(keysAt(TODAY, '19:00').sort(), [habitKey(hr, TODAY), taskKey(tr, t.id, TODAY)].sort())
+  })
+})
+
+// 卡 4(notify-reminders-ui):重複任務的實例看規則上的設定,不看實例自己的(decisions §6j「(2026-11-22 補)」)
+describe('excludeFromSummary on recurring tasks follows the rule', () => {
+  test('marking the rule takes effect today, though today\'s instance keeps its own value', () => {
+    const source = createTask({ title: '倒垃圾', dueDate: TODAY })
+    const rule = createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TODAY }, TODAY)
+    createTask({ title: '寫週報', dueDate: TODAY })
+    updateRule(rule.id, { excludeFromSummary: true }, TODAY)
+    const todayInstance = listTasks({ today: TODAY }).find(
+      (row) => row.recurrenceRuleId === rule.id && row.dueDate === TODAY,
+    )
+    assert.equal(todayInstance?.excludeFromSummary, false)
+
+    assert.deepEqual(messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body, ['任務', '- 寫週報'].join('\n'))
+    assert.deepEqual(messageOf(TODAY, '21:00', `summary:evening@${TODAY}`).body, ['任務', '- 寫週報'].join('\n'))
+  })
+
+  test('an instance marked on its own is still listed while the rule is not marked', () => {
+    const source = createTask({ title: '倒垃圾', dueDate: TODAY })
+    createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TODAY }, TODAY)
+    updateTask(source.id, { excludeFromSummary: true })
+
+    assert.deepEqual(messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body, ['任務', '- 倒垃圾'].join('\n'))
+  })
+
+  test('the high priority group follows the rule too', () => {
+    const source = createTask({ title: '整理收據', dueDate: TOMORROW, priority: 5 })
+    const rule = createRuleFromTask(source.id, { freq: 'daily', interval: 7, startDate: TOMORROW }, TODAY)
+    createTask({ title: '寫週報', dueDate: TODAY })
+    assert.ok(messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body.includes('整理收據'))
+
+    db.delete(taskNotificationSent).run()
+    // 直接改規則的欄位,不經過 updateRule:驗的是摘要讀規則,不是實例被就地更新
+    db.update(taskRecurrenceRule).set({ excludeFromSummary: true }).where(eq(taskRecurrenceRule.id, rule.id)).run()
+    assert.ok(!messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body.includes('整理收據'))
   })
 })
 
