@@ -1,5 +1,5 @@
 import { deleteHabit, updateHabit, type UpdateHabitPatch } from '@/modules/tasks/server/habits'
-import { todayIso } from '@/modules/tasks/lib/date'
+import { localDate } from '@/platform/date'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function PATCH(
@@ -19,7 +19,7 @@ export async function PATCH(
   }
 
   try {
-    return Response.json(updateHabit(habitId, body as UpdateHabitPatch, todayIso()))
+    return Response.json(updateHabit(habitId, body as UpdateHabitPatch, localDate(new Date())))
   } catch (error) {
     return handleError('[PATCH /api/tasks/habits/[habitId]]', error, 'Habit not found')
   }

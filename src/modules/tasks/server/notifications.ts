@@ -1,7 +1,8 @@
 import { asc, eq } from 'drizzle-orm'
+import { localDate, localTime } from '@/platform/date'
 import { db } from '../db'
 import { taskNotificationSent, taskNotificationSetting, taskReminder } from '../db/schema'
-import { addDays, diffDays, formatIso } from '../lib/date'
+import { addDays, diffDays } from '../lib/date'
 import { periodEnd } from '../lib/habit'
 import { collapseRecurring, filterTasks } from '../lib/views'
 import { ValidationError } from './errors'
@@ -43,17 +44,6 @@ const SUMMARY_TITLES: Record<NotificationSummaryKind, string> = {
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000)
-}
-
-function toLocalDateAndTime(now: Date): { today: string; currentTime: string } {
-  const today = formatIso({
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    day: now.getDate(),
-  })
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
-  return { today, currentTime: `${hh}:${mm}` }
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -248,7 +238,8 @@ function evaluateTaskReminder(
 }
 
 export function dueTaskNotifications(now: Date): TaskDueNotification[] {
-  const { today, currentTime } = toLocalDateAndTime(now)
+  const today = localDate(now)
+  const currentTime = localTime(now)
   const settings = getNotificationSettings()
 
   const sentRows = db

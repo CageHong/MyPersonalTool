@@ -11,7 +11,7 @@ import {
   taskRecurrenceRule,
   taskRecurrenceRuleChecklistItem,
 } from '../db/schema'
-import { todayIso } from '../lib/date'
+import { localDate } from '@/platform/date'
 import { looksEdited, type LegacyRule } from '../server/missedInstances'
 
 export type LegacyMissedTarget = {
@@ -135,7 +135,7 @@ const isMain =
 
 if (isMain) {
   const apply = process.argv.includes('--apply')
-  const today = todayIso()
+  const today = localDate(new Date())
   const targets = skipLegacyMissedInstances(today, { apply })
   if (targets.length === 0) {
     console.log('沒有需要清理的舊逾期重複實例。')
