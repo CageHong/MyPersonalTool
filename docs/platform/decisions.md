@@ -107,7 +107,7 @@
 
 待決:頂列高度(約 32px 起討論)。
 
-## 8. 通知(規劃中,尚未實作)
+## 8. 通知(發送層已實作,runner 未做)
 
 2026-11-21 定案。起因:習慣要提醒,而且使用者有不少工具都需要通知(phd-radar 已經用 Telegram bot)。
 
@@ -122,10 +122,20 @@
 
 之後可能:讓 repo 外的工具(phd-radar、tidy)也透過 personal-tools 發通知,使它成為通知中心。還沒決定,不要主動做。
 
-待決(實作時):runner 放哪(repo 根目錄的 `tools/` 或 `src/platform/` 以外的某處)與執行頻率;發送失敗的重試。
+**runner(2026-11-22 定案)**
+
+| 決策 | 理由 |
+|---|---|
+| runner 放 `src/jobs/notify.ts`,不放 `src/platform/` | 它要匯入各工具的公開函式,`src/platform/` 不匯入模組;它也不是頁面,不放 `src/app/` |
+| 工具的通知入口由 `src/jobs/notifiers.ts` 對照 `src/platform/tools.ts` 的工具清單取得;每個工具公開兩個函式:`dueNotifications(now)` 回傳到期的通知(各帶一個 key),`markSent(keys)` 標記已送。清單裡的工具沒有通知入口就略過 | 同 §10「工具之間只透過公開函式往來,而且要容許對方不存在」 |
+| 一個 tick:對每個工具取到期通知 → 逐則交給 `sendNotification` → 送成功的才 `markSent`;一則失敗不影響其他則 | 「已送」由工具記,平台不存狀態(本節第二列) |
+| 送失敗不標記,下一個 tick 自然重試,不設重試上限 | 失敗多半是網路;補送窗口(由工具決定)過了就不會再送,不會無限重試 |
+| 每 5 分鐘一次,launchd `StartInterval`,plist 照 `deploy/macos/*.plist.template` 的範本機制另加一份 | §9 已定;網頁與 runner 互相獨立 |
+| 時間一律用這台機器的本地時間 | 個人工具,只有一個時區 |
 
 
-## 9. 運行與部署(規劃中,尚未實作)
+
+## 9. 運行與部署
 
 2026-11-22 定案。起因:不想每次開終端機啟動。第一階段只在使用者的 MacBook 上跑;換機器見 §10。
 
