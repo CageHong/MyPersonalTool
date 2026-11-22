@@ -86,6 +86,11 @@ if ! PERSONAL_TOOLS_DATA_DIR="$PROD_DATA_DIR" npm run finance:db:migrate; then
 fi
 
 echo "[5/6] 建置正式版（NEXT_DIST_DIR=${PROD_DIST_DIR}）..."
+# tsconfig 也檢查 .next/types(開發版的路由型別);路由改過而沒重新產生時,裡面會留著指向舊路徑的型別,讓正式版 build 型別檢查失敗。先重新產生
+if ! npx next typegen; then
+  echo "ERROR: deploy 失敗於第 5 步（next typegen 失敗）。正式版已維持停止，請修正問題後重新執行 npm run deploy。" >&2
+  exit 1
+fi
 if ! NODE_ENV=production NEXT_DIST_DIR="$PROD_DIST_DIR" PERSONAL_TOOLS_DATA_DIR="$PROD_DATA_DIR" npm run build; then
   echo "ERROR: deploy 失敗於第 5 步（next build 失敗）。正式版已維持停止，請修正問題後重新執行 npm run deploy。" >&2
   exit 1
