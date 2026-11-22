@@ -18,7 +18,7 @@
 - `key` 對 runner 是不透明字串:由工具自己決定內容(例如把日期編進去),runner 只負責原樣交回 `markSent`。
 - `src/jobs/notify.ts`:`runNotifyTick({ now, tools?, notifiers?, send? })`,預設值分別是 `TOOLS`(`src/platform/tools.ts`)、`NOTIFIERS`、`sendNotification`。回傳 `{ sent: { tool, key }[], failed: { tool, stage: 'due' | 'send' | 'markSent', key?, error }[] }`。行為見測試。
 - 一支執行一次 tick 的入口(例如 `src/jobs/notify-cli.ts`),把回報印到 stdout/stderr(launchd 的 log)。`package.json` 加 `notify:tick`。
-- `deploy/macos/com.personal-tools.notify.plist.template`:`StartInterval` 900(每 15 分鐘)、`RunAtLoad`,不要 `KeepAlive`;環境變數與 log 位置比照 web 那份。log 檔名用 `notify.*.log`。
+- `deploy/macos/com.personal-tools.notify.plist.template`:`StartCalendarInterval` 用陣列放四個 `{ Minute: 0 }`、`{ Minute: 15 }`、`{ Minute: 30 }`、`{ Minute: 45 }`,加 `RunAtLoad`,不要 `StartInterval`、`KeepAlive`;環境變數與 log 位置比照 web 那份。log 檔名用 `notify.*.log`。
 
 ## 可以改的檔案
 - 新增 `src/jobs/notifiers.ts`、`src/jobs/notify.ts`、tick 的入口;要的話可以加自己的測試檔
@@ -83,7 +83,7 @@
 
 ### 主線確認(2026-11-22)
 計畫通過,照做,只改下面兩點:
-1. **間隔改成每 15 分鐘**:`StartInterval` 用 `900`,不是 `300`(`docs/platform/decisions.md` §8 已更新);README 也寫 15 分鐘。
+1. **排程改用 `StartCalendarInterval`**(每小時 :00、:15、:30、:45),不用 `StartInterval` 300。理由:`StartInterval` 在睡眠時錯過的不補跑,`StartCalendarInterval` 會在醒來時補跑一次(`docs/platform/decisions.md` §8 已更新)。README 寫明「每 15 分鐘、醒來時補跑一次」。
 2. **沙盒用 `gemini/personal-tools-data/`**,不要另開 `/tmp/...`(`AGENTS.md`)。
 
 分支問題照你的回應:接受,寫進 README(§8 已記為決策)。`runNotifyTick` 的 `now` 可以選填,沒問題。
