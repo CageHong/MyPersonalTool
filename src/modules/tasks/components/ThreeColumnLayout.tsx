@@ -15,6 +15,7 @@ import {
   DEFAULT_LAYOUT,
   LAYOUT_STORAGE_KEY,
   MIN_MIDDLE_WIDTH,
+  applyDragWidth,
   clampDragWidth,
   parseStoredLayout,
   resolveLayout,
@@ -340,7 +341,9 @@ export default function ThreeColumnLayout() {
       const otherCollapsed = side === 'left' ? effective.rightCollapsed : effective.leftCollapsed
       const clamped = clampDragWidth(side, raw, total, otherWidth, otherCollapsed)
       drag.currentWidth = clamped
-      el.style.setProperty(side === 'left' ? '--left-width' : '--right-width', `${clamped}px`)
+      // 拖拉中只寫 --*-width-drag:--*-width 歸 React 的 style prop 管,直接改它的話,
+      // 放開後算出的值跟上次 render 相同時 React 不會更新 DOM,畫面會停在拖拉中的值
+      el.style.setProperty(side === 'left' ? '--left-width-drag' : '--right-width-drag', `${clamped}px`)
     },
     [containerWidth, effective.leftCollapsed, effective.leftWidth, effective.rightCollapsed, effective.rightWidth],
   )
@@ -360,24 +363,13 @@ export default function ThreeColumnLayout() {
         const otherCollapsed = side === 'left' ? effective.rightCollapsed : effective.leftCollapsed
         drag.currentWidth = clampDragWidth(side, raw, total, otherWidth, otherCollapsed)
         el.removeAttribute('data-resizing')
+        el.style.removeProperty(side === 'left' ? '--left-width-drag' : '--right-width-drag')
       }
       const finalWidth = drag.currentWidth
       dragRef.current = null
-      persistLayout(
-        side === 'left'
-          ? { ...storedLayout, leftWidth: finalWidth }
-          : { ...storedLayout, rightWidth: finalWidth },
-      )
+      persistLayout(applyDragWidth(storedLayout, effective, side, finalWidth))
     },
-    [
-      containerWidth,
-      effective.leftCollapsed,
-      effective.leftWidth,
-      effective.rightCollapsed,
-      effective.rightWidth,
-      persistLayout,
-      storedLayout,
-    ],
+    [containerWidth, effective, persistLayout, storedLayout],
   )
 
   const handleCloseDrawer = useCallback(() => {

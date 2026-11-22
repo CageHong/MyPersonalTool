@@ -71,6 +71,29 @@ export function clampDragWidth(
   return Math.round(Math.min(max, Math.max(min, rawWidth)))
 }
 
+// 拖拉放開時要存的版面:拖的那一側存成拖到的寬度,另一側存成它目前畫面上的寬度。
+// 只改拖的那一側的話,另一側存的仍是被縮小前的寬度,resolveLayout 會再等比例縮一次,
+// 放開後拖的那一側會往回跳。clampDragWidth 已保證兩者加起來放得下。收合中的那一側不動
+export function applyDragWidth(
+  stored: StoredLayout,
+  effective: ResolvedLayout,
+  side: 'left' | 'right',
+  width: number,
+): StoredLayout {
+  if (side === 'left') {
+    return {
+      ...stored,
+      leftWidth: width,
+      rightWidth: effective.rightCollapsed ? stored.rightWidth : effective.rightWidth,
+    }
+  }
+  return {
+    ...stored,
+    rightWidth: width,
+    leftWidth: effective.leftCollapsed ? stored.leftWidth : effective.leftWidth,
+  }
+}
+
 // 依視窗寬度與最小寬度決定實際欄寬與自動收合狀態：
 // 1. 先縮中欄到 MIN_MIDDLE_WIDTH
 // 2. 再依左右欄超出各自最小寬度的比例縮減側欄

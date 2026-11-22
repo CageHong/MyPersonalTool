@@ -26,7 +26,7 @@
 
 ## 欄寬、收合與抽屜
 
-- **最小寬度與拖拉**：常數集中在 `src/modules/tasks/lib/layout.ts`（左 180px、中 360px、右 320px）。左右分隔線上的 `ResizeHandle` 以 Pointer Events 支援滑鼠拖拉（不進 Tab 順序、不佔版面寬度）；拖拉過程中透過 CSS 自訂屬性直接調整寬度，放開時才寫入 state 與 `localStorage`（key `'tasks:layout'`）。
+- **最小寬度與拖拉**：常數集中在 `src/modules/tasks/lib/layout.ts`（左 180px、中 360px、右 320px）。左右分隔線上的 `ResizeHandle` 以 Pointer Events 支援滑鼠拖拉（不進 Tab 順序、不佔版面寬度）；拖拉過程中只寫 `--left-width-drag` / `--right-width-drag`（`--left-width` / `--right-width` 歸 React 的 style prop 管），放開時移除，並以 `applyDragWidth` 寫入 state 與 `localStorage`（key `'tasks:layout'`）：拖的那一側存拖到的寬度，另一側存它畫面上的寬度，放開後才不會被等比例縮放拉回去。
 - **手動收合切換鈕**：固定放在中欄標題列最左端與最右端，收合與展開共用同一顆鈕，依實際畫面狀態顯示 `aria-expanded` 與 `aria-label`。
 - **抽屜**：右欄 `<section>` 在結構上只畫一份，固定於 `.layout`（`position: relative`），不放在中欄捲動容器內。右欄收合且網址有 `task`（或習慣視圖有 `habit`）時改套抽屜樣式覆蓋在右側（中欄不變暗、點中欄不關）；按「關閉」從網址移除選取並將焦點移回中欄對應列；抽屜開著時按右欄展開鈕直接切回一般欄，不重新掛載 `TaskDetail` / `HabitDetail`、保留編輯中草稿。
 - **自動收合**：視窗變窄時先縮中欄至 360px，再依左右欄超出各自最小寬度的比例縮減側欄，三欄都到底時先自動收右欄（改為抽屜）、再自動收左欄。自動收合期間對應的切換鈕設 `aria-disabled="true"` 與 `title="視窗太窄"`，且不覆寫 `localStorage`，視窗放寬後恢復使用者原本的設定。

@@ -21,9 +21,10 @@
   scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
 }
 
-/* 欄寬與最小寬度由 lib/layout.ts 的常數經 CSS 自訂屬性帶入，不在這裡寫死數值 */
+/* 欄寬與最小寬度由 lib/layout.ts 的常數經 CSS 自訂屬性帶入，不在這裡寫死數值；
+   拖拉中 --*-width-drag 優先，放開後移除 */
 .categories {
-  flex: 0 0 var(--left-width);
+  flex: 0 0 var(--left-width-drag, var(--left-width));
   background: var(--color-column-aside);
   border-right: 1px solid var(--color-divider);
 }
@@ -55,7 +56,7 @@
 }
 
 .detail {
-  flex: 0 0 var(--right-width);
+  flex: 0 0 var(--right-width-drag, var(--right-width));
   background: var(--color-column-aside);
 }
 
@@ -66,7 +67,7 @@
   right: 0;
   bottom: 0;
   z-index: 3;
-  width: var(--right-width);
+  width: var(--right-width-drag, var(--right-width));
   max-width: 100%;
   border-left: 1px solid var(--color-divider);
 }

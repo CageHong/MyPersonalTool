@@ -7,6 +7,7 @@ import {
   MIN_LEFT_WIDTH,
   MIN_MIDDLE_WIDTH,
   MIN_RIGHT_WIDTH,
+  applyDragWidth,
   clampDragWidth,
   parseStoredLayout,
   resolveLayout,
@@ -164,5 +165,41 @@ describe('clampDragWidth', () => {
     assert.equal(clampDragWidth('left', 400, 1000, 320, false), 320)
     // when right is collapsed, max left = 1000 - 360 = 640
     assert.equal(clampDragWidth('left', 500, 1000, 320, true), 500)
+  })
+})
+
+describe('applyDragWidth', () => {
+  // 存的是左 300、右 400,視窗 1000:中欄到底後還差 60,兩側等比例縮成 264 / 376
+  const stored = { leftWidth: 300, rightWidth: 400, leftCollapsed: false, rightCollapsed: false }
+
+  it('keeps the dragged width after release while side columns are shrunk', () => {
+    const before = resolveLayout(1000, stored)
+    assert.equal(before.leftWidth, 264)
+    assert.equal(before.rightWidth, 376)
+
+    // 往窄拖到 250。只存左欄的話是 250 / 400,超出 10,會再縮成 245
+    const next = applyDragWidth(stored, before, 'left', 250)
+    const after = resolveLayout(1000, next)
+    assert.equal(after.leftWidth, 250)
+    assert.equal(after.rightWidth, 376)
+  })
+
+  it('stores the other side at its on-screen width and keeps collapse flags', () => {
+    const before = resolveLayout(1000, stored)
+    assert.deepEqual(applyDragWidth(stored, before, 'right', 300), {
+      leftWidth: 264,
+      rightWidth: 300,
+      leftCollapsed: false,
+      rightCollapsed: false,
+    })
+  })
+
+  it('leaves a collapsed side at its stored width', () => {
+    const leftCollapsed = { ...stored, leftCollapsed: true }
+    const before = resolveLayout(1000, leftCollapsed)
+    assert.deepEqual(applyDragWidth(leftCollapsed, before, 'right', 500), {
+      ...leftCollapsed,
+      rightWidth: 500,
+    })
   })
 })
