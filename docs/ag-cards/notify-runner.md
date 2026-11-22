@@ -90,7 +90,23 @@
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `src/jobs/notifiers.ts`: 定義 `DueNotification`、`ToolNotifier` 與空的 `NOTIFIERS` 對照表
+  - `src/jobs/notify.ts`: 實作 `runNotifyTick`，逐工具取到期通知、逐則送出並只標記成功項目，錯誤隔離不影響其他則或其他工具
+  - `src/jobs/notify-cli.ts`: 單次 tick CLI 入口，印出時間戳與 sent/failed 摘要，有失敗時寫到 stderr 並設 `exitCode = 1`
+  - `package.json`: 新增 `"notify:tick": "tsx src/jobs/notify-cli.ts"`
+  - `deploy/macos/com.personal-tools.notify.plist.template`: 新增 `com.personal-tools.notify` 範本（`StartCalendarInterval` `:00/:15/:30/:45` + `RunAtLoad`，無 `KeepAlive`，log 至 `notify.*.log`）
+  - `deploy/macos/README.md`: 補上 `com.personal-tools.notify` 說明（每 15 分鐘、醒來時補跑一次、log 位置、手動啟停、`--job` 用法、直接執行 repo 原始碼的分支注意事項）
+  - `docs/platform/backlog.md`: 更新通知項目為 runner 已完成、tasks 提醒待做
 - 沒做什麼、為什麼:
+  - 未修改 `deploy/macos/install.sh` 與 `uninstall.sh`，因兩支腳本原本就會遍歷所有 `*.plist.template` 並支援 `--job`
+  - 未實作各工具的 `ToolNotifier` 與通知設定 UI（屬後續卡片範圍）
+  - 未實際執行 `npm run deploy:install` 安裝 launchd（依卡要求由使用者自行安裝）
 - 每個完成條件怎麼驗證的:
+  - `npx next typegen && npx tsc --noEmit && npm run lint && npm test`：全數通過（`npm test` 73 suites / 586 tests 全過，含 `src/jobs/notify.test.ts`）
+  - 沙盒執行 `PERSONAL_TOOLS_DATA_DIR=/Users/shihsiou/Developer/TT/gemini/personal-tools-data npm run notify:tick`：正常結束（exit 0），輸出 `[2026-11-22T16:29:44.448Z] notify tick: sent=0 failed=0`
+  - 執行 `npm run deploy:install -- --dry-run`：正常結束（exit 0），同時輸出 `com.personal-tools.notify.plist`（含四個 `StartCalendarInterval` Minute `0/15/30/45`、`RunAtLoad`、`notify.stdout.log`/`notify.stderr.log`）與 `com.personal-tools.web.plist` 的渲染結果與 `launchctl` 指令
 - 最可能出錯的地方:
+  - `com.personal-tools.notify.plist.template` 直接呼叫 `__NODE_BIN__` + `__REPO_DIR__/node_modules/tsx/dist/cli.mjs` 執行 `src/jobs/notify-cli.ts`；本機 `dry-run` 已驗證路徑存在且可展開，但尚未在真正的 `launchd` 環境跑過（等使用者 `deploy:install` 後實際跑一次 tick 確認 log）
+  - `StartCalendarInterval` 採四個 `{ Minute: 0/15/30/45 }` 字典陣列，格式依 Apple launchd plist 規格編寫，待使用者實際載入 `launchd` 時驗證
 - 疑問:
+  - 無（分支切換影響直接執行原始碼的疑問已於計畫階段確認並寫入 `deploy/macos/README.md`）。

@@ -4,6 +4,9 @@
 
 - 正式版跑在 `http://localhost:3100`，建置輸出在 `.next-prod/`，由 `launchd` 管理（登入自動啟動、當掉自動重開）。
 - 開發版照常使用 `npm run dev`（`http://localhost:3000`，使用預設 `.next/`），兩者可同時運行不互相覆寫。
+- 通知 runner（`com.personal-tools.notify`）為獨立 job，透過 `StartCalendarInterval` 每 15 分鐘（每小時 `:00`、`:15`、`:30`、`:45`）與登入時（`RunAtLoad`）執行一次 `src/jobs/notify-cli.ts`，Mac 睡眠期間錯過的話會在醒來時補跑一次。
+
+> **注意（notify 直接執行原始碼）**：`com.personal-tools.notify` 由 `launchd` 直接以 `tsx` 執行安裝時指定的 repo 目錄裡的原始碼，不像網頁跑 `.next-prod/` 建置結果。若在該 repo 目錄切換到其他分支，下一次排程就會執行該分支的程式（平常建議在獨立 worktree 開發，或先以 `launchctl bootout` 暫停 notify）。
 
 ## 安裝
 
@@ -13,11 +16,12 @@
 npm run deploy:install
 ```
 
-這會依目前機器推算 `node` 絕對路徑、repo 位置、`PERSONAL_TOOLS_DATA_DIR`（未設定時預設為 repo 旁邊的 `personal-tools-data/`），產生 `~/Library/LaunchAgents/com.personal-tools.web.plist` 並載入啟動。
+這會依目前機器推算 `node` 絕對路徑、repo 位置、`PERSONAL_TOOLS_DATA_DIR`（未設定時預設為 repo 旁邊的 `personal-tools-data/`），產生 `~/Library/LaunchAgents/com.personal-tools.web.plist` 與 `~/Library/LaunchAgents/com.personal-tools.notify.plist` 並載入啟動。
 
+- 若只安裝單一 job，可加上 `--job web` 或 `--job notify`。
 - 若要先預覽產生的 plist 與指令而不實際安裝：
   ```bash
-  bash deploy/macos/install.sh --dry-run
+  npm run deploy:install -- --dry-run
   ```
 - 若要自訂資料夾位置，安裝時帶入環境變數即可（之後 `deploy` 會直接從已安裝的 plist 讀取同一份設定）：
   ```bash
@@ -49,17 +53,21 @@ Log 預設寫在：
 
 - `~/Library/Logs/personal-tools/web.stdout.log`
 - `~/Library/Logs/personal-tools/web.stderr.log`
+- `~/Library/Logs/personal-tools/notify.stdout.log`
+- `~/Library/Logs/personal-tools/notify.stderr.log`
 
-可用 `tail -f ~/Library/Logs/personal-tools/web.*.log` 即時查看。
+可用 `tail -f ~/Library/Logs/personal-tools/*.log` 即時查看。
 
 ## 出事時手動停止／重啟
 
 ```bash
-# 手動停止（不會因 KeepAlive 立刻重啟）
+# 手動停止（web 不會因 KeepAlive 立刻重啟；notify 停止排程）
 launchctl bootout "gui/$(id -u)/com.personal-tools.web"
+launchctl bootout "gui/$(id -u)/com.personal-tools.notify"
 
 # 手動啟動
 launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.personal-tools.web.plist"
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.personal-tools.notify.plist"
 ```
 
 ## 移除
@@ -68,7 +76,7 @@ launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.personal-tool
 npm run deploy:uninstall
 ```
 
-會卸載 LaunchAgent 並刪除 `~/Library/LaunchAgents/com.personal-tools.web.plist`（不會刪除資料庫或 log）。
+會卸載 LaunchAgent 並刪除 `~/Library/LaunchAgents/com.personal-tools.web.plist` 與 `com.personal-tools.notify.plist`（可用 `-- --job web` 或 `-- --job notify` 只移除單一 job，不會刪除資料庫或 log）。
 
 ## 換 Node 版本之後
 
