@@ -63,6 +63,58 @@
 
 ## 實作計畫(標「先擬計畫」時,Gemini 先填,等主線確認)
 
+### 預計修改與新增的檔案
+- **Schema 與 Migration**:
+  - `src/modules/tasks/db/schema.ts`
+  - `src/modules/tasks/drizzle/0009_*.sql`（`npm run tasks:db:generate` 產生：建 `task_reminder`、三個表加 `exclude_from_summary`）
+  - `src/modules/tasks/drizzle/0010_*.sql`（`npx drizzle-kit generate --config src/modules/tasks/drizzle.config.ts --custom` 產生：把 `habit.reminder_time` 搬進 `task_reminder`）
+  - `src/modules/tasks/drizzle/0011_*.sql`（`npm run tasks:db:generate` 產生：拿掉 `habit.reminder_time`）
+  - `src/modules/tasks/db/migrations.test.ts`
+- **後端業務邏輯 (`src/modules/tasks/server/`)**:
+  - 新增 `reminders.ts`
+  - 修改 `tasks.ts`、`habits.ts`、`recurrence.ts`、`notifications.ts`
+- **API Route (`src/app/api/tasks/`)**:
+  - 新增 `reminders/route.ts`、`reminders/[reminderId]/route.ts`
+- **文件 (`docs/tasks/`)**:
+  - `data-model.md`、`api.md`、`backlog.md`
+- （經 `grep` 確認 `src/modules/tasks/components/` 目前沒有引用 `reminderTime`，實作時會再以 `npx tsc --noEmit` 確認。）
+
+### 實作步驟
+1. **Schema 與三階段 Migration**:
+   - **Step 1**：在 `schema.ts` 新增 `taskReminder`（`task_reminder`），含 `id`、三個可空外鍵 `taskId` / `ruleId` / `habitId`（皆 `ON DELETE CASCADE`）、CHECK 約束（恰好一個外鍵非空、`kind IN ('daily', 'relative', 'absolute')`）、`kind`、`time`、`daysBefore`、`date`、`createdAt`、`updatedAt`，並對三個外鍵建 index。在 `task`、`taskRecurrenceRule`、`habit` 各加 `excludeFromSummary`（`integer('exclude_from_summary', { mode: 'boolean' }).notNull().default(false)`），此時暫時保留 `habit.reminderTime`。執行 `npm run tasks:db:generate` 產生 `0009`。
+   - **Step 2**：執行 `npx drizzle-kit generate --config src/modules/tasks/drizzle.config.ts --custom` 產生空的 `0010`，寫入 SQL 將 `habit.reminder_time IS NOT NULL` 的列搬入 `task_reminder`（`habit_id = id`, `kind = 'daily'`, `time = reminder_time`, `created_at = CAST(strftime('%s', 'now') AS integer)`, `updated_at = CAST(strftime('%s', 'now') AS integer)`）。
+   - **Step 3**：從 `schema.ts` 的 `habit` 移除 `reminderTime`，執行 `npm run tasks:db:generate` 產生 `0011`。
+   - **Migration 測試**：更新 `migrations.test.ts` 的 `SEED`（配合 `0010` schema，補上一筆 `task_reminder` 使全表有資料）；另加一個測試從 `0008` 起跑，塞入設了 `reminder_time = '09:00'` 與 `NULL` 的習慣，套用 `0009`–`0011` 後驗證 `'09:00'` 已搬進 `task_reminder` 且 `habit` 不再有 `reminder_time` 欄位。
+2. **提醒 CRUD 與驗證 (`src/modules/tasks/server/reminders.ts`)**:
+   - 定義 `Reminder`、`ReminderOwner`（`{ taskId } | { ruleId } | { habitId }`）、`ReminderInput`（`daily` / `relative` / `absolute`），單一 owner 上限 5 則。
+   - `listReminders(owner)`：確認 owner 存在（不存在丟 `NotFoundError`），依 `id` 升冪回傳。
+   - `createReminder(owner, input, now)`：確認 owner 存在；驗證 `kind` 與 owner 相容性（habit → `daily`、task → `relative | absolute`、rule → `relative`）、`time`（`isTimeOfDay`）、`daysBefore`（整數，task `0..28`、rule `0..6`）、`date`（`isCalendarDate` 回 `invalid_format`；小於今天或等於今天且 `time < currentTime` 回 `in_past`）、筆數上限（`>= 5` 回 `reminders: 'too_many'`）。
+   - `updateReminder(id, input, now)`：查無該筆丟 `NotFoundError`，沿用原 owner 做整份替換與相同驗證（切換 `relative` / `absolute` 時把不屬於該 `kind` 的欄位清為 `null`）。
+   - `deleteReminder(id)`：刪除並於不存在時丟 `NotFoundError`。
+3. **移除 `habit.reminderTime` 與加入 `excludeFromSummary`**:
+   - `habits.ts`：移除 `reminderTime` 欄位與驗證；`createHabit` / `updateHabit` 支援 `excludeFromSummary`（預設 `false`，非 boolean 回 `excludeFromSummary: 'invalid_value'`）。
+   - `tasks.ts`：`createTask` / `createTasks` / `updateTask` 支援 `excludeFromSummary`（預設 `false`，非 boolean 回 `excludeFromSummary: 'invalid_value'`）。
+   - `recurrence.ts`：`createRuleFromTask` 從原任務帶入 `excludeFromSummary`；`fillRule` 產生實例時帶入 `rule.excludeFromSummary`；`updateRule` 支援 `excludeFromSummary`（同 `title` / `priority` 納入 `merged`，變更時明天起實例重產）。
+   - `createRuleFromTask` 對原任務既有提醒的處理（見疑問 1 回應）：將 `kind = 'relative'` 且 `daysBefore <= 6` 的提醒改掛到新規則（`task_id = null, rule_id = rule.id`）；`absolute` 提醒留在原任務上。
+4. **通知計算 (`src/modules/tasks/server/notifications.ts`)**:
+   - 摘要：`todayTasks` 與 `habits` 過濾 `!excludeFromSummary`；早上總覽在「任務」與「習慣」之間新增「高優先」組（`collapseRecurring(allTasks, today).tasks` 中 `completedAt === null && priority === 5 && !excludeFromSummary && (dueDate === null || dueDate > today)`，維持 `listTasks` 順序，格式 `- ${title}`）。
+   - 個別提醒：依 `time` 升冪、再依 `reminder.id` 升冪評估與回傳（排在摘要之後）：
+     - 習慣（`habitId`）：進行中、`currentTime >= r.time`、未 sent（key `reminder:${r.id}:${r.time}`）。已達標則寫入 `autoMarkKeys` 不送；未達標或無目標則送 `習慣提醒`。
+     - 任務（`taskId`）：`absolute` 看 `r.date === today`，`relative` 看 `t.dueDate !== null && addDays(t.dueDate, -r.daysBefore!) === today`。到時刻、未 sent（key `reminder:${r.id}:${t.id}:${r.time}`）時，若已完成則寫入 `autoMarkKeys` 不送；否則送 `任務提醒`，內文依 `diffDays(today, t.dueDate)` 附加 `(今天到期)` / `(明天到期)` / `(N 天後到期)` / `(逾期)`，無到期日僅列標題。
+     - 重複規則（`ruleId`）：對 `allTasks` 中所有 `recurrenceRuleId === r.ruleId` 的實例，依實例自己的 `dueDate` 計算送出日，其餘判斷、key（帶實例 `t.id`）與訊息格式同任務提醒。
+5. **API Routes**:
+   - `src/app/api/tasks/reminders/route.ts`：`GET` 解析 `taskId` / `ruleId` / `habitId`（必須恰好一個且為正整數，否則回 `400 VALIDATION_FAILED`）呼叫 `listReminders`；`POST` 讀 JSON object，拆出單一 owner id 與剩餘欄位作為 `input`，呼叫 `createReminder(..., new Date())`，回 201。
+   - `src/app/api/tasks/reminders/[reminderId]/route.ts`：因為 `src/app/api/_lib/http.ts` 不在可改檔案清單內，於本檔內直接驗證 `reminderId` 為 `/^\d+$/`（不合法回 `400 VALIDATION_FAILED`，`fields: { reminderId: 'invalid' }`），實作 `PUT`（`updateReminder(..., new Date())`）與 `DELETE`（`deleteReminder` 回 204）。
+6. **文件與驗證**:
+   - 更新 `docs/tasks/data-model.md`、`docs/tasks/api.md`、`docs/tasks/backlog.md`。
+   - 依完成條件跑 `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`，並在沙盒資料庫實測 migration、`notify:tick` 與 `curl` CRUD。
+
+### 疑問回應
+1. **任務變成重複規則(`createRuleFromTask`)時,原任務既有的提醒**：
+   - 同意主線方向：在 `createRuleFromTask` 的 transaction 內，將原任務上 `kind = 'relative'`（且 `daysBefore <= 6`）的提醒改掛到新規則（`UPDATE task_reminder SET task_id = NULL, rule_id = rule.id`），讓它成為規則範本並套用到所有實例（原任務本身已變成第一個實例，因此不會漏掉也不會重複送）；`kind = 'absolute'` 留在原任務上。若原任務碰巧有 `daysBefore > 6` 的相對提醒（規則上限為 6），因無法直接轉為規則提醒，擬留在原任務上（僅對第一個實例生效）以避免靜默截斷或拒絕轉換。
+2. **重複規則實例補齊與 `dueTaskNotifications`**：
+   - 已確認 `src/modules/tasks/server/tasks.ts` 的 `listTasks({ today })` 會在查詢前呼叫 `fillInstances(today)`，而 `src/modules/tasks/server/recurrence.ts` 的 `FILL_AHEAD_DAYS = 6`（補齊終點 `today + 6` 含當天）。規則的 `daysBefore` 上限為 6，因此任何在今天觸發提醒的實例（`dueDate` 介於 `today` 到 `today + 6`）在 `listTasks({ today })` 回傳時都已落地。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
 - 沒做什麼、為什麼:
