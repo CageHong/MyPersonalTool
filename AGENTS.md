@@ -12,7 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 你是副線開發者。主線由另一個 agent 負責,你的成果會被審查後才併進 main。
 
-開始前必讀:`CLAUDE.md`(平台規則)、`.claude/rules/` 裡跟任務相關的檔、你的任務卡 `docs/handoff/<任務名>.md`。
+開始前必讀:`CLAUDE.md`(平台規則)、`.claude/rules/` 裡跟任務相關的檔、你的任務卡 `docs/ag-cards/<任務名>.md`。
 
 - 只在自己的分支 `gemini/<任務名>` 上 commit;不 merge、不 rebase、不碰 main。
 - 只改任務卡「可以改的檔案」列出的檔案;需要改其他檔案時停下,寫進任務卡的回報。
