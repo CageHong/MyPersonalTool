@@ -42,6 +42,7 @@
 | POST | `/api/tasks/reminders` | 新增個別提醒,body 為 `{ taskId \| ruleId \| habitId, ...input }`(單一項目上限 5 則);成功 201 |
 | PUT | `/api/tasks/reminders/:reminderId` | 整份替換提醒設定(沿用原 owner) |
 | DELETE | `/api/tasks/reminders/:reminderId` | 刪除個別提醒;成功 204 |
+| GET | `/api/tasks/upcoming-notifications` | (卡 4,尚未實作)接下來 24 小時會送的通知,依日期、時刻排序;每筆 `{ kind: 'summary', date, time, summary, title }`、`{ kind: 'habit', date, time, reminderId, habitId, title }` 或 `{ kind: 'task', date, time, reminderId, taskId, ruleId, title }`(實例還沒產生時 `taskId` 是 null)。規則見 decisions §6j |
 
 用 PATCH 不用 PUT:勾完成只改 `completedAt` 一個欄位,不是整個資源替換。
 

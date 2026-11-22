@@ -57,7 +57,6 @@
 | 規則加時間欄位(`dueTime`、`scheduledAt`、duration 的對應),實例從規則複製 | 做日曆視圖時 |
 | `createRuleFromTask` 對有 `scheduledAt` 的任務目前拒絕;改成平移或由規則決定時刻 | 做日曆視圖時 |
 | 改規則時,新規則在今天剛好有一次而舊規則沒有,今天不補 | 實際遇到時 |
-| 改重複規則的範本時,明天起的未完成實例刪掉重建,掛在這些實例上的絕對提醒跟著被 cascade 刪掉,畫面沒有提示(卡 3 審查,2026-11-22) | 做卡 4 的右欄提醒編輯器時決定:提示、搬到新實例,或接受 |
 | `createRuleFromTask` 時 `daysBefore > 6` 的相對提醒留在原任務,這條沒有測試(卡 3 審查) | 下次動 `createRuleFromTask` 時補 |
 | 前端 `PRIORITY_LEVELS` / `PRIORITY_OPTIONS` 與伺服器 `PRIORITY_VALUES` 共用一份值域(放 `src/modules/tasks/lib/`,伺服器 import) | 值域要改時 |
 | 今天與未來七天要不要顯示區間內已完成的任務 | 分組已完成,這一項還沒決定 |

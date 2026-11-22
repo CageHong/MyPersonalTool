@@ -14,6 +14,7 @@ import {
   getNotificationSettings,
   markTaskNotificationsSent,
   saveNotificationSettings,
+  upcomingTaskNotifications,
   type NotificationSettings,
 } from './notifications'
 
@@ -643,5 +644,127 @@ describe('due order', () => {
       habitKey(early, TODAY),
       habitKey(late, TODAY),
     ])
+  })
+})
+
+// ---- 以下規格:卡 4(notify-reminders-ui)的「接下來會送的提醒」 ----
+// 範圍:現在之後(不含)到 24 小時後(含)。三則摘要只列開著的,不算內容(沒有內容時到時候不送);
+// 個別提醒用目前的狀態判斷:停止中的習慣、本週期已達標的習慣、已完成的任務、沒有到期日的相對提醒都不列。
+// 重複規則的提醒,實例還沒產生(超過補齊終點)時照規則展開列出,taskId 是 null。
+// 排序:日期、時刻;同時刻摘要在前,再依提醒 id、任務 id。只讀,不寫已送標記
+describe('upcomingTaskNotifications', () => {
+  function upcomingAt(date: string, time: string) {
+    return upcomingTaskNotifications(at(date, time))
+  }
+
+  test('lists enabled summaries in the next 24 hours, excluding the current minute', () => {
+    saveNotificationSettings(
+      settingsWith({ afternoon: { time: '15:00', enabled: false } }),
+    )
+
+    assert.deepEqual(upcomingAt(TODAY, '08:00'), [
+      { kind: 'summary', date: TODAY, time: '21:00', summary: 'evening', title: '晚上收尾' },
+      { kind: 'summary', date: TOMORROW, time: '08:00', summary: 'morning', title: '早上總覽' },
+    ])
+  })
+
+  test('does not mark anything as sent', () => {
+    createTask({ title: '寫週報', dueDate: TODAY })
+    upcomingAt(TODAY, '07:00')
+    assert.deepEqual(sentRows(), [])
+  })
+
+  test('habit reminders: today and tomorrow, skipping paused habits', () => {
+    allSummariesOff()
+    const h = createHabit({ name: '喝水', periodType: 'daily', target: 8 }, TODAY)
+    const r = habitReminder(h.id, '14:00')
+    const paused = createHabit({ name: '跑步', periodType: 'daily', target: 1 }, TODAY)
+    habitReminder(paused.id, '15:00')
+    pauseHabit(paused.id, TODAY)
+
+    assert.deepEqual(upcomingAt(TODAY, '10:00'), [
+      { kind: 'habit', date: TODAY, time: '14:00', reminderId: r.id, habitId: h.id, title: '喝水' },
+    ])
+    assert.deepEqual(upcomingAt(TODAY, '14:00'), [
+      { kind: 'habit', date: TOMORROW, time: '14:00', reminderId: r.id, habitId: h.id, title: '喝水' },
+    ])
+  })
+
+  test('habit reminders: an achieved period is skipped until the next period starts', () => {
+    allSummariesOff()
+    const daily = createHabit({ name: '伸展', periodType: 'daily', target: 1 }, TODAY)
+    addLog(daily.id, TODAY, TODAY)
+    const rDaily = habitReminder(daily.id, '19:00')
+    // 本週是 09-14 到 09-20,明天仍在本週
+    const weekly = createHabit({ name: '冥想', periodType: 'weekly', target: 1 }, '2026-09-14')
+    addLog(weekly.id, TODAY, TODAY)
+    habitReminder(weekly.id, '20:00')
+
+    // 今天都已達標;明天的時刻還在 24 小時外
+    assert.deepEqual(upcomingAt(TODAY, '10:00'), [])
+    // 每日的明天是新週期,列出;每週的明天仍在已達標的本週,不列
+    assert.deepEqual(upcomingAt(TODAY, '20:00'), [
+      { kind: 'habit', date: TOMORROW, time: '19:00', reminderId: rDaily.id, habitId: daily.id, title: '伸展' },
+    ])
+  })
+
+  test('task reminders: relative follows the due date, absolute uses its own date', () => {
+    allSummariesOff()
+    const t = createTask({ title: '繳房租', dueDate: TOMORROW })
+    const rel = relativeReminder(t.id, 1, '20:00')
+    const abs = absoluteReminder(t.id, TOMORROW, '09:00')
+    const noDue = createTask({ title: '整理照片' })
+    relativeReminder(noDue.id, 0, '12:00')
+
+    assert.deepEqual(upcomingAt(TODAY, '10:00'), [
+      { kind: 'task', date: TODAY, time: '20:00', reminderId: rel.id, taskId: t.id, ruleId: null, title: '繳房租' },
+      { kind: 'task', date: TOMORROW, time: '09:00', reminderId: abs.id, taskId: t.id, ruleId: null, title: '繳房租' },
+    ])
+
+    updateTask(t.id, { done: true })
+    assert.deepEqual(upcomingAt(TODAY, '10:00'), [])
+  })
+
+  test('rule reminders: each instance, plus occurrences beyond the generated range', () => {
+    allSummariesOff()
+    const source = createTask({ title: '倒垃圾', dueDate: TODAY })
+    const rule = createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TODAY }, TODAY)
+    const r = createReminder({ ruleId: rule.id }, { kind: 'relative', daysBefore: 6, time: '09:00' }, SETUP_NOW)
+    const instances = listTasks({ today: TODAY }).filter((row) => row.recurrenceRuleId === rule.id)
+    // 補齊終點是今天 + 6:今天 09:00 提醒的是 6 天後那一次(已產生);明天 09:00 提醒的是 7 天後(還沒產生)
+    const sixDaysLater = instances.find((row) => row.dueDate === '2026-09-25')
+    assert.ok(sixDaysLater)
+    assert.ok(!instances.some((row) => row.dueDate === '2026-09-26'))
+
+    assert.deepEqual(upcomingAt(TODAY, '08:00'), [
+      { kind: 'task', date: TODAY, time: '09:00', reminderId: r.id, taskId: sixDaysLater.id, ruleId: rule.id, title: '倒垃圾' },
+    ])
+    assert.deepEqual(upcomingAt(TODAY, '10:00'), [
+      { kind: 'task', date: TOMORROW, time: '09:00', reminderId: r.id, taskId: null, ruleId: rule.id, title: '倒垃圾' },
+    ])
+  })
+
+  test('orders by date and time; summaries first at the same time, then reminder id', () => {
+    saveNotificationSettings(
+      settingsWith({
+        morning: { time: '08:00', enabled: false },
+        afternoon: { time: '15:00', enabled: false },
+        evening: { time: '20:00', enabled: true },
+      }),
+    )
+    const h = createHabit({ name: '喝水', periodType: 'daily', target: 8 }, TODAY)
+    const late = habitReminder(h.id, '21:00')
+    const same = habitReminder(h.id, '20:00')
+
+    assert.deepEqual(
+      upcomingAt(TODAY, '19:00').map((item) => [item.date, item.time, item.kind]),
+      [
+        [TODAY, '20:00', 'summary'],
+        [TODAY, '20:00', 'habit'],
+        [TODAY, '21:00', 'habit'],
+      ],
+    )
+    // 同時刻的排序不是靠 id:晚建立的 20:00 排在 21:00 前
+    assert.ok(same.id > late.id)
   })
 })

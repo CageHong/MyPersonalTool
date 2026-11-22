@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { before, describe, test } from 'node:test'
 import { asc, eq, sql } from 'drizzle-orm'
 import { applyMigrations, db } from '../db'
-import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem } from '../db/schema'
+import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem, taskReminder } from '../db/schema'
 import { addDaysUtc } from '../lib/recurrence'
 import {
   createChecklistItem,
@@ -13,6 +13,7 @@ import {
   updateChecklistItem,
 } from './checklist'
 import { NotFoundError } from './errors'
+import { createReminder, listReminders } from './reminders'
 import {
   createRuleFromTask,
   fillInstances,
@@ -749,4 +750,107 @@ describe('until', () => {
       )
     })
   }
+})
+
+// ---- 以下規格:卡 4(notify-reminders-ui)。只有排程欄位改變才重建實例;其他欄位就地更新 ----
+// 排程欄位:freq、interval、weekdays、startDate、until。其他:title、notes、priority、excludeFromSummary、checklist 範本
+// 就地更新的範圍與重建相同(今天之後、未完成);實例的 id、dueDate、editedAt、個別提醒都不動
+describe('updateRule: non-schedule changes update instances in place', () => {
+  // 建立提醒時的「現在」:早於測試用的所有日期
+  const SETUP_NOW = new Date(2026, 8, 18, 0, 0)
+
+  function setup() {
+    const { rule, todayItemId, before } = setupRuleWithHistory()
+    const future = instanceOn(rule.id, '2026-09-21')!
+    const reminder = createReminder({ taskId: future.id }, { kind: 'absolute', date: '2026-09-21', time: '09:00' }, SETUP_NOW)
+    return { rule, todayItemId, before, future, reminder }
+  }
+
+  test('title, notes, priority and excludeFromSummary keep instance ids and their reminders', () => {
+    const { rule, todayItemId, before, future, reminder } = setup()
+    const futureIdsBefore = before
+      .filter((instance) => instance.occurrenceDate! > TODAY && instance.completedAt === null)
+      .map((instance) => [instance.occurrenceDate, instance.id])
+
+    updateRule(rule.id, { title: 'new', notes: 'n', priority: 5, excludeFromSummary: true }, TODAY)
+
+    assertPastAndCompletedUnchanged(rule.id, before, todayItemId)
+    assert.deepEqual(
+      futureIdsBefore.map(([date]) => [date, instanceOn(rule.id, date!)!.id]),
+      futureIdsBefore,
+    )
+    for (const [date] of futureIdsBefore) {
+      const instance = instanceOn(rule.id, date!)!
+      assert.equal(instance.title, 'new')
+      assert.equal(instance.notes, 'n')
+      assert.equal(instance.priority, 5)
+      assert.equal(instance.excludeFromSummary, true)
+      assert.equal(instance.editedAt, null)
+    }
+    assert.deepEqual(listReminders({ taskId: future.id }).map((r) => r.id), [reminder.id])
+    assert.equal(instanceOn(rule.id, '2026-09-20')!.title, 'old')
+  })
+
+  test('a checklist template change replaces the checklist of future incomplete instances in place', () => {
+    const { rule, todayItemId, before, future, reminder } = setup()
+
+    updateRule(rule.id, { checklist: ['a', 'b'] }, TODAY)
+
+    assertPastAndCompletedUnchanged(rule.id, before, todayItemId)
+    assert.equal(instanceOn(rule.id, '2026-09-21')!.id, future.id)
+    assert.deepEqual(
+      checklistOf(future.id).map((item) => [item.title, item.completedAt]),
+      [
+        ['a', null],
+        ['b', null],
+      ],
+    )
+    assert.deepEqual(templateOf(rule.id), ['a', 'b'])
+    assert.deepEqual(listReminders({ taskId: future.id }).map((r) => r.id), [reminder.id])
+  })
+
+  test('a future instance whose due date was moved keeps that due date', () => {
+    const { rule, future } = setup()
+    updateTask(future.id, { dueDate: '2026-09-23' })
+
+    updateRule(rule.id, { title: 'new' }, TODAY)
+
+    const after = instanceOn(rule.id, '2026-09-21')!
+    assert.equal(after.id, future.id)
+    assert.equal(after.dueDate, '2026-09-23')
+    assert.equal(after.title, 'new')
+  })
+
+  test('the watermark is not reset', () => {
+    const { rule } = setup()
+
+    updateRule(rule.id, { title: 'new' }, TODAY)
+
+    assert.equal(ruleRow(rule.id).generatedThrough, END)
+  })
+
+  test('a schedule change still regenerates; absolute reminders on removed instances go with them', () => {
+    const { rule, future, reminder } = setup()
+
+    updateRule(rule.id, { interval: 2 }, TODAY)
+
+    // 9/15 起每 2 天,9/21 仍是一次,但實例是重新產生的
+    const regenerated = instanceOn(rule.id, '2026-09-21')!
+    assert.notEqual(regenerated.id, future.id)
+    assert.deepEqual(listReminders({ taskId: regenerated.id }), [])
+    assert.equal(
+      db.select().from(taskReminder).where(eq(taskReminder.id, reminder.id)).all().length,
+      0,
+    )
+  })
+
+  test('schedule and non-schedule changes together regenerate', () => {
+    const { rule, future } = setup()
+
+    updateRule(rule.id, { interval: 2, title: 'new' }, TODAY)
+
+    const regenerated = instanceOn(rule.id, '2026-09-21')!
+    assert.notEqual(regenerated.id, future.id)
+    assert.equal(regenerated.title, 'new')
+  })
 })
