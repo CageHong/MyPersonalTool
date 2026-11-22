@@ -93,6 +93,11 @@ for TEMPLATE in "${TEMPLATES[@]}"; do
     mkdir -p "$LOG_DIR" "$LAUNCH_AGENTS_DIR"
     printf '%s\n' "$RENDERED" > "$TARGET_PLIST"
     launchctl bootout "$GUI_DOMAIN/$LABEL" 2>/dev/null || true
+    # bootout 是非同步的；還沒卸載完就 bootstrap 會失敗（5: Input/output error），最多等 10 秒
+    for _ in {1..20}; do
+      launchctl print "$GUI_DOMAIN/$LABEL" >/dev/null 2>&1 || break
+      sleep 0.5
+    done
     launchctl bootstrap "$GUI_DOMAIN" "$TARGET_PLIST"
     echo "Installed and started $LABEL ($TARGET_PLIST)"
   fi

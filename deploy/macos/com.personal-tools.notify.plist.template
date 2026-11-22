@@ -7,9 +7,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>__NODE_BIN__</string>
-    <string>__REPO_DIR__/node_modules/tsx/dist/cli.mjs</string>
-    <string>__REPO_DIR__/src/jobs/notify-cli.ts</string>
+    <string>__REPO_DIR__/deploy/macos/bin/notify-tick</string>
   </array>
 
   <key>WorkingDirectory</key>
@@ -17,6 +15,8 @@
 
   <key>EnvironmentVariables</key>
   <dict>
+    <key>NODE_BIN</key>
+    <string>__NODE_BIN__</string>
     <key>NODE_ENV</key>
     <string>production</string>
     <key>PERSONAL_TOOLS_DATA_DIR</key>

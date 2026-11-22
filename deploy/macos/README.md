@@ -6,6 +6,8 @@
 - 開發版照常使用 `npm run dev`（`http://localhost:3000`，使用預設 `.next/`），兩者可同時運行不互相覆寫。
 - 通知 runner（`com.personal-tools.notify`）為獨立 job，透過 `StartCalendarInterval` 每 15 分鐘（每小時 `:00`、`:15`、`:30`、`:45`）與登入時（`RunAtLoad`）執行一次 `src/jobs/notify-cli.ts`，Mac 睡眠期間錯過的話會在醒來時補跑一次。
 
+> **啟動腳本**：plist 的 `ProgramArguments` 不直接寫 `node`，而是 `deploy/macos/bin/web-start` 與 `bin/notify-tick`；腳本用 plist 帶入的 `NODE_BIN` 去 `exec` node。原因是 macOS 的背景項目管理（BTM）用第一個執行檔辨識背景項目，兩個 job 共用同一個 `node` 時，notify 每次執行都會跳「已加入背景項目」通知（`docs/platform/decisions.md` §9）。
+
 > **注意（notify 直接執行原始碼）**：`com.personal-tools.notify` 由 `launchd` 直接以 `tsx` 執行安裝時指定的 repo 目錄裡的原始碼，不像網頁跑 `.next-prod/` 建置結果。若在該 repo 目錄切換到其他分支，下一次排程就會執行該分支的程式（平常建議在獨立 worktree 開發，或先以 `launchctl bootout` 暫停 notify）。
 
 ## 安裝

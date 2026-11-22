@@ -7,11 +7,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>__NODE_BIN__</string>
-    <string>__REPO_DIR__/node_modules/next/dist/bin/next</string>
-    <string>start</string>
-    <string>-p</string>
-    <string>__PORT__</string>
+    <string>__REPO_DIR__/deploy/macos/bin/web-start</string>
   </array>
 
   <key>WorkingDirectory</key>
@@ -19,6 +15,10 @@
 
   <key>EnvironmentVariables</key>
   <dict>
+    <key>NODE_BIN</key>
+    <string>__NODE_BIN__</string>
+    <key>PERSONAL_TOOLS_PORT</key>
+    <string>__PORT__</string>
     <key>NODE_ENV</key>
     <string>production</string>
     <key>NEXT_DIST_DIR</key>

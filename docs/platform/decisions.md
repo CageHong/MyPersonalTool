@@ -150,6 +150,7 @@
 | 接受 MacBook 睡眠時全部停止。runner 找「到期而且還沒送」的提醒,醒來時補送;太舊的跳過不送 | 使用者接受睡眠的限制;補送讓睡眠不會漏提醒,跳過避免一次湧進一堆 |
 | 打開方式:Safari 的「加入 Dock」 | 不用碰終端機,用起來像一般 app |
 | 跑法相關的檔案(launchd plist、deploy 腳本)放 `deploy/macos/`,不混進 `src/` | 跑法是「這台機器怎麼跑」,不是程式的一部分;換機器(§10)只是多一種跑法 |
+| 每個 LaunchAgent 從自己的啟動腳本(`deploy/macos/bin/`)啟動,plist 的 `ProgramArguments` 不直接寫 `node`;`node` 的路徑由 plist 的環境變數 `NODE_BIN` 帶入(2026-11-22 補) | macOS 的背景項目管理(BTM)用 `ProgramArguments` 的第一個執行檔辨識背景項目。web 與 notify 原本都登記成同一個 ad-hoc 簽章的 Homebrew `node`,notify 每 15 分鐘跑一次,每次都跳「已加入背景項目:node」通知;改成各自的腳本,讓兩個 job 的執行檔分開。改完後只在重新安裝時各跳一次新項目通知,之後排程執行不再通知(2026-11-22 18:15 的排程執行確認) |
 
 之後要做,但不急:手機存取(Tailscale 網內用 `tailscale serve` 提供 HTTPS)。
 

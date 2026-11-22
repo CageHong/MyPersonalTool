@@ -1,0 +1,8 @@
+#!/bin/zsh
+# launchd 的 com.personal-tools.notify 從這支腳本啟動，不直接跑 node。
+# 原因：macOS 背景項目管理（BTM）用 ProgramArguments 的第一個執行檔辨識背景項目；
+# 讓每個 job 各有自己的執行檔，避免兩個 job 共用同一個 ad-hoc 簽章的 node。
+# NODE_BIN 與工作目錄由 plist 提供（install.sh 產生）。
+set -eu
+REPO_DIR="${0:A:h:h:h:h}"
+exec "$NODE_BIN" "$REPO_DIR/node_modules/tsx/dist/cli.mjs" "$REPO_DIR/src/jobs/notify-cli.ts"
