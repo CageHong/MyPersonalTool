@@ -10,7 +10,7 @@ import {
   type PeriodType,
 } from '../lib/habit'
 import { NotFoundError, ValidationError } from './errors'
-import { isCalendarDate, isTimeOfDay } from './validation'
+import { isCalendarDate } from './validation'
 
 export type Habit = typeof habit.$inferSelect
 export type HabitLog = typeof habitLog.$inferSelect
@@ -24,16 +24,15 @@ export type CreateHabitInput = {
   periodType: PeriodType
   // 不給或 null = 紀錄型
   target?: number | null
-  // HH:MM,可空
-  reminderTime?: string | null
+  excludeFromSummary?: boolean
 }
 
-// key 不存在 = 不改。periodType、target 有實際變動時追加一筆設定歷史;name、reminderTime 不進歷史
+// key 不存在 = 不改。periodType、target 有實際變動時追加一筆設定歷史;name、excludeFromSummary 不進歷史
 export type UpdateHabitPatch = {
   name?: string
   periodType?: PeriodType
   target?: number | null
-  reminderTime?: string | null
+  excludeFromSummary?: boolean
 }
 
 export type HabitSummary = Habit & {
@@ -72,8 +71,8 @@ function collectErrors(input: CreateHabitInput | UpdateHabitPatch, isCreate: boo
   if (input.target != null && (!Number.isInteger(input.target) || input.target < 1)) {
     fields.target = 'invalid_value'
   }
-  if (input.reminderTime != null && !isTimeOfDay(input.reminderTime)) {
-    fields.reminderTime = 'invalid_value'
+  if (input.excludeFromSummary !== undefined && typeof input.excludeFromSummary !== 'boolean') {
+    fields.excludeFromSummary = 'invalid_value'
   }
   return fields
 }
@@ -116,7 +115,7 @@ export function createHabit(input: CreateHabitInput, today: string): Habit {
         periodType: input.periodType,
         target: input.target ?? null,
         sortOrder: (last ?? -1) + 1,
-        reminderTime: input.reminderTime ?? null,
+        excludeFromSummary: input.excludeFromSummary ?? false,
         createdAt: now(),
       })
       .returning()
@@ -141,7 +140,7 @@ export function updateHabit(id: number, patch: UpdateHabitPatch, today: string):
     const existing = selectHabit(tx, id)
 
     // 只收白名單裡實際出現、且真的會改變的欄位;整個 patch 沒變就不寫入
-    const updates: Partial<Pick<Habit, 'name' | 'periodType' | 'target' | 'reminderTime'>> = {}
+    const updates: Partial<Pick<Habit, 'name' | 'periodType' | 'target' | 'excludeFromSummary'>> = {}
     if (patch.name !== undefined && patch.name.trim() !== existing.name) {
       updates.name = patch.name.trim()
     }
@@ -151,8 +150,8 @@ export function updateHabit(id: number, patch: UpdateHabitPatch, today: string):
     if (patch.target !== undefined && (patch.target ?? null) !== existing.target) {
       updates.target = patch.target ?? null
     }
-    if (patch.reminderTime !== undefined && (patch.reminderTime ?? null) !== existing.reminderTime) {
-      updates.reminderTime = patch.reminderTime ?? null
+    if (patch.excludeFromSummary !== undefined && patch.excludeFromSummary !== existing.excludeFromSummary) {
+      updates.excludeFromSummary = patch.excludeFromSummary
     }
     if (Object.keys(updates).length === 0) {
       return existing

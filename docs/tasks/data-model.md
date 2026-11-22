@@ -27,6 +27,7 @@
 | `occurrenceDate` | text `YYYY-MM-DD` | 是 | 這個實例對應規則展開的哪一天;`(recurrenceRuleId, occurrenceDate)` UNIQUE |
 | `pinned` | integer(布林)預設 false | 否 | 置頂,全域語意:在任何清單都進最上方的置頂區塊。只收布林值 |
 | `editedAt` | integer (Unix 秒) | 是 | `null` = 建立後未被編輯過;`0` = 欄位上線前既有的未完成重複實例,是否編輯過未知 |
+| `excludeFromSummary` | integer(布林)預設 false | 否 | 不進三則每日摘要;不影響個別提醒 |
 
 ### 時間處理規則
 
@@ -120,6 +121,7 @@
 | `startDate` | text `YYYY-MM-DD` | 否 | 展開的錨點 |
 | `until` | text `YYYY-MM-DD` | 是 | 結束日,含當天;`null` = 永不結束。必須是真實日曆日且 `>= startDate`,可以早於今天;到期不自動寫 `endedAt` |
 | `title` / `notes` / `priority` | 同 `task` | | 範本內容 |
+| `excludeFromSummary` | integer(布林)預設 false | 否 | 範本內容,會帶到新產生的實例;修改時從明天起未完成的實例重新產生 |
 | `generatedThrough` | text `YYYY-MM-DD` | 是 | 水位線:實例已產生到哪一天;`null` = 尚未產生 |
 | `endedAt` | integer (Unix 秒) | 是 | `null` = 仍在重複 |
 | `createdAt` / `updatedAt` | integer (Unix 秒) | 否 | 水位線前進不更新 `updatedAt` |
@@ -143,7 +145,7 @@
 - 用到「今天」的函式都以參數接收 `today`,不在函式內讀時鐘;`listTasks()` 查詢前以伺服器本地時區的今天呼叫 `fillInstances`。
 - 補齊終點 = 今天 + 6(含),對上「未來 7 天」檢視。
 - 錯過就跳過:進行中的規則在 `fillRule` 補齊前,先刪除未完成、`occurrenceDate` 與 `dueDate` 都早於今天、且 `editedAt` 為 `null` 的實例(checklist 一起刪除),再從不早於今天的日期開始補齊(水位線已超過終點時仍會先刪除)。`editedAt = 0`(上線前既有實例)與已編輯過的實例會保留為逾期;既有實例的清理另由 `npm run tasks:skip-legacy-missed` 處理(推斷為沒編輯過的:已錯過的刪除,還沒錯過的 `editedAt` 改回 `null`;推斷為編輯過的維持 `0`)。
-- 建立規則時不回溯:原任務是第一個實例(`editedAt` 設為轉換時間,視為編輯過),水位線設為 max(第一個日期, 昨天),規則建立前的日期不產生實例。
+- 建立規則時不回溯:原任務是第一個實例(`editedAt` 設為轉換時間,視為編輯過),水位線設為 max(第一個日期, 昨天),規則建立前的日期不產生實例。原任務既有的提醒:相對提醒且 `daysBefore <= 6` 的搬到規則上成為範本(`task_id = null, rule_id = rule.id`),絕對提醒與 `daysBefore > 6` 的相對提醒留在原任務上。
 - 停止重複可逆:任務的規則已停止時 `createRuleFromTask` 允許建新規則,任務改指向新規則;舊規則與它的其他實例不動。規則仍在進行中才回 `already_set`。
 - 改規則(`updateRule`)與停止(`stopRule`)先用舊規則補到最新,再刪除今天之後、未完成的實例。
 
@@ -160,7 +162,7 @@
 | `periodType` | text | 否 | `daily` / `weekly` / `monthly`,CHECK |
 | `target` | integer | 是 | 每週期目標次數,CHECK `NULL` 或 `>= 1`;`null` = 紀錄型(不判定達成、沒有 streak) |
 | `sortOrder` | integer | 否 | 小的在前,新建放最後;不保證連號 |
-| `reminderTime` | text | 是 | `HH:MM`,個別習慣提醒的時刻(`decisions` §6j) |
+| `excludeFromSummary` | integer(布林)預設 false | 否 | 不進三則每日摘要;不影響個別提醒 |
 | `createdAt` | integer (Unix 秒) | 否 | |
 
 `periodType` 與 `target` 是「現在的設定」的快取,歷史在 `habit_settings_history`。
@@ -183,4 +185,5 @@
 ## 通知
 
 - `task_notification_setting`:三則每日摘要的設定。`kind` PK(`morning` / `afternoon` / `evening`,CHECK)、`time`(`HH:MM`)、`enabled`(boolean)、`updatedAt`(Unix 秒)。沒有列時由程式回傳預設值(`08:00` / `15:00` / `21:00`,皆啟用),預設不落地;儲存時驗證三則時刻嚴格遞增 `morning < afternoon < evening`(含停用的摘要)。
-- `task_notification_sent`:每日已送出的通知標記。`id`、`key`(例如 `summary:morning`、`habit:12`)、`date`(`YYYY-MM-DD`)、`sentAt`(Unix 秒);唯一鍵 `(key, date)` 確保同一天同一則只送一次。沒有內容的摘要與已達標的習慣提醒會在計算到期時直接寫入標記而不送出。
+- `task_notification_sent`:每日已送出的通知標記。`id`、`key`(例如 `summary:morning`、`reminder:<提醒id>:<HH:MM>`、`reminder:<提醒id>:<任務id>:<HH:MM>`)、`date`(`YYYY-MM-DD`)、`sentAt`(Unix 秒);唯一鍵 `(key, date)` 確保同一天同一則只送一次。沒有內容的摘要、已達標的習慣提醒、已完成的任務提醒會在計算到期時直接寫入標記而不送出。
+- `task_reminder`:個別提醒(每個項目上限 5 則)。`id`、三個可空外鍵 `taskId` / `ruleId` / `habitId`(皆 `ON DELETE CASCADE`,CHECK 恰好一個非空)、`kind`(`daily` / `relative` / `absolute`,CHECK)、`time`(`HH:MM`)、`daysBefore`(相對提醒專用:任務 0–28、規則 0–6)、`date`(絕對提醒專用:`YYYY-MM-DD`,存檔時不可早於現在)、`createdAt`、`updatedAt`。習慣只收 `daily`、規則只收 `relative`、任務收 `relative` 或 `absolute`。

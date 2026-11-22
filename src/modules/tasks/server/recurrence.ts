@@ -1,6 +1,6 @@
-import { and, asc, eq, gt, isNull, lt } from 'drizzle-orm'
+import { and, asc, eq, gt, isNull, lt, lte } from 'drizzle-orm'
 import { db } from '../db'
-import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem } from '../db/schema'
+import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem, taskReminder } from '../db/schema'
 import { addDaysUtc, expandRule, firstOccurrence, FREQS, type Freq, type RecurrenceSpec } from '../lib/recurrence'
 import { NotFoundError, ValidationError } from './errors'
 import { isCalendarDate, PRIORITY_VALUES } from './validation'
@@ -33,6 +33,7 @@ export type UpdateRuleChanges = {
   title?: string
   notes?: string | null
   priority?: number | null
+  excludeFromSummary?: boolean
   checklist?: string[]
 }
 
@@ -177,6 +178,7 @@ function fillRule(tx: Tx, rule: RecurrenceRule, today: string): void {
         scheduledAt: null,
         durationMinutes: null,
         priority: rule.priority,
+        excludeFromSummary: rule.excludeFromSummary,
         completedAt: null,
         createdAt: now(),
         parentTaskId: null,
@@ -265,6 +267,7 @@ export function createRuleFromTask(
         title: source.title,
         notes: source.notes,
         priority: source.priority,
+        excludeFromSummary: source.excludeFromSummary,
         // 原任務就是 first 那天的實例,補齊從隔天開始。
         // 不回溯:first 在過去時從今天開始補,規則建立前的日期沒有被錯過,不產生實例
         generatedThrough: first > yesterday ? first : yesterday,
@@ -290,6 +293,18 @@ export function createRuleFromTask(
     tx.update(task)
       .set({ recurrenceRuleId: rule.id, occurrenceDate: first, dueDate: first, editedAt: timestamp })
       .where(eq(task.id, taskId))
+      .run()
+
+    // 相對提醒(daysBefore <= 6)搬到規則上成為範本;絕對提醒與 daysBefore > 6 的留在原任務
+    tx.update(taskReminder)
+      .set({ taskId: null, ruleId: rule.id, updatedAt: timestamp })
+      .where(
+        and(
+          eq(taskReminder.taskId, taskId),
+          eq(taskReminder.kind, 'relative'),
+          lte(taskReminder.daysBefore, 6),
+        ),
+      )
       .run()
 
     fillRule(tx, rule, today)
@@ -323,6 +338,9 @@ export function updateRule(
   }
   if (changes.priority != null && !PRIORITY_VALUES.includes(changes.priority)) {
     fields.priority = 'invalid_value'
+  }
+  if (changes.excludeFromSummary !== undefined && typeof changes.excludeFromSummary !== 'boolean') {
+    fields.excludeFromSummary = 'invalid_value'
   }
   if (
     changes.checklist !== undefined &&
@@ -358,6 +376,8 @@ export function updateRule(
       notes: 'notes' in changes ? (changes.notes ?? null) : existing.notes,
       // 欄位是 NOT NULL DEFAULT 0,null 在這裡正規化成 0
       priority: 'priority' in changes ? (changes.priority ?? 0) : existing.priority,
+      excludeFromSummary:
+        changes.excludeFromSummary !== undefined ? changes.excludeFromSummary : existing.excludeFromSummary,
     }
     const specFields = collectSpecErrors(merged)
     if (Object.keys(specFields).length > 0) {

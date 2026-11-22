@@ -124,7 +124,29 @@
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `src/modules/tasks/db/schema.ts`：新增 `taskReminder` 表，並在 `task`、`taskRecurrenceRule`、`habit` 加入 `excludeFromSummary`，最終移除 `habit.reminderTime`。
+  - `src/modules/tasks/drizzle/0009_massive_the_captain.sql`、`0010_rich_jean_grey.sql`、`0011_messy_tony_stark.sql`（及 `meta/`）：依序建表加欄、將舊 `habit.reminder_time` 搬入 `task_reminder`、拿掉 `habit.reminder_time`。
+  - `src/modules/tasks/db/migrations.test.ts`：更新 `SEED`（涵蓋所有習慣與提醒相關表），並新增從 `0008` 升到 `0011` 的 `reminder_time` 搬移測試。
+  - `src/modules/tasks/server/reminders.ts`：新增提醒的 CRUD、owner 與欄位驗證、上限 5 則與 `NotFoundError` 檢查。
+  - `src/modules/tasks/server/tasks.ts`、`habits.ts`、`recurrence.ts`：加入 `excludeFromSummary`（含非 boolean 驗證與規則實例傳遞）、移除 `habits.ts` 的 `reminderTime`，並在 `createRuleFromTask` 將 `daysBefore <= 6` 的相對提醒轉掛到新規則。
+  - `src/modules/tasks/server/notifications.ts`：摘要過濾 `excludeFromSummary`、早上總覽加入「高優先」組、改從 `task_reminder` 計算習慣／任務／重複規則提醒與排序。
+  - `src/app/api/_lib/http.ts`、`src/app/api/tasks/reminders/route.ts`、`src/app/api/tasks/reminders/[reminderId]/route.ts`：擴充 `INVALID_ID_MESSAGES` 並實作提醒的 GET / POST / PUT / DELETE 端點。
+  - `docs/tasks/data-model.md`、`api.md`、`backlog.md`：更新資料表、領域規則、API 清單與進度。
 - 沒做什麼、為什麼:
+  - 未修改 `src/modules/tasks/components/`：經 `grep` 確認目前前端沒有任何元件引用 `habit.reminderTime`，且 `tsc` 全過。
+  - 未修改主線提供的 `reminders.test.ts` 與 `notifications.test.ts`。
 - 每個完成條件怎麼驗證的:
+  - `npx next typegen && npx tsc --noEmit && npm run lint && npm test`：全數通過（656 tests / 87 suites, 0 fail）。
+  - 沙盒 migration 與 `notify:tick`：在 `/tmp/sandbox-tasks-notify` 先套用到 `0008` 並插入 `reminder_time = '00:01'` 的習慣，執行 `npm run tasks:db:migrate` 後確認 `task_reminder` 出現 `{ id: 1, habit_id: 1, kind: 'daily', time: '00:01' }`；再執行 `npm run notify:tick`，輸出顯示已觸發 `summary:afternoon@2026-11-22` 與 `reminder:1:00:01@2026-11-22`（因沙盒無 Telegram 設定檔而記錄 `failed=2`：`Telegram config file not found`）。
+  - `curl` CRUD 測試（連同沙盒 `next dev -p 3099`）：
+    - `POST /api/tasks/reminders`（relative）→ `HTTP 201`
+    - `POST /api/tasks/reminders`（absolute `2020-01-01`）→ `HTTP 400`，`{"error":{"code":"VALIDATION_FAILED","message":"Validation failed","fields":{"date":"in_past"}}}`
+    - `POST /api/tasks/reminders`（第 6 則）→ `HTTP 400`，`{"error":{"code":"VALIDATION_FAILED","message":"Validation failed","fields":{"reminders":"too_many"}}}`
+    - `GET /api/tasks/reminders?taskId=1` → `HTTP 200`（回傳 5 筆，依 id 升冪）
+    - `PUT /api/tasks/reminders/2`（改為 absolute）→ `HTTP 200`（保留 `taskId: 1`，`daysBefore: null`）
+    - `DELETE /api/tasks/reminders/2` → `HTTP 204`
 - 最可能出錯的地方:
+  - `createRuleFromTask` 將原任務相對提醒轉掛到規則時，目前對 `daysBefore > 6` 的相對提醒選擇留在原任務（僅觸發第一個實例）；目前尚無專屬測試覆蓋這個邊界。
+  - `migrations.test.ts` 的 `SEED` 配合 `0010` 仍有 `habit.reminder_time`，若未來主線再加新 migration，記得同步更新 `SEED`。
 - 疑問:
+  - 無。
