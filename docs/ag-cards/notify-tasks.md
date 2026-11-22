@@ -56,6 +56,43 @@
 
 ## 實作計畫(標「先擬計畫」時,Gemini 先填,等主線確認)
 
+### 要新增／修改的檔案
+1. **修改 `src/modules/tasks/db/schema.ts` 與產生 migration**
+   - 新增 `taskNotificationSetting`（`task_notification_setting`）：`key`（`text`, PK, `CHECK IN ('morning', 'afternoon', 'evening')`）、`time`（`text`, not null）、`enabled`（`integer` boolean, not null）、`updatedAt`（`integer`, not null）。
+   - 新增 `taskNotificationSent`（`task_notification_sent`）：`id`（PK autoIncrement）、`key`（`text`, not null）、`date`（`text`, not null）、`sentAt`（`integer`, not null），加上 `uniqueIndex('task_notification_sent_key_date_uq').on(table.key, table.date)`。
+   - `habit` 新增可空欄位 `reminderTime: text('reminder_time')`。
+   - 執行 `npm run tasks:db:generate` 產生 migration（不手改產生的檔案與 `_journal.json`）；檢查 `src/modules/tasks/db/migrations.test.ts`（新表不在倒數第二版 schema、`habit.reminder_time` 可空，先跑測試確認，若需要再調整）。
+2. **修改 `src/modules/tasks/server/validation.ts`、`tasks.ts`、`lib/habit.ts`**
+   - 將 `DUE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/` 搬到 `server/validation.ts` 並匯出 `isTimeOfDay(value: unknown): value is string`；`server/tasks.ts` 改從 `./validation` 匯入。
+   - `src/modules/tasks/lib/habit.ts` 匯出 `periodEnd`。
+3. **修改 `src/modules/tasks/server/habits.ts`**
+   - `CreateHabitInput` 與 `UpdateHabitPatch` 加上 `reminderTime?: string | null`。
+   - `collectErrors` 驗證 `reminderTime`（非 null/undefined 時須符合 `isTimeOfDay`，否則 `fields.reminderTime = 'invalid_value'`）。
+   - `createHabit` 寫入 `reminderTime: input.reminderTime ?? null`；`updateHabit` 支援更新／清除 `reminderTime`（不寫入 `habitSettingsHistory`）。
+4. **新增 `src/modules/tasks/server/notifications.ts`**
+   - 匯出型別 `NotificationSettings`（`morning` / `afternoon` / `evening`，各含 `{ time: string; enabled: boolean }`）。
+   - `getNotificationSettings()`：查詢 `task_notification_setting`，沒有列時回傳預設值（`08:00` / `15:00` / `21:00`，皆 `enabled: true`）。
+   - `saveNotificationSettings(input)`：驗證三則皆為合法物件、`HH:MM` 與布林值（錯時 `fields[key] = 'invalid_value'`），且嚴格滿足 `morning.time < afternoon.time < evening.time`（含停用的摘要，不合時 `fields.times = 'out_of_order'`）；通過後在 transaction 內以 `onConflictDoUpdate` 寫入三列並回傳最新設定。
+   - `markTaskNotificationsSent(keys)`：將 `<key>@<YYYY-MM-DD>` 拆成 `(key, date)`，以 `onConflictDoNothing` 寫入 `task_notification_sent`。
+   - `dueTaskNotifications(now)`：
+     - 從 `now` 的本地年月日時分算出 `today`（`YYYY-MM-DD`）與 `currentTime`（`HH:MM`），不用 `toISOString`。
+     - 讀取設定與當天已送清單；以 `filterTasks(listTasks({ today }), 'today', today).tasks` 取今天到期與逾期未完成任務，以 `listHabits(today)` 取習慣進度。
+     - 依 `morning` → `afternoon` → `evening` 順序檢查：已啟用、未送過、`currentTime >= setting.time`，且早於下一則**已啟用**摘要的 `time`（若後面沒有已啟用的則補到當天結束）。
+     - 依 §6j 與測試格式組合純文字內容（略過空分組）；若完全沒內容，直接寫入 `task_notification_sent`（`onConflictDoNothing`）而不回傳給 runner。
+     - 再依 `listHabits(today)` 順序檢查未停止且有設 `reminderTime` 的習慣：未送過且 `currentTime >= h.reminderTime`；若已有目標且已達標，直接寫入 `task_notification_sent` 不回傳；否則回傳 `{ key: 'habit:<id>@<today>', message: { title: '習慣提醒', body } }`（無目標只列名稱，有目標列 `名稱 count/target`）。
+5. **新增 `src/app/api/tasks/notification-settings/route.ts`**
+   - `GET` 回傳 `getNotificationSettings()`；`PUT` 以 `readJsonObject` 讀取 body 並呼叫 `saveNotificationSettings`，錯誤交給 `handleError`。
+6. **修改 `src/jobs/notifiers.ts` 與 `src/jobs/notify-cli.ts`**
+   - `src/jobs/notifiers.ts`：`NOTIFIERS` 加入 `tasks`，於 `dueNotifications` 與 `markSent` 內動態 `await import('../modules/tasks/server/notifications')`。
+   - `src/jobs/notify-cli.ts`：log 時間戳改為本地時間 `YYYY-MM-DD HH:MM:SS`。
+7. **修改文件**
+   - 更新 `docs/tasks/data-model.md`、`docs/tasks/api.md`、`docs/tasks/backlog.md`（通知卡 2 完成、卡 3 待做）。
+
+### 回應「疑問」
+- **`dueTaskNotifications` 每次呼叫 `listTasks`（內含 `fillInstances` 寫入）在 runner 與網頁並存時的安全性**：
+  - 經檢查 `src/modules/tasks/db/index.ts` 已開啟 `journal_mode = WAL`（`better-sqlite3` 預設亦有 5 秒 `busy_timeout`），且 `src/modules/tasks/db/schema.ts` 的 `task` 表已有 `uniqueIndex('task_recurrence_occurrence_uq').on(table.recurrenceRuleId, table.occurrenceDate)` 專門防止並發重複補齊。
+  - `fillInstances` 本身每條規則各自一個短 transaction，當 `generatedThrough` 已達窗口上限時也不會寫入，實務上每 15 分鐘跑一次幾乎不造成鎖爭用；而且由 runner 呼叫 `listTasks({ today })` 能確保使用者早上還沒開網頁時，08:00 摘要仍能包含當天新展開的重複任務實例。因此維持呼叫 `listTasks({ today })` 即可，不需另寫一套不補齊的查詢。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
 - 沒做什麼、為什麼:
