@@ -45,6 +45,42 @@
 
 ## 實作計畫(Gemini 先填,等主線確認)
 
+### 要新增／修改的檔案
+1. **新增 `src/jobs/notifiers.ts`**
+   - 定義 `DueNotification`（`{ key: string; message: NotifyMessage }`）與 `ToolNotifier`（`dueNotifications(now: Date)`、`markSent(keys: string[])`，兩者皆支援同步或非同步回傳）。
+   - 匯出 `NOTIFIERS: Partial<Record<ToolId, ToolNotifier>> = {}`（本卡維持空物件，待後續卡片接上各工具）。
+2. **新增 `src/jobs/notify.ts`**
+   - 實作 `runNotifyTick({ now?, tools?, notifiers?, send? })`，預設值依序為 `new Date()`、`TOOLS`（`../platform/tools`）、`NOTIFIERS`（`./notifiers`）、`sendNotification`（`../platform/notify`）。
+   - 依序遍歷 `tools`：
+     - 若 `notifiers[tool.id]` 不存在則略過；不在 `tools` 裡的 `notifiers` key 也不處理。
+     - 呼叫 `await notifier.dueNotifications(now)`；若丟錯，將 `{ tool: tool.id, stage: 'due', error }` 記進 `failed` 並繼續下一個工具。
+     - 若無到期通知，不呼叫 `send` 也不呼叫 `markSent`。
+     - 對每則到期通知逐則呼叫 `await send(item.message)`：成功者記進 `sent` 與 `succeededKeys`，失敗者將 `{ tool: tool.id, stage: 'send', key: item.key, error }` 記進 `failed`，不影響其他則。
+     - 若 `succeededKeys.length > 0`，呼叫 `await notifier.markSent(succeededKeys)`；若丟錯，將 `{ tool: tool.id, stage: 'markSent', error }` 記進 `failed`，不影響其他工具。
+   - 回傳 `{ sent, failed }`。
+3. **新增 `src/jobs/notify-cli.ts`**
+   - 執行 `runNotifyTick({ now: new Date() })`，將本次 tick 的時間戳與 `{ sent, failed }` 摘要印到 `stdout`；若有 `failed` 項目則把失敗明細印到 `stderr` 並設定 `process.exitCode = 1`。
+4. **修改 `package.json`**
+   - 在 `scripts` 新增 `"notify:tick": "tsx src/jobs/notify-cli.ts"`。
+5. **新增 `deploy/macos/com.personal-tools.notify.plist.template`**
+   - `Label` 為 `com.personal-tools.notify`。
+   - `ProgramArguments` 比照 web 範本以 `__NODE_BIN__` 直接執行 `__REPO_DIR__/node_modules/tsx/dist/cli.mjs` 與 `__REPO_DIR__/src/jobs/notify-cli.ts`。
+   - `WorkingDirectory` 為 `__REPO_DIR__`；`EnvironmentVariables` 設 `NODE_ENV=production`、`PERSONAL_TOOLS_DATA_DIR=__DATA_DIR__`、`PATH=__NODE_DIR__:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`。
+   - 設 `StartInterval` 為 `300`、`RunAtLoad` 為 `<true/>`，不設 `KeepAlive`。
+   - `StandardOutPath` 與 `StandardErrorPath` 設為 `__LOG_DIR__/notify.stdout.log` 與 `__LOG_DIR__/notify.stderr.log`。
+   - 經檢查 `deploy/macos/install.sh` 與 `uninstall.sh` 已會掃描所有 `*.plist.template` 並支援 `--job`，兩支腳本不需修改。
+6. **修改 `deploy/macos/README.md` 與 `docs/platform/backlog.md`**
+   - `deploy/macos/README.md`：補上 `com.personal-tools.notify` 的說明（每 5 分鐘執行、`notify.*.log` 位置、手動啟停指令、`--job` 用法，以及直接執行 repo 原始碼的分支注意事項）。
+   - `docs/platform/backlog.md`：更新「通知」那條，標明 launchd runner 已完成、tasks 的提醒待做。
+
+### 驗證步驟
+1. 執行 `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`（確認 `src/jobs/notify.test.ts` 與既有測試全過）。
+2. 在暫存沙盒資料夾（`PERSONAL_TOOLS_DATA_DIR=/tmp/...`）執行 `npm run notify:tick`，確認對照表為空時正常結束、回報 0 則。
+3. 執行 `npm run deploy:install -- --dry-run`，確認同時列出 `com.personal-tools.web.plist` 與 `com.personal-tools.notify.plist` 的渲染結果與指令。
+
+### 回應「疑問」
+- **分支切換會影響 runner 執行的程式**：接受這個設計，並明確寫進 `deploy/macos/README.md`。平常開發都在獨立 worktree 進行、主 repo 維持在 `main`，因此實際上很少受影響；在 `README.md` 提醒若在安裝時指定的 repo 目錄切換分支，下一次 5 分鐘 tick 就會跑該分支的程式（需要時可先用 `launchctl bootout` 暫停）。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
 - 沒做什麼、為什麼:
