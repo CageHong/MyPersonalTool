@@ -26,6 +26,7 @@
 | `recurrenceRuleId` | integer FK → `task_recurrence_rule.id`,ON DELETE SET NULL | 是 | 重複規則產生的實例才有 |
 | `occurrenceDate` | text `YYYY-MM-DD` | 是 | 這個實例對應規則展開的哪一天;`(recurrenceRuleId, occurrenceDate)` UNIQUE |
 | `pinned` | integer(布林)預設 false | 否 | 置頂,全域語意:在任何清單都進最上方的置頂區塊。只收布林值 |
+| `editedAt` | integer (Unix 秒) | 是 | `null` = 建立後未被編輯過;`0` = 欄位上線前既有的未完成重複實例,是否編輯過未知 |
 
 ### 時間處理規則
 
@@ -42,6 +43,7 @@
 - 完成狀態收 `done: boolean`,不收 `completedAt`(收到回 `VALIDATION_FAILED`,`fields.completedAt`)。冪等規則同 checklist 項目:未完成時收到 `done: true` → 寫入當下時間;已完成時收到 `done: true` → 保留原值;`done: false` → `null`,已經是 `null` 就不變。
 - 其他欄位新值與現有值相同時視為沒有變化(`title` 比 trim 後的值,`priority` 的 `null` 視為 0)。
 - 整個 patch 都沒有實際變化時不寫入資料庫。task 表沒有 `updatedAt`。
+- 任何真的改變資料的寫入（`updateTask`、checklist 項目的新增／修改／刪除／排序）都會把 `task.editedAt` 設為當下 Unix 秒數；patch 沒改變任何欄位時不設。
 
 ### `priority` 的語意
 
@@ -140,7 +142,8 @@
 
 - 用到「今天」的函式都以參數接收 `today`,不在函式內讀時鐘;`listTasks()` 查詢前以伺服器本地時區的今天呼叫 `fillInstances`。
 - 補齊終點 = 今天 + 6(含),對上「未來 7 天」檢視。
-- 建立規則時不回溯:原任務是第一個實例,水位線設為 max(第一個日期, 昨天),規則建立前的日期不產生實例。
+- 錯過就跳過:進行中的規則在 `fillRule` 補齊前,先刪除未完成、`occurrenceDate` 與 `dueDate` 都早於今天、且 `editedAt` 為 `null` 的實例(checklist 一起刪除),再從不早於今天的日期開始補齊(水位線已超過終點時仍會先刪除)。`editedAt = 0`(上線前既有實例)與已編輯過的實例會保留為逾期;既有未編輯實例的清理另由 `npm run tasks:skip-legacy-missed` 處理。
+- 建立規則時不回溯:原任務是第一個實例(`editedAt` 設為轉換時間,視為編輯過),水位線設為 max(第一個日期, 昨天),規則建立前的日期不產生實例。
 - 停止重複可逆:任務的規則已停止時 `createRuleFromTask` 允許建新規則,任務改指向新規則;舊規則與它的其他實例不動。規則仍在進行中才回 `already_set`。
 - 改規則(`updateRule`)與停止(`stopRule`)先用舊規則補到最新,再刪除今天之後、未完成的實例。
 

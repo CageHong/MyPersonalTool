@@ -1,0 +1,1 @@
+ALTER TABLE `task` ADD `edited_at` integer;

@@ -13,7 +13,7 @@
 | GET | `/api/tasks/tasks` | 列出全部;查詢前先補齊重複實例,所以不是 safe,但冪等(水位線 + 唯一鍵) |
 | POST | `/api/tasks/tasks` | 建立;不可設定 `recurrenceRuleId`、`occurrenceDate`(收到回 `VALIDATION_FAILED`,值為 `not_allowed`) |
 | POST | `/api/tasks/tasks/batch` | 批次建立 `{ tasks: [...] }`(每筆同 POST `/api/tasks/tasks` 的 body),1 到 100 筆,整批成功才寫入;成功 201,回傳陣列。錯誤的 `fields` key 是「索引.欄位」 |
-| PATCH | `/api/tasks/tasks/:id` | 部分更新 `{ title?, notes?, dueDate?, dueTime?, scheduledAt?, durationMinutes?, priority?, parentTaskId?, pinned?, done? }`;不收 `completedAt`;不可設定 `recurrenceRuleId`、`occurrenceDate`(`not_allowed`) |
+| PATCH | `/api/tasks/tasks/:id` | 部分更新 `{ title?, notes?, dueDate?, dueTime?, scheduledAt?, durationMinutes?, priority?, parentTaskId?, pinned?, done? }`;不收 `completedAt`;不可設定 `recurrenceRuleId`、`occurrenceDate`(`not_allowed`);回傳的 task 含唯讀欄位 `editedAt` |
 | DELETE | `/api/tasks/tasks/:id` | 刪除 |
 | GET | `/api/tasks/tasks/:id/checklist-items` | 列出該任務的 checklist 項目(依 position) |
 | POST | `/api/tasks/tasks/:id/checklist-items` | 新增項目,放在最後 |

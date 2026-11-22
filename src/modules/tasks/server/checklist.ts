@@ -18,6 +18,10 @@ function now(): number {
   return Math.floor(Date.now() / 1000)
 }
 
+function markTaskEdited(tx: Tx, taskId: number, timestamp: number): void {
+  tx.update(task).set({ editedAt: timestamp }).where(eq(task.id, taskId)).run()
+}
+
 function assertTaskExists(executor: typeof db | Tx, taskId: number): void {
   const [found] = executor
     .select({ id: task.id })
@@ -79,6 +83,7 @@ export function createChecklistItem(taskId: number, title: string): ChecklistIte
       .returning()
       .all()
 
+    markTaskEdited(tx, taskId, timestamp)
     return created
   })
 }
@@ -112,7 +117,7 @@ export function createChecklistItems(taskId: number, titles: string[]): Checklis
     const start = last === null ? 0 : last + 1
 
     const timestamp = now()
-    return titles.map((title, index) => {
+    const createdItems = titles.map((title, index) => {
       const [created] = tx
         .insert(taskChecklistItem)
         .values({
@@ -127,6 +132,8 @@ export function createChecklistItems(taskId: number, titles: string[]): Checklis
         .all()
       return created
     })
+    markTaskEdited(tx, taskId, timestamp)
+    return createdItems
   })
 }
 
@@ -166,26 +173,31 @@ export function updateChecklistItem(id: number, patch: UpdateChecklistItemPatch)
     }
 
     // 全部勾完也不動任務本身的 completedAt:checklist 是任務的內容,不是它的完成條件
+    const timestamp = now()
     const [updated] = tx
       .update(taskChecklistItem)
-      .set({ ...updates, updatedAt: now() })
+      .set({ ...updates, updatedAt: timestamp })
       .where(eq(taskChecklistItem.id, id))
       .returning()
       .all()
+    markTaskEdited(tx, existing.taskId, timestamp)
     return updated
   })
 }
 
 // 其餘項目的 position 不重編,留下空號不影響排序
 export function deleteChecklistItem(id: number): void {
-  const [deleted] = db
-    .delete(taskChecklistItem)
-    .where(eq(taskChecklistItem.id, id))
-    .returning({ id: taskChecklistItem.id })
-    .all()
-  if (!deleted) {
-    throw new NotFoundError(id)
-  }
+  db.transaction((tx) => {
+    const [deleted] = tx
+      .delete(taskChecklistItem)
+      .where(eq(taskChecklistItem.id, id))
+      .returning({ id: taskChecklistItem.id, taskId: taskChecklistItem.taskId })
+      .all()
+    if (!deleted) {
+      throw new NotFoundError(id)
+    }
+    markTaskEdited(tx, deleted.taskId, now())
+  })
 }
 
 // itemIds 必須恰好是這個任務現有的全部項目:不能缺、不能多、不能重複。
@@ -213,6 +225,7 @@ export function reorderChecklistItems(taskId: number, itemIds: number[]): Checkl
         .run()
     })
 
+    markTaskEdited(tx, taskId, now())
     return selectItems(tx, taskId)
   })
 }

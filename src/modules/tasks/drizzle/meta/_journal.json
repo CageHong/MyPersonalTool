@@ -43,6 +43,20 @@
       "when": 1794398130235,
       "tag": "0005_add_pinned_and_list_view",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795359529592,
+      "tag": "0006_typical_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1795359534822,
+      "tag": "0007_sad_vindicator",
+      "breakpoints": true
     }
   ]
 }

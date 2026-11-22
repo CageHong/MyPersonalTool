@@ -24,7 +24,19 @@ export type LegacyRule = {
 // 跟規則範本有任何不同就算編輯過:標題、描述、優先級、dueDate ≠ occurrenceDate、
 // checklist 標題或順序不同、有勾過的項目;或它是轉成規則的原任務(createdAt 早於規則)
 export function looksEdited(instance: LegacyInstance, rule: LegacyRule): boolean {
-  void instance
-  void rule
-  throw new Error('not implemented')
+  if (instance.createdAt < rule.createdAt) {
+    return true
+  }
+  if (instance.title !== rule.title || instance.notes !== rule.notes || instance.priority !== rule.priority) {
+    return true
+  }
+  if (instance.dueDate !== instance.occurrenceDate) {
+    return true
+  }
+  if (instance.checklist.length !== rule.template.length) {
+    return true
+  }
+  return instance.checklist.some(
+    (item, index) => item.completedAt !== null || item.title !== rule.template[index],
+  )
 }

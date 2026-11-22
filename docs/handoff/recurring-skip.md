@@ -45,7 +45,28 @@
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `src/modules/tasks/db/schema.ts`:在 `task` 表新增可空欄位 `editedAt`(`edited_at`,Unix 秒)。
+  - `src/modules/tasks/drizzle/0006_typical_switch.sql`、`meta/*`:由 `npm run tasks:db:generate` 產生新增 `edited_at` 欄位的 migration。
+  - `src/modules/tasks/drizzle/0007_sad_vindicator.sql`、`meta/*`:由 `drizzle-kit generate --custom` 產生並填入 SQL,將既有未完成且 `occurrence_date <= date('now', 'localtime')` 的重複實例 `edited_at` 設成 `0`。
+  - `src/modules/tasks/db/migrations.test.ts`:於 `SEED` 補上 `task_list_view` 種子資料。
+  - `src/modules/tasks/server/tasks.ts`:`updateTask` 僅在實際有欄位改變寫入時將 `editedAt` 設為當下時間。
+  - `src/modules/tasks/server/checklist.ts`:checklist 項目的新增(單筆與批次)、修改(實際有變化時)、刪除、排序都在同一個 transaction 裡將所屬任務的 `editedAt` 設為當下時間。
+  - `src/modules/tasks/server/recurrence.ts`:`fillRule` 先刪除該規則未完成、`occurrenceDate` 與 `dueDate` 都早於今天且 `editedAt` 為 `null` 的實例,再從不早於今天的日期補齊(水位線超過終點時仍會先刪除),新產生實例 `editedAt` 為 `null`;`createRuleFromTask` 將原任務 `editedAt` 設為轉換時間。
+  - `src/modules/tasks/server/missedInstances.ts`:實作純函式 `looksEdited`。
+  - `src/modules/tasks/tools/skip-legacy-missed.ts` 與 `skip-legacy-missed.test.ts`:實作並測試 `skipLegacyMissedInstances` 與 CLI 腳本(預設只列出,`--apply` 才在 transaction 裡刪除)。
+  - `package.json`:新增 `tasks:skip-legacy-missed` script。
+  - `docs/tasks/data-model.md`、`docs/tasks/api.md`、`docs/tasks/ui/recurrence.md`:補上 `editedAt`、`0` 的語意與「錯過就跳過」補齊規則說明。
 - 沒做什麼、為什麼:
+  - 未對沙盒或正式資料執行 `--apply`(依任務卡與 `AGENTS.md` 規則);`--apply` 刪除行為已於記憶體資料庫單元測試驗證。
+  - 未修改主線測試(`recurrence.test.ts`、`tasks.test.ts`、`missedInstances.test.ts`)與任何前端元件。
 - 每個完成條件怎麼驗證的:
+  - **`npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`**:全數通過(`npm test` 72 suites / 576 tests 全過,包含 `db/migrations.test.ts`、`tasks.test.ts`、`recurrence.test.ts`、`missedInstances.test.ts`、`skip-legacy-missed.test.ts`)。
+  - **沙盒資料手動驗證(`gemini/personal-tools-data/tasks/tasks.db`)**:
+    1. 套 migration 前建立每日規則 `Sandbox Daily Walk` 與 `2026-11-19..2026-11-23` 實例(`2026-11-20` 寫入描述),執行 `npm run tasks:db:migrate` 後驗證 `2026-11-19..2026-11-22` 的 `edited_at` 為 `0`、`2026-11-23` 為 `null`。
+    2. 執行 `npm run tasks:skip-legacy-missed`(未加 `--apply`),只列出 `#1 (2026-11-19)` 與 `#3 (2026-11-21)`,寫了描述的 `#2 (2026-11-20)` 與今天的 `#4` 未列出,且 DB 筆數維持 5 筆不變。
+    3. 另於沙盒 DB 插入 `2026-11-18` 且 `edited_at = NULL` 的實例(`id=6`),啟動 `npm run dev` 開啟 `/tasks` 並重整:畫面顯示 `Sandbox Daily Walk` 截止日 `11.19`、`+2 逾期`(即 `11.19`、`11.20`、`11.21` 三筆 `edited_at = 0` 舊逾期都在);查 DB 確認 `id=6`(`2026-11-18`)已被自動刪除,`id=1..5` 保留且補齊 `2026-11-24..2026-11-28`(`edited_at = null`)。
 - 最可能出錯的地方:
+  - `0007_sad_vindicator.sql` 使用 SQLite 的 `date('now', 'localtime')` 判定本地今天,與伺服器運行 `todayIso()` 一致;若執行 `tasks:db:migrate` 時的系統時區與平常不同,當天的實例可能被多標或少標 `0`。
+  - `skip-legacy-missed.ts` 依 `task.editedAt = 0` 與 `isNull(taskRecurrenceRule.endedAt)` 篩選,執行 `--apply` 前務必先不帶 `--apply` 確認清單與備份資料庫。
 - 疑問:
+  - 無。

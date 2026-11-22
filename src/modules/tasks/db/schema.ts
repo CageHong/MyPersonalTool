@@ -29,6 +29,8 @@ export const task = sqliteTable(
     occurrenceDate: text('occurrence_date'),
     // 置頂:全域語意,在任何清單看都置頂(decisions §6d)。狀態本身就是布林值,沒有「何時」要記
     pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
+    // Unix 秒;null = 建立後沒被編輯過;0 = 欄位上線前就存在的重複實例,是否編輯過未知(decisions §6a)
+    editedAt: integer('edited_at'),
   },
   // 同一規則同一天只有一個實例:補齊重跑或並發時靠它擋重複。NULL 彼此相異,一般任務不受影響
   (table) => [

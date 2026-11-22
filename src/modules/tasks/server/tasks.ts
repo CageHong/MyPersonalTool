@@ -258,6 +258,7 @@ export function updateTask(id: number, patch: UpdateTaskPatch): Task {
       return existing
     }
 
+    updates.editedAt = Math.floor(Date.now() / 1000)
     const [updated] = tx.update(task).set(updates).where(eq(task.id, id)).returning().all()
     return updated
   })

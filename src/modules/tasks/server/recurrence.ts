@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNull } from 'drizzle-orm'
+import { and, asc, eq, gt, isNull, lt } from 'drizzle-orm'
 import { db } from '../db'
 import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem } from '../db/schema'
 import { addDaysUtc, expandRule, firstOccurrence, FREQS, type Freq, type RecurrenceSpec } from '../lib/recurrence'
@@ -138,11 +138,28 @@ function deleteFutureIncomplete(tx: Tx, ruleId: number, today: string): void {
     .run()
 }
 
-// 從水位線的下一天補到終點。水位線只前進不後退:終點以前的日期產生過一次就不再產生,
-// 使用者刪掉的實例不會回來。錯過的日期全部補出,不設回溯上限
+// 錯過就跳過（decisions §6a）：刪掉未完成、occurrenceDate 與 dueDate 都早於今天、且未編輯過的實例（checklist 依 cascade 一起刪）
+function deleteMissedUntouched(tx: Tx, ruleId: number, today: string): void {
+  tx.delete(task)
+    .where(
+      and(
+        eq(task.recurrenceRuleId, ruleId),
+        isNull(task.completedAt),
+        lt(task.occurrenceDate, today),
+        lt(task.dueDate, today),
+        isNull(task.editedAt),
+      ),
+    )
+    .run()
+}
+
+// 先清除錯過的未編輯實例，再從水位線下一天（不早於今天）補到終點。水位線只前進不後退
 function fillRule(tx: Tx, rule: RecurrenceRule, today: string): void {
+  deleteMissedUntouched(tx, rule.id, today)
+
   const end = addDaysUtc(today, FILL_AHEAD_DAYS)
-  const from = rule.generatedThrough === null ? rule.startDate : addDaysUtc(rule.generatedThrough, 1)
+  const nextFrom = rule.generatedThrough === null ? rule.startDate : addDaysUtc(rule.generatedThrough, 1)
+  const from = nextFrom < today ? today : nextFrom
   if (from > end) {
     return
   }
@@ -165,6 +182,7 @@ function fillRule(tx: Tx, rule: RecurrenceRule, today: string): void {
         parentTaskId: null,
         recurrenceRuleId: rule.id,
         occurrenceDate: date,
+        editedAt: null,
       })
       // 唯一鍵 (recurrenceRuleId, occurrenceDate) 擋掉已存在的實例(如改規則後留下的已完成實例)
       .onConflictDoNothing()
@@ -270,7 +288,7 @@ export function createRuleFromTask(
     )
 
     tx.update(task)
-      .set({ recurrenceRuleId: rule.id, occurrenceDate: first, dueDate: first })
+      .set({ recurrenceRuleId: rule.id, occurrenceDate: first, dueDate: first, editedAt: timestamp })
       .where(eq(task.id, taskId))
       .run()
 
