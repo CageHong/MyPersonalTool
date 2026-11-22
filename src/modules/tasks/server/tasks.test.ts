@@ -38,6 +38,17 @@ function setCompletedAt(id: number, completedAt: number | null) {
   db.update(task).set({ completedAt }).where(eq(task.id, id)).run()
 }
 
+// task.edited_at 由 recurring-skip 新增;用 SQL 讀,欄位還沒有時在執行期失敗,型別檢查照樣能過
+function editedAtOf(taskId: number): number | null {
+  return db.get<{ edited_at: number | null }>(sql`select edited_at from task where id = ${taskId}`).edited_at
+}
+
+function withoutEditedAt(row: object): Record<string, unknown> {
+  const copy: Record<string, unknown> = { ...row }
+  delete copy.editedAt
+  return copy
+}
+
 describe('updateTask done', () => {
   test('done: true on a completed task keeps the original completedAt', () => {
     // 秒級時間戳在同一秒內分不出新舊,先直接寫一個舊值
@@ -158,12 +169,24 @@ describe('updateTask changed values', () => {
     })
   }
 
+  // editedAt(§6a)另外驗:有寫入就會變
   test('mixed patch writes only the changed field', () => {
     const created = createTask({ title: 'task', notes: 'notes' })
 
     const result = updateTask(created.id, { title: 'task', notes: 'other' })
 
-    assert.deepEqual(result, { ...created, notes: 'other' })
+    assert.deepEqual(withoutEditedAt(result), withoutEditedAt({ ...created, notes: 'other' }))
+  })
+
+  test('a write sets editedAt; a patch that changes nothing does not', () => {
+    const created = createTask({ title: 'task' })
+    assert.equal(editedAtOf(created.id), null)
+
+    updateTask(created.id, { title: 'task' })
+    assert.equal(editedAtOf(created.id), null)
+
+    updateTask(created.id, { title: 'other' })
+    assert.notEqual(editedAtOf(created.id), null)
   })
 })
 

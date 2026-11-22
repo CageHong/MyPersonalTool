@@ -20,6 +20,7 @@ INSERT INTO habit (id, name, period_type, target, sort_order, created_at) VALUES
 INSERT INTO habit_log (habit_id, date, created_at) VALUES (1, '2030-01-02', 0);
 INSERT INTO habit_pause (habit_id, start_date) VALUES (1, '2030-02-01');
 INSERT INTO habit_settings_history (habit_id, period_type, target, effective_from) VALUES (1, 'weekly', 3, '2030-01-01');
+INSERT INTO task_list_view (list_key, group_by, sort_by, sort_direction, updated_at) VALUES ('today', 'date', 'created', 'asc', 0);
 `
 
 test('最新的 migration 保留所有資料', () => {
