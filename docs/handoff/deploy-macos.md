@@ -39,6 +39,61 @@
 
 ## 實作計畫(Gemini 先填,等主線確認)
 
+### 1. 建置輸出資料夾分離(`next.config.ts`、`.gitignore`)
+- `next.config.ts`:依 Next.js `distDir` 文件,當環境變數 `NEXT_DIST_DIR` 有設定時將其傳入 `nextConfig.distDir`,未設定時維持預設(`.next`,供 `npm run dev` 使用)。正式版與 `npm run deploy` 使用 `NEXT_DIST_DIR=.next-prod`。
+- `.gitignore`:加入 `/.next-prod/`。
+
+### 2. SQLite 開啟 WAL(`src/modules/tasks/db/index.ts`、`src/modules/finance/db/index.ts`)
+- `src/modules/tasks/db/index.ts`:在 `sqlite.pragma('foreign_keys = ON')` 後加入 `sqlite.pragma('journal_mode = WAL')` 與簡短註解(供正式版、開發版、runner 並存讀寫)。
+- `src/modules/finance/db/index.ts`:在 `openDb(path)` 的 `sqlite.pragma('foreign_keys = ON')` 後,當 `path !== ':memory:'` 時執行 `sqlite.pragma('journal_mode = WAL')` 與簡短註解。兩檔其餘程式碼皆不動。
+
+### 3. macOS launchd 與 deploy 腳本(`deploy/macos/`)
+設計成「凡符合 `deploy/macos/*.plist.template` 的範本皆由同一套安裝／移除機制處理」,之後通知 runner 只要新增 `com.personal-tools.notify.plist.template` 即可沿用。
+
+- `deploy/macos/com.personal-tools.web.plist.template`:
+  - `Label`:`com.personal-tools.web`
+  - `ProgramArguments`:`[__NODE_BIN__, __REPO_DIR__/node_modules/next/dist/bin/next, start, -p, __PORT__]`(直接以 node 絕對路徑執行 Next CLI,避免 launchd 的極短 `PATH` 找不到 `node`)
+  - `WorkingDirectory`:`__REPO_DIR__`(確保 `src/platform/dataDir.ts` 與 `MIGRATIONS_FOLDER` 的 `process.cwd()` 指向 repo 根目錄)
+  - `EnvironmentVariables`:設定 `NODE_ENV=production`、`NEXT_DIST_DIR=__DIST_DIR__`、若推算或指定了 `PERSONAL_TOOLS_DATA_DIR` 則帶入 `PERSONAL_TOOLS_DATA_DIR=__DATA_DIR__`,並附帶含 node 所在目錄的 `PATH`
+  - `RunAtLoad`:`<true/>`、`KeepAlive`:`<true/>`
+  - `StandardOutPath` / `StandardErrorPath`:`__LOG_DIR__/web.stdout.log` 與 `web.stderr.log`
+- `deploy/macos/install.sh`:
+  - 支援 `--dry-run`(只印出產生的 plist 內容與會執行的 `launchctl` 指令,不寫檔也不執行 `launchctl`)與 `--job <name>`(選用,預設處理所有 `*.plist.template`)。
+  - 在執行當下動態推算路徑(不寫死 `/Users/...` 於 repo):
+    - `REPO_DIR`:由腳本位置往上兩層推算
+    - `NODE_BIN`:讀取 `$NODE_BIN` 或 `command -v node` 的絕對路徑
+    - `DATA_DIR`:讀取 `$PERSONAL_TOOLS_DATA_DIR` 或預設 `$(dirname "$REPO_DIR")/personal-tools-data`
+    - `LOG_DIR`:讀取 `$PERSONAL_TOOLS_LOG_DIR` 或預設 `$HOME/Library/Logs/personal-tools`
+    - `PORT`:讀取 `$PERSONAL_TOOLS_PORT` 或預設 `3100`;`DIST_DIR`:讀取 `$NEXT_DIST_DIR` 或預設 `.next-prod`
+  - 實際安裝時建立 `LOG_DIR` 與 `$HOME/Library/LaunchAgents`,替換範本寫入 plist,並先嘗試 `launchctl bootout` 舊服務(若存在)再 `launchctl bootstrap gui/$(id -u) <plist>`。
+- `deploy/macos/uninstall.sh`:
+  - 支援 `--dry-run` 與 `--job <name>`(預設處理所有 `*.plist.template`)。
+  - 執行 `launchctl bootout gui/$(id -u)/<label>`(未載入時忽略錯誤)並刪除 `$HOME/Library/LaunchAgents/<label>.plist`。
+- `deploy/macos/deploy.sh`:
+  - 支援 `--dry-run`。依 `decisions.md` §9 第 2 條依序執行:
+    1. 檢查目前 git 分支為 `main`
+    2. 執行 `npm test`
+    3. 停止正式版(`launchctl bootout gui/$(id -u)/com.personal-tools.web`;因 `KeepAlive=true`,需用 `bootout` 而非 `stop` 才會維持停止)
+    4. 套用 migration(`npm run tasks:db:migrate` 與 `npm run finance:db:migrate`,帶入正式版 `PERSONAL_TOOLS_DATA_DIR` 若有設定)
+    5. 建置正式版(`NEXT_DIST_DIR=.next-prod npm run build`)
+    6. 啟動正式版(`launchctl bootstrap gui/$(id -u) "$HOME/Library/LaunchAgents/com.personal-tools.web.plist"`)
+  - **失敗處理**:任一步驟失敗即以 `set -euo pipefail` + 包裝函式立即中止,印出明確的失敗步驟名稱。
+    - 第 1、2 步失敗時尚未停止正式版,因此**正式版保持原狀繼續運行**。
+    - 第 4、5 步失敗時因正式版已於第 3 步停止,**正式版維持停止(不自動重啟)**,避免舊程式配上已變更的 DB 或殘缺的 `.next-prod` 造成損壞;錯誤訊息會提示修正後重新執行 `npm run deploy`。
+- `deploy/macos/README.md`:
+  - 說明前置條件、安裝(`npm run deploy:install`)、更新(`npm run deploy`)、移除(`npm run deploy:uninstall`)、查看 log(`~/Library/Logs/personal-tools/`)與出事時手動停止／重啟指令。
+
+### 4. `package.json` 與 `docs/platform/backlog.md`
+- `package.json`:新增 `deploy`、`deploy:install`、`deploy:uninstall` 三個 scripts,分別呼叫 `deploy/macos/` 對應腳本。
+- `docs/platform/backlog.md`:更新「常駐運行」項目,標明已完成腳本、plist 範本、輸出目錄分離與 WAL 設定,待使用者在本機主 repo 實際安裝與測試。
+
+### 5. 驗證方式(實作完成後)
+- 執行 `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`。
+- 執行 `bash deploy/macos/install.sh --dry-run`,將輸出貼入回報,並用 `grep -rn "/Users/" deploy/` 確認無寫死使用者路徑。
+- 若環境有 `shellcheck`,對 `deploy/macos/*.sh` 執行檢查。
+- 在 worktree 以假資料(獨立 `PERSONAL_TOOLS_DATA_DIR` 指向暫存目錄)驗證 `NEXT_DIST_DIR=.next-prod npm run build`、`npx next start -p 3100` 與 `npm run dev`(3000)可同時啟動且首頁回 200,測試後關閉兩者並清理暫存。
+- **絕不執行 `launchctl` 或實際安裝任何 launchd job**。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
 - 沒做什麼、為什麼:
