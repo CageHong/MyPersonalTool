@@ -5,7 +5,7 @@ import { BULK_MAX_LINES } from '../lib/bulk'
 import { todayIso } from '../lib/date'
 import { NotFoundError, ValidationError } from './errors'
 import { fillInstances } from './recurrence'
-import { isCalendarDate, PRIORITY_VALUES } from './validation'
+import { DUE_TIME_PATTERN, isCalendarDate, PRIORITY_VALUES } from './validation'
 
 // 錯誤類別搬到 errors.ts;保留從這裡 import 的既有路徑
 export { NotFoundError, ValidationError } from './errors'
@@ -39,8 +39,6 @@ export type UpdateTaskPatch = {
   pinned?: boolean
   done?: boolean
 }
-
-const DUE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
 const UPDATABLE_KEYS = [
   'title',

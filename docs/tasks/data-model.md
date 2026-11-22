@@ -160,6 +160,7 @@
 | `periodType` | text | 否 | `daily` / `weekly` / `monthly`,CHECK |
 | `target` | integer | 是 | 每週期目標次數,CHECK `NULL` 或 `>= 1`;`null` = 紀錄型(不判定達成、沒有 streak) |
 | `sortOrder` | integer | 否 | 小的在前,新建放最後;不保證連號 |
+| `reminderTime` | text | 是 | `HH:MM`,個別習慣提醒的時刻(`decisions` §6j) |
 | `createdAt` | integer (Unix 秒) | 否 | |
 
 `periodType` 與 `target` 是「現在的設定」的快取,歷史在 `habit_settings_history`。
@@ -178,3 +179,8 @@
 - 進度:`count` 是當前週期的 log 數,不封頂。週期起始:daily 當天、weekly 該週 `WEEK_START`(週一)、monthly 1 日。
 - streak(單位跟著週期):從今天所屬週期往前;與任一停止區間有交集的週期跳過(不計入也不中斷);每個週期用它最後一天(不超過今天)生效的 `target` 判定;當前週期未達成不算斷;該期 `target` 為 null(當時是紀錄型)→ 停止。下限是目前週期類型那一段設定的第一筆 `effectiveFrom` 所屬週期:改週期後 streak 從變更起重算,只改目標不重算。
 - 用到「今天」的函式都以參數接收 `today`;route 傳伺服器本地時區的 `todayIso()`。
+
+## 通知
+
+- `task_notification_setting`:三則每日摘要的設定。`kind` PK(`morning` / `afternoon` / `evening`,CHECK)、`time`(`HH:MM`)、`enabled`(boolean)、`updatedAt`(Unix 秒)。沒有列時由程式回傳預設值(`08:00` / `15:00` / `21:00`,皆啟用),預設不落地;儲存時驗證三則時刻嚴格遞增 `morning < afternoon < evening`(含停用的摘要)。
+- `task_notification_sent`:每日已送出的通知標記。`id`、`key`(例如 `summary:morning`、`habit:12`)、`date`(`YYYY-MM-DD`)、`sentAt`(Unix 秒);唯一鍵 `(key, date)` 確保同一天同一則只送一次。沒有內容的摘要與已達標的習慣提醒會在計算到期時直接寫入標記而不送出。

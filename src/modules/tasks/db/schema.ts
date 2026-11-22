@@ -151,6 +151,8 @@ export const habit = sqliteTable(
     target: integer('target'),
     // 清單順序,小的在前;不保證連號
     sortOrder: integer('sort_order').notNull(),
+    // HH:MM,可空;個別習慣提醒的時刻(decisions §6j)
+    reminderTime: text('reminder_time'),
     // Unix 秒;沒有 schema 預設值,由 src/modules/tasks/server/ 填入(同 task.createdAt)
     createdAt: integer('created_at').notNull(),
   },
@@ -212,5 +214,38 @@ export const habitPause = sqliteTable(
   // 同一個習慣最多一段進行中的停止;並發的重複停止由它擋下
   (table) => [
     uniqueIndex('habit_pause_open_uq').on(table.habitId).where(sql`${table.endDate} IS NULL`),
+  ],
+)
+
+// 三則每日摘要的設定。沒有列 = 用預設值(08:00 / 15:00 / 21:00,皆啟用),預設不落地
+export const taskNotificationSetting = sqliteTable(
+  'task_notification_setting',
+  {
+    kind: text('kind', { enum: ['morning', 'afternoon', 'evening'] }).primaryKey(),
+    // HH:MM
+    time: text('time').notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull(),
+    // Unix 秒;沒有 schema 預設值,由 src/modules/tasks/server/ 填入
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    check('task_notification_setting_kind_check', sql`${table.kind} IN ('morning', 'afternoon', 'evening')`),
+  ],
+)
+
+// 每日已送出的通知標記。同一天同一則只送一次(decisions §6j)
+export const taskNotificationSent = sqliteTable(
+  'task_notification_sent',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    // 例如 summary:morning、habit:12
+    key: text('key').notNull(),
+    // 日曆日,YYYY-MM-DD
+    date: text('date').notNull(),
+    // Unix 秒;沒有 schema 預設值,由 src/modules/tasks/server/ 填入
+    sentAt: integer('sent_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('task_notification_sent_key_date_uq').on(table.key, table.date),
   ],
 )
