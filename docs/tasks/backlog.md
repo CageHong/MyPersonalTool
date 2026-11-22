@@ -31,7 +31,7 @@
 | 清單動態 | 衍生檢視,不開事件表(§6h);等自訂清單做完 |
 | 習慣的回顧視圖與格子圖(H3) | |
 | 習慣:指定星期幾、完成一定的量 | §6j;量與指定星期幾宜在 H3 之前做 |
-| 通知:三則摘要與個別習慣提醒 | §6j「提醒」;runner 見 `docs/platform/decisions.md` §8。任務卡 `notify-runner` |
+| 通知:三則摘要與個別習慣提醒 | §6j「提醒」(含 2026-11-22 補的邊界規則)。runner 已完成(`docs/platform/decisions.md` §8,卡 `done/notify-runner.md`);tasks 這邊拆兩張:卡 2 後端(兩張表、`habit.reminderTime`、到期與內容計算、接上 `src/jobs/notifiers.ts`),卡 3 UI(通知設定對話框、右欄提醒時刻) |
 | 習慣:每 N 天、打卡心得、分段、目標天數 | §6j 列為之後 |
 | 排程視圖(C1–C3) | `docs/tasks/decisions.md` §6c |
 | 批量選取與批量刪除任務 | 下一階段的 UI |
