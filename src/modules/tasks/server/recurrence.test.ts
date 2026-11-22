@@ -145,9 +145,10 @@ describe('fillInstances', () => {
     fillInstances(TODAY)
     fillInstances('2026-09-19')
 
+    // 9/19 補齊時 9/18 已錯過、沒動過,被跳過(§6a)
     assert.deepEqual(
       dates(rule.id),
-      range(TODAY, '2026-09-25').filter((date) => date !== '2026-09-20'),
+      range('2026-09-19', '2026-09-25').filter((date) => date !== '2026-09-20'),
     )
   })
 
