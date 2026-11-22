@@ -130,7 +130,8 @@
 | 工具的通知入口由 `src/jobs/notifiers.ts` 對照 `src/platform/tools.ts` 的工具清單取得;每個工具公開兩個函式:`dueNotifications(now)` 回傳到期的通知(各帶一個 key),`markSent(keys)` 標記已送。清單裡的工具沒有通知入口就略過 | 同 §10「工具之間只透過公開函式往來,而且要容許對方不存在」 |
 | 一個 tick:對每個工具取到期通知 → 逐則交給 `sendNotification` → 送成功的才 `markSent`;一則失敗不影響其他則 | 「已送」由工具記,平台不存狀態(本節第二列) |
 | 送失敗不標記,下一個 tick 自然重試,不設重試上限 | 失敗多半是網路;補送窗口(由工具決定)過了就不會再送,不會無限重試 |
-| 每 5 分鐘一次,launchd `StartInterval`,plist 照 `deploy/macos/*.plist.template` 的範本機制另加一份 | §9 已定;網頁與 runner 互相獨立 |
+| 每 15 分鐘一次(2026-11-22 由原定的 5 分鐘改),launchd `StartInterval`,plist 照 `deploy/macos/*.plist.template` 的範本機制另加一份 | §9 已定;網頁與 runner 互相獨立。提醒最多晚 15 分鐘到,對摘要與習慣提醒都夠用;間隔只是一個數字,之後要調再改 |
+| runner 直接執行 repo 裡的原始碼,不像網頁跑 deploy 時 build 的成品;接受「主 repo 切到別的分支時,runner 跑的是那個分支」,寫進 `deploy/macos/README.md` | 開發多半在獨立 worktree,主 repo 很少離開 main;跑錯分支頂多讓通知失敗,下一個 tick 會重送。另做 runner 的成品會讓 deploy 多一步,不值得 |
 | 時間一律用這台機器的本地時間 | 個人工具,只有一個時區 |
 
 
@@ -144,7 +145,7 @@
 | 正式版用 `next build` + `next start` 跑在固定 port(預定 3100),由 launchd LaunchAgent 管理:登入時啟動、當掉自動重開。開發照舊 `npm run dev`(3000) | 平常用的版本不依賴終端機;開發中的半成品不會影響平常使用 |
 | 更新正式版只有一個指令(`npm run deploy`):確認在 `main` → 測試 → 停正式版 → migrate → build → 啟動 | migration 時正式版不能開著;步驟固定才不會漏。斷線約一分鐘,個人工具可接受 |
 | 正式版與開發版的建置輸出分開(正式版另設輸出資料夾) | `next build` 會覆寫輸出資料夾,共用的話會把正在跑的另一個弄壞 |
-| 通知 runner(§8)是另一個 launchd job,預定每 5 分鐘;與正式版互相獨立 | 網頁掛了不影響提醒,反之亦然 |
+| 通知 runner(§8)是另一個 launchd job,每 15 分鐘(§8);與正式版互相獨立 | 網頁掛了不影響提醒,反之亦然 |
 | SQLite 改開 WAL(目前沒開) | 正式版、開發版、runner 會同時讀寫同一份正式資料 |
 | 接受 MacBook 睡眠時全部停止。runner 找「到期而且還沒送」的提醒,醒來時補送;太舊的跳過不送 | 使用者接受睡眠的限制;補送讓睡眠不會漏提醒,跳過避免一次湧進一堆 |
 | 打開方式:Safari 的「加入 Dock」 | 不用碰終端機,用起來像一般 app |
