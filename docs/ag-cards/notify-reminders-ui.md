@@ -110,6 +110,12 @@
    - 執行 `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`。
    - 使用沙盒資料 `gemini/personal-tools-data/` 在瀏覽器走過所有完成條件的流程。
 
+## 主線確認(2026-11-23)
+計畫同意,照計畫實作,加上以下三點:
+1. 兩個設計選擇照你的提案。新增 `GET /api/tasks/recurrence-rules`(`listRules()`)與 `src/app/api/tasks/recurrence-rules/route.ts`,加入可以改的檔案;**只列進行中的規則**(`endedAt` 為 null),依 id 升冪。同一次修改更新 `docs/tasks/api.md`。
+2. 重複任務實例右欄的「不進摘要」開關,改的是**規則**(`PATCH` 重複規則),不是實例。
+3. 新規則(decisions §6j「(2026-11-22 補)重複任務的實例是否『不進摘要』」):`dueTaskNotifications` 判斷重複任務實例時,看規則的 `excludeFromSummary`,不看實例的欄位(今天與逾期、高優先兩組都是)。主線測試在 `notifications.test.ts` 的 `describe('excludeFromSummary on recurring tasks follows the rule')`,已併進這個分支。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
 - 沒做什麼、為什麼:
