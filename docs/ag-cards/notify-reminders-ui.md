@@ -52,6 +52,64 @@
 
 ## 實作計畫(Gemini 先填,等主線確認)
 
+### 兩個設計選擇的決定
+
+1. **`taskId` 為 `null` 的項目（重複規則的未來實例尚未產生）點了怎麼處理：**
+   - **選擇：跳到同規則最早的未完成實例**（使用 `src/modules/tasks/lib/views.ts` 既有的 `earliestIncomplete(tasks, item.ruleId)` 找到實例 `id`，導向 `?view=open&task=<id>`；若該規則目前完全沒有未完成實例，才不跳轉、以不可點擊文字呈現）。
+   - **理由**：在 Tasks 介面中重複規則沒有獨立的編輯頁，所有規則提醒與欄位都設在任一實例的右欄裡。讓使用者點了能直接進到最早的未完成實例並編輯該規則的提醒，體驗較一致。
+
+2. **「不進摘要的項目」中，重複規則的資料從哪裡來（現有 API 夠不夠）：**
+   - **現況**：現有 API 有 `GET /api/tasks/tasks`（回傳任務實例，含 `recurrenceRuleId`、`excludeFromSummary`）、`GET /api/tasks/habits`（回傳習慣，含 `excludeFromSummary`）、`GET /api/tasks/recurrence-rules/[ruleId]`（單條規則詳情），**沒有**列出所有重複規則的端點。
+   - **現有 API 不夠的原因**：若只從現有 `tasks` 篩出 `recurrenceRuleId !== null && excludeFromSummary` 再逐一呼叫 `GET /api/tasks/recurrence-rules/[ruleId]`，會遇到三個問題：(1) 若某條規則目前沒有任何實例（例如 `startDate` 超過 7 天後、或實例都已完成／刪除）會完全漏掉；(2) 若單一實例曾被單獨改過 `excludeFromSummary`，從實例反推會不準確；(3) 產生 N+1 次請求。
+   - **建議方案（需主線確認）**：新增 `GET /api/tasks/recurrence-rules`（在 `src/modules/tasks/server/recurrence.ts` 新增 `listRules()`，並新增 `src/app/api/tasks/recurrence-rules/route.ts`）。請主線確認將 `src/app/api/tasks/recurrence-rules/route.ts` 加入「可以改的檔案」；若主線希望維持不新增該路由，替代方案是從 `tasks` 收集不重複的 `recurrenceRuleId` 並呼叫 `GET /api/tasks/recurrence-rules/[ruleId]`（但會有上述無實例規則漏列的限制）。
+
+---
+
+### 要改與新增的檔案
+
+- **後端與 API**：
+  - `src/modules/tasks/server/notifications.ts`：新增並 export `UpcomingNotification` 型別與 `upcomingTaskNotifications(now: Date)`。
+  - `src/app/api/tasks/upcoming-notifications/route.ts`（新增）：`GET` handler，呼叫 `upcomingTaskNotifications(new Date())`。
+  - `src/modules/tasks/server/recurrence.ts`：修改 `updateRule`，判斷排程欄位（`freq`、`interval`、`weekdays`、`startDate`、`until`）是否變更；未變更時就地更新 `occurrenceDate > today` 且未完成的實例（`title`、`notes`、`priority`、`excludeFromSummary`，不動 `editedAt`、`dueDate`、`taskReminder`），若 `checklist` 範本有變則整份替換這些實例的 checklist。另（待確認）新增 `listRules()` 供 `GET /api/tasks/recurrence-rules` 使用。
+  - `src/app/api/tasks/recurrence-rules/route.ts`（待主線確認後新增）：`GET` handler 列出重複規則。
+- **前端共用型別與純函式 (`src/modules/tasks/lib/`)**：
+  - `src/modules/tasks/lib/views.ts`：`ViewId` 與 `VIEWS` 加入 `'reminders'`，`filterByView` 的 `reminders` 回傳 `[]`。
+  - `src/modules/tasks/lib/tasks.ts`：`Task` 與 `TaskPatch` 補上 `excludeFromSummary`。
+  - `src/modules/tasks/lib/habitView.ts`：`HabitItem` 與 `HabitPatch` 補上 `excludeFromSummary`。
+  - `src/modules/tasks/lib/reminders.ts`（新增）：前端型別 `ReminderItem`、`ReminderInput`、`NotificationSettings`、`UpcomingNotificationItem`。
+  - `src/modules/tasks/lib/errors.ts`：`DISPLAY_FIELDS` 與 `FIELD_MESSAGES` 補上 `times.out_of_order`、`date.in_past`、`reminders.too_many`、`daysBefore.invalid_value`、`kind.invalid_value`、`time.invalid_value` 的中文訊息，並新增 `reminderMessage`。
+- **樣式與 UI 元件**：
+  - `src/app/globals.css`：視需要只新增語意層 `--color-*` 變數並指向既有 `--palette-*`。
+  - `src/modules/tasks/components/CategoryColumn.tsx` / `.module.css`：在左欄底部日期上方放 `view=reminders` 入口。
+  - `src/modules/tasks/components/RemindersView.tsx` / `.module.css`（新增）：實作三區（三則摘要設定、接下來會送的提醒、不進摘要的項目），並接上跳轉至任務／習慣編輯欄。
+  - `src/modules/tasks/components/ReminderEditor.tsx` / `.module.css`（新增）：右欄個別提醒編輯器（依任務／重複規則／習慣顯示對應選項、最多 5 則、經佇列寫入與重抓）。
+  - `src/modules/tasks/components/TaskDetail.tsx` / `.module.css`：整合 `ReminderEditor`（一般任務傳 `taskId`、重複實例傳 `ruleId`）與「不進摘要」開關。
+  - `src/modules/tasks/components/HabitDetail.tsx` / `.module.css`：整合 `ReminderEditor`（傳 `habitId`）與「不進摘要」開關。
+  - `src/modules/tasks/components/ThreeColumnLayout.tsx`：支援 `view=reminders` 切換（中欄與右欄整組換掉）、摘要設定與提醒寫入佇列、從提醒視圖跳轉到任務／習慣的網址狀態切換。
+- **文件**：
+  - `docs/tasks/api.md`、`docs/tasks/ui/reminders.md`（新增）、`docs/tasks/ui/layout.md`、`docs/tasks/backlog.md`。
+
+---
+
+### 實作步驟
+
+1. **後端 API 與核心邏輯**：
+   - 實作 `upcomingTaskNotifications(now)` 與 `GET /api/tasks/upcoming-notifications`，確認 `notifications.test.ts` 全過。
+   - 實作 `updateRule` 排程未變時的就地更新邏輯，確認 `recurrence.test.ts` 全過。
+   - （經主線確認後）實作 `listRules()` 與 `GET /api/tasks/recurrence-rules`。
+2. **前端型別與錯誤中文**：
+   - 更新 `views.ts`、`tasks.ts`、`habitView.ts`、`errors.ts`，新增 `lib/reminders.ts`。
+3. **提醒視圖 (`view=reminders`)**：
+   - 在 `CategoryColumn` 左欄底部加入「提醒」入口，在 `ThreeColumnLayout` 接上 `view=reminders` 畫面切換與資料載入（`notification-settings`、`upcoming-notifications`、以及不進摘要項目清單）。
+   - 實作 `RemindersView`：摘要時刻順序前端預檢（「順序不對,還沒儲存」不送請求，改對自動整份 `PUT`）、接下來會送的提醒（`taskId === null` 依 `earliestIncomplete` 跳轉）、不進摘要的項目列表與跳轉。
+4. **右欄提醒編輯器與「不進摘要」開關**：
+   - 實作 `ReminderEditor`（任務相對 0..28 天與絕對、規則相對 0..6 天、習慣每天，上限 5 則，經佇列送出與重抓、不停用控制項）。
+   - 整合進 `TaskDetail`（一般任務與重複實例區分）與 `HabitDetail`，並加上「不進摘要」開關。
+5. **驗證與文件**：
+   - 補齊 `docs/tasks/api.md`、`docs/tasks/ui/reminders.md`、`layout.md`、`backlog.md`。
+   - 執行 `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`。
+   - 使用沙盒資料 `gemini/personal-tools-data/` 在瀏覽器走過所有完成條件的流程。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
 - 沒做什麼、為什麼:
