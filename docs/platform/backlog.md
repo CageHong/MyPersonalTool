@@ -15,7 +15,7 @@
 - **首頁**(`docs/platform/decisions.md` §4):第一段(只有工具入口)完成;第二段待做,在 finance 的報表(`reports` 模組)做好後加摘要小工具,由各工具提供小工具元件與摘要 API。
 - **新套件要加進 `transpilePackages`**:`packages/` 的套件直接匯出 TypeScript 原始碼。Next.js 的程式(頁面、route handler、它們匯入的模組)第一次匯入某個套件時,把套件名稱加進 `next.config.ts` 的 `transpilePackages`(目前有 `statement-parsers`)。
 - **本地日期與時刻共用一份**(2026-11-22 記,小卡交 AG):「現在的本地日期／時刻」有四份實作:tasks `lib/date.ts` 的 `todayIso()`(不收參數、讀時鐘)、finance `lib/date.ts` 的 `localToday(now)`(經 `toISOString` 再轉本地)、tasks `server/notifications.ts` 與 `server/reminders.ts` 各一份相同的 `toLocalDateAndTime`。模組之間不能互相匯入,所以放 `src/platform/`(例如 `localDate(now)`、`localTime(now)`),四處改用;`now` 由參數傳入,方便測試。
-- **金額十進位統一**(2026-11-22 記,回頭點:`receipt-fetch/` 搬進 repo 時):`packages/statement-parsers/src/decimal.ts` 是字串、小數位數不限、標準化去尾零(`1.40` → `1.4`);`packages/receipt-parsers/src/decimal.ts` 用 bigint 分、固定 2 位(`1.4` → `1.40`)、超過 2 位回 `null`。收據與對帳單對帳時,字串比對會把同一金額當成不同,`amountsEqual` 遇到超過 2 位的對帳單金額(例如換匯)一律不等。方向:新增共用的金額套件,兩個 parser 改用;精度規則見 finance 的紀錄(待決)。
+- **金額十進位統一**(2026-11-22 記,回頭點:`receipt-fetch/` 搬進 repo 時):`packages/statement-parsers/src/decimal.ts` 是字串、小數位數不限、標準化去尾零(`1.40` → `1.4`);`packages/receipt-parsers/src/decimal.ts` 用 bigint 分、固定 2 位(`1.4` → `1.40`)、超過 2 位回 `null`。收據與對帳單對帳時,字串比對會把同一金額當成不同,`amountsEqual` 遇到超過 2 位的對帳單金額(例如換匯)一律不等。另有第三份:finance `server/import/amounts.ts` 的 `toMinorUnits(decimal, exponent)`,小數位數由幣別表 `finance_currencies.exponent` 決定,多出的非零位數丟錯、不四捨五入;帳本存的是最小貨幣單位的整數。方向(2026-11-22 討論):精度只由帳本的幣別表決定;套件不知道幣別表,只產出精確的十進位字串,不假設位數;共用的金額套件只提供不假設位數的精確運算(加總、數值相等),收據的「固定 2 位」拿掉;對帳一律在換成最小單位之後比。
 
 ## 明確不做(提出前先問)
 
