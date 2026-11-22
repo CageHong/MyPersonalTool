@@ -2,11 +2,16 @@
 import '../test/setup'
 import assert from 'node:assert/strict'
 import { before, describe, test } from 'node:test'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { applyMigrations, db } from '../db'
 import { task, taskChecklistItem, taskRecurrenceRule, taskRecurrenceRuleChecklistItem } from '../db/schema'
 import { addDaysUtc } from '../lib/recurrence'
-import { createChecklistItem, updateChecklistItem } from './checklist'
+import {
+  createChecklistItem,
+  deleteChecklistItem,
+  reorderChecklistItems,
+  updateChecklistItem,
+} from './checklist'
 import { NotFoundError } from './errors'
 import {
   createRuleFromTask,
@@ -108,6 +113,12 @@ function range(from: string, to: string): string[] {
   return result
 }
 
+// task.edited_at 由 recurring-skip 新增;用 SQL 讀,欄位還沒有時測試在執行期失敗,型別檢查照樣能過
+function editedAtOf(taskId: number): number | null {
+  const row = db.get<{ edited_at: number | null }>(sql`select edited_at from task where id = ${taskId}`)
+  return row.edited_at
+}
+
 function complete(taskId: number) {
   updateTask(taskId, { done: true })
 }
@@ -140,12 +151,14 @@ describe('fillInstances', () => {
     )
   })
 
-  test('a watermark 30 days behind fills every missed date', () => {
+  // §6a 錯過就跳過:水位線落後時不產生今天以前的日期
+  test('a watermark 30 days behind does not create past dates', () => {
     const rule = insertRule({ startDate: '2026-08-01', generatedThrough: '2026-08-19' })
 
     fillInstances(TODAY)
 
-    assert.deepEqual(dates(rule.id), range('2026-08-20', END))
+    assert.deepEqual(dates(rule.id), range(TODAY, END))
+    assert.equal(ruleRow(rule.id).generatedThrough, END)
   })
 
   test('instances copy the template; editing an instance leaves the rule alone', () => {
@@ -182,12 +195,139 @@ describe('fillInstances', () => {
   })
 })
 
-// 9/15 起每天;9/16 與 9/20 已完成,今天的實例勾了一個 checklist 項
+// §6a 錯過就跳過:未完成、occurrenceDate 與 dueDate 都早於今天、沒被編輯過的實例,補齊時刪除
+describe('skipping missed instances', () => {
+  const PAST = '2026-09-15'
+
+  // 9/15 那天補齊(產生 9/15..9/21),之後才在今天補齊
+  function ruleFilledOn(day: string, template: string[] = []) {
+    const rule = insertRule({ startDate: day }, template)
+    fillInstances(day)
+    return rule
+  }
+
+  test('untouched missed instances are deleted on the next fill, with their checklist', () => {
+    const rule = ruleFilledOn(PAST, ['item'])
+    const missedId = instanceOn(rule.id, '2026-09-16')!.id
+
+    fillInstances(TODAY)
+
+    assert.deepEqual(dates(rule.id), range(TODAY, END))
+    assert.equal(checklistOf(missedId).length, 0)
+  })
+
+  test("today's instance is not missed yet", () => {
+    const rule = ruleFilledOn(PAST)
+
+    fillInstances(TODAY)
+
+    assert.ok(instanceOn(rule.id, TODAY))
+  })
+
+  test('completed missed instances are kept', () => {
+    const rule = ruleFilledOn(PAST)
+    complete(instanceOn(rule.id, '2026-09-16')!.id)
+
+    fillInstances(TODAY)
+
+    assert.deepEqual(dates(rule.id), ['2026-09-16', ...range(TODAY, END)])
+  })
+
+  // 每一種寫入都算編輯過;勾完成再取消後是未完成,但仍然編輯過
+  const edits: Array<[string, (taskId: number) => void]> = [
+    ['title', (id) => updateTask(id, { title: 'changed' })],
+    ['notes', (id) => updateTask(id, { notes: 'note' })],
+    ['priority', (id) => updateTask(id, { priority: 3 })],
+    ['pinned', (id) => updateTask(id, { pinned: true })],
+    ['done then undone', (id) => {
+      updateTask(id, { done: true })
+      updateTask(id, { done: false })
+    }],
+    ['checklist add', (id) => {
+      createChecklistItem(id, 'new')
+    }],
+    ['checklist toggle', (id) => {
+      updateChecklistItem(checklistOf(id)[0].id, { done: true })
+    }],
+    ['checklist rename', (id) => {
+      updateChecklistItem(checklistOf(id)[0].id, { title: 'renamed' })
+    }],
+    ['checklist delete', (id) => deleteChecklistItem(checklistOf(id)[0].id)],
+    ['checklist reorder', (id) => {
+      const ids = checklistOf(id).map((item) => item.id)
+      reorderChecklistItems(id, [...ids].reverse())
+    }],
+  ]
+  for (const [name, edit] of edits) {
+    test(`an edited missed instance is kept as overdue (${name})`, () => {
+      const rule = ruleFilledOn(PAST, ['a', 'b'])
+      const edited = instanceOn(rule.id, '2026-09-16')!
+      edit(edited.id)
+      assert.notEqual(editedAtOf(edited.id), null)
+
+      fillInstances(TODAY)
+
+      assert.deepEqual(dates(rule.id), ['2026-09-16', ...range(TODAY, END)])
+    })
+  }
+
+  test('a fresh instance has editedAt null', () => {
+    const rule = ruleFilledOn(TODAY)
+
+    assert.ok(instances(rule.id).every((instance) => editedAtOf(instance.id) === null))
+  })
+
+  test('skipping also runs when nothing new needs to be generated', () => {
+    const rule = ruleFilledOn(PAST)
+    // 水位線已經在終點之後:這次補齊不產生新日期,但錯過的照樣要刪
+    db.update(taskRecurrenceRule)
+      .set({ generatedThrough: '2026-10-31' })
+      .where(eq(taskRecurrenceRule.id, rule.id))
+      .run()
+
+    fillInstances(TODAY)
+
+    assert.deepEqual(dates(rule.id), ['2026-09-18', '2026-09-19', '2026-09-20', '2026-09-21'])
+  })
+
+  test('instances of a stopped rule are left alone', () => {
+    const rule = ruleFilledOn(PAST)
+    stopRule(rule.id, PAST)
+
+    fillInstances(TODAY)
+
+    // 停止後剩下的實例像一般任務,不再套「錯過就跳過」
+    assert.deepEqual(dates(rule.id), [PAST])
+  })
+
+  test('the original task of createRuleFromTask counts as edited', () => {
+    const source = createTask({ title: 'from task', dueDate: TODAY })
+    const rule = createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TODAY }, TODAY)
+    assert.notEqual(editedAtOf(source.id), null)
+
+    fillInstances('2026-09-20')
+
+    assert.deepEqual(dates(rule.id), [TODAY, ...range('2026-09-20', '2026-09-26')])
+  })
+
+  test('listTasks applies the skip before reading', () => {
+    const rule = ruleFilledOn(PAST)
+
+    const listed = listTasks({ today: TODAY }).filter((row) => row.recurrenceRuleId === rule.id)
+
+    assert.ok(listed.every((row) => row.occurrenceDate! >= TODAY))
+  })
+})
+
+// 9/15 補齊過一次,今天再補齊:9/16 與 9/20 已完成、9/17 編輯過(保留為逾期)、
+// 9/15 沒動過(今天補齊時被跳過);今天的實例勾了一個 checklist 項
 function setupRuleWithHistory() {
   const rule = insertRule({ title: 'old', startDate: '2026-09-15' }, ['old item'])
-  fillInstances(TODAY)
+  fillInstances('2026-09-15')
   complete(instanceOn(rule.id, '2026-09-16')!.id)
   complete(instanceOn(rule.id, '2026-09-20')!.id)
+  updateTask(instanceOn(rule.id, '2026-09-17')!.id, { notes: 'edited' })
+  fillInstances(TODAY)
   const todayItem = checklistOf(instanceOn(rule.id, TODAY)!.id)[0]
   updateChecklistItem(todayItem.id, { done: true })
   return { rule, todayItemId: todayItem.id, before: instances(rule.id) }
@@ -215,9 +355,8 @@ describe('updateRule', () => {
     updateRule(rule.id, { interval: 2, title: 'new', checklist: ['new item'] }, TODAY)
 
     assertPastAndCompletedUnchanged(rule.id, before, todayItemId)
-    // 9/15 起每 2 天:今天之後是 19、21、23;20 是舊規則下已完成的
+    // 9/15 起每 2 天:今天之後是 19、21、23;20 是舊規則下已完成的;9/15 已被跳過
     assert.deepEqual(dates(rule.id), [
-      '2026-09-15',
       '2026-09-16',
       '2026-09-17',
       '2026-09-18',
@@ -247,15 +386,14 @@ describe('updateRule', () => {
 
     updateRule(rule.id, { title: 'new', checklist: ['new item'] }, TODAY)
 
-    for (const date of range('2026-09-13', TODAY)) {
-      const instance = instanceOn(rule.id, date)
-      assert.ok(instance, `missing ${date}`)
-      assert.equal(instance.title, 'old')
-      assert.deepEqual(
-        checklistOf(instance.id).map((item) => item.title),
-        ['old item'],
-      )
-    }
+    // 錯過就跳過:9/13..9/17 不產生;今天的實例由舊規則產生,改規則不動今天
+    assert.ok(instances(rule.id).every((instance) => instance.occurrenceDate! >= TODAY))
+    const todayInstance = instanceOn(rule.id, TODAY)!
+    assert.equal(todayInstance.title, 'old')
+    assert.deepEqual(
+      checklistOf(todayInstance.id).map((item) => item.title),
+      ['old item'],
+    )
     assert.equal(instanceOn(rule.id, '2026-09-19')!.title, 'new')
   })
 
@@ -274,7 +412,6 @@ describe('stopRule', () => {
 
     assertPastAndCompletedUnchanged(rule.id, before, todayItemId)
     assert.deepEqual(dates(rule.id), [
-      '2026-09-15',
       '2026-09-16',
       '2026-09-17',
       '2026-09-18',
@@ -287,7 +424,6 @@ describe('stopRule', () => {
 
     assert.deepEqual(second, first)
     assert.deepEqual(dates(rule.id), [
-      '2026-09-15',
       '2026-09-16',
       '2026-09-17',
       '2026-09-18',
@@ -300,7 +436,8 @@ describe('stopRule', () => {
 
     stopRule(rule.id, TODAY)
 
-    assert.deepEqual(dates(rule.id), range('2026-09-13', TODAY))
+    // 補到最新時錯過的不產生,只有今天的實例
+    assert.deepEqual(dates(rule.id), [TODAY])
   })
 })
 
@@ -353,7 +490,7 @@ describe('createRuleFromTask', () => {
       TODAY,
     )
 
-    // 原任務維持逾期,是第一個實例;之後從今天開始,不補 8/20..9/17
+    // 原任務維持逾期(它算編輯過,不被跳過),是第一個實例;之後從今天開始,不補 8/20..9/17
     assert.deepEqual(dates(rule.id), ['2026-08-19', ...range(TODAY, END)])
     const first = db.select().from(task).where(eq(task.id, source.id)).get()!
     assert.equal(first.dueDate, '2026-08-19')
@@ -561,9 +698,8 @@ describe('until', () => {
     updateRule(rule.id, { until: '2026-09-21' }, TODAY)
 
     assertPastAndCompletedUnchanged(rule.id, before, todayItemId)
-    // 9/15–9/18 已經發生;9/19–9/21 用新規則重生;9/20 是已完成的舊實例;9/22 之後消失
+    // 9/16–9/18 已經發生(9/15 已被跳過);9/19–9/21 用新規則重生;9/20 是已完成的舊實例;9/22 之後消失
     assert.deepEqual(dates(rule.id), [
-      '2026-09-15',
       '2026-09-16',
       '2026-09-17',
       '2026-09-18',
