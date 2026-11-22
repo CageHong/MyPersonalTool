@@ -104,29 +104,36 @@ describe('skipLegacyMissedInstances', () => {
     const listed = skipLegacyMissedInstances(TODAY, { apply: false })
 
     assert.deepEqual(
-      listed.map((item) => item.id),
-      [untouchedMissed.id],
-    )
-    const remaining = db.select({ id: task.id }).from(task).all().map((row) => row.id)
-    assert.deepEqual(remaining, [untouchedMissed.id, editedMissed.id, todayInstance.id])
-  })
-
-  test('apply deletes only listed untouched instances and keeps edited ones with editedAt=0', () => {
-    const { untouchedMissed, editedMissed, todayInstance } = seedLegacy()
-
-    const deleted = skipLegacyMissedInstances(TODAY, { apply: true })
-
-    assert.deepEqual(
-      deleted.map((item) => item.id),
-      [untouchedMissed.id],
+      listed.map((item) => [item.id, item.action]),
+      [
+        [untouchedMissed.id, 'delete'],
+        [todayInstance.id, 'reset'],
+      ],
     )
     const remaining = db
       .select({ id: task.id, editedAt: task.editedAt })
       .from(task)
       .all()
     assert.deepEqual(remaining, [
+      { id: untouchedMissed.id, editedAt: 0 },
       { id: editedMissed.id, editedAt: 0 },
       { id: todayInstance.id, editedAt: 0 },
+    ])
+  })
+
+  // 上線當天沒編輯過的實例改回 null:否則它永遠是 0,隔天錯過也不會被跳過
+  test('apply deletes untouched missed instances, resets untouched current ones, keeps edited ones at 0', () => {
+    const { untouchedMissed, editedMissed, todayInstance } = seedLegacy()
+
+    skipLegacyMissedInstances(TODAY, { apply: true })
+
+    const remaining = db
+      .select({ id: task.id, editedAt: task.editedAt })
+      .from(task)
+      .all()
+    assert.deepEqual(remaining, [
+      { id: editedMissed.id, editedAt: 0 },
+      { id: todayInstance.id, editedAt: null },
     ])
     assert.equal(db.select().from(task).where(eq(task.id, untouchedMissed.id)).all().length, 0)
   })

@@ -142,7 +142,7 @@
 
 - 用到「今天」的函式都以參數接收 `today`,不在函式內讀時鐘;`listTasks()` 查詢前以伺服器本地時區的今天呼叫 `fillInstances`。
 - 補齊終點 = 今天 + 6(含),對上「未來 7 天」檢視。
-- 錯過就跳過:進行中的規則在 `fillRule` 補齊前,先刪除未完成、`occurrenceDate` 與 `dueDate` 都早於今天、且 `editedAt` 為 `null` 的實例(checklist 一起刪除),再從不早於今天的日期開始補齊(水位線已超過終點時仍會先刪除)。`editedAt = 0`(上線前既有實例)與已編輯過的實例會保留為逾期;既有未編輯實例的清理另由 `npm run tasks:skip-legacy-missed` 處理。
+- 錯過就跳過:進行中的規則在 `fillRule` 補齊前,先刪除未完成、`occurrenceDate` 與 `dueDate` 都早於今天、且 `editedAt` 為 `null` 的實例(checklist 一起刪除),再從不早於今天的日期開始補齊(水位線已超過終點時仍會先刪除)。`editedAt = 0`(上線前既有實例)與已編輯過的實例會保留為逾期;既有實例的清理另由 `npm run tasks:skip-legacy-missed` 處理(推斷為沒編輯過的:已錯過的刪除,還沒錯過的 `editedAt` 改回 `null`;推斷為編輯過的維持 `0`)。
 - 建立規則時不回溯:原任務是第一個實例(`editedAt` 設為轉換時間,視為編輯過),水位線設為 max(第一個日期, 昨天),規則建立前的日期不產生實例。
 - 停止重複可逆:任務的規則已停止時 `createRuleFromTask` 允許建新規則,任務改指向新規則;舊規則與它的其他實例不動。規則仍在進行中才回 `already_set`。
 - 改規則(`updateRule`)與停止(`stopRule`)先用舊規則補到最新,再刪除今天之後、未完成的實例。
