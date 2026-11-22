@@ -8,7 +8,7 @@
 
 ## 待做
 
-- **常駐運行**(§9):完成(2026-11-22),正式版在 `localhost:3100`。通知 runner 已用同一套範本機制加成第二個 job(`com.personal-tools.notify`,2026-11-22 安裝)。
+- **常駐運行**(§9):完成(2026-11-22),正式版在 `localhost:3100`。通知 runner 已用同一套範本機制加成第二個 job(`com.personal-tools.notify`,2026-11-22 安裝)。兩個 job 改從各自的啟動腳本(`deploy/macos/bin/`)啟動,修掉每 15 分鐘跳一次「背景項目:node」通知(2026-11-22,§9)。
 - **手機存取**(§9):`tailscale serve`。要做,不急。
 - **通知**(`docs/platform/decisions.md` §8):`src/platform/notify/`(Telegram 發送層)與 `src/jobs/notify.ts` + `com.personal-tools.notify` launchd runner 完成;tasks 的摘要與習慣提醒待做。新 bot 已開、`notify/telegram.json` 已放好(2026-11-22)。
 - **工具切換頂列**(`docs/platform/decisions.md` §7):第一階段完成(頂列、九宮格面板、`src/platform/tools.ts`、首頁入口改讀它、回到上次網址)。狀態列等摘要 API。待決:頂列高度。
