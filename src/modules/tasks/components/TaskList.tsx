@@ -93,6 +93,8 @@ type Props = {
   onToggle: (task: Task) => Promise<ApiError | null>
   // 今天與全部未完成時,ThreeColumnLayout 傳進來的習慣小區塊;畫在新增列與錯誤之後、任務清單之前
   habitBlock?: ReactNode
+  leftToggle?: ReactNode
+  rightToggle?: ReactNode
 }
 
 export default function TaskList({
@@ -111,6 +113,8 @@ export default function TaskList({
   onCreateMany,
   onToggle,
   habitBlock,
+  leftToggle,
+  rightToggle,
 }: Props) {
   const tasks = sections.flatMap((section) => section.tasks)
   // 上一次畫出來的列,用來算出這次誰離開、誰進來。「prop 變了就調整 state」的寫法:
@@ -163,10 +167,16 @@ export default function TaskList({
 
   return (
     <div className={styles.container}>
-      {/* 標題列:這一欄現在看的是哪個清單,右端是它的分組與排序 */}
+      {/* 標題列:左端是左欄切換鈕與清單名稱,右端是分組排序與右欄切換鈕 */}
       <header className={styles.toolbar}>
-        <h2 className={styles.viewTitle}>{viewLabel}</h2>
-        <ViewSettingsMenu settings={settings} onChange={onChangeSettings} />
+        <div className={styles.toolbarLeft}>
+          {leftToggle}
+          <h2 className={styles.viewTitle}>{viewLabel}</h2>
+        </div>
+        <div className={styles.toolbarRight}>
+          <ViewSettingsMenu settings={settings} onChange={onChangeSettings} />
+          {rightToggle}
+        </div>
       </header>
 
       <NewTaskForm today={today} onCreate={onCreate} onCreateMany={onCreateMany} />

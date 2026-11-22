@@ -1,9 +1,15 @@
 .layout {
+  position: relative;
   display: flex;
   /* 版面自己吃滿頂列以下的高度,捲動交給各欄;頁面本身不捲 */
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+.layout[data-resizing='true'] {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .column {
@@ -15,20 +21,32 @@
   scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
 }
 
-/* 左右欄的固定寬度是這個版面的值,不是共用 token;
-   有第二個地方用到同一個值再抽成變數 */
+/* 欄寬與最小寬度由 lib/layout.ts 的常數經 CSS 自訂屬性帶入，不在這裡寫死數值 */
 .categories {
-  flex: 0 0 15rem;
+  flex: 0 0 var(--left-width);
   background: var(--color-column-aside);
   border-right: 1px solid var(--color-divider);
 }
 
+/* 零寬度定位點，讓拖拉把手覆蓋在分隔線上而不佔版面寬度 */
+.handleAnchor {
+  position: relative;
+  flex: 0 0 0;
+  width: 0;
+  align-self: stretch;
+  z-index: 2;
+}
+
 .tasks {
   flex: 1;
-  /* 沒有這行的話,flex 子項不會縮到內容寬度以下 */
-  min-width: 0;
+  /* 兩側欄都收合且視窗窄於 360px 時，min() 避免橫向溢出 */
+  min-width: min(var(--middle-min-width), 100%);
   background: var(--color-column-main);
   border-right: 1px solid var(--color-divider);
+}
+
+.tasksNoRightBorder {
+  border-right: 0;
 }
 
 /* 只是刪除後的程式聚焦目標,tabIndex={-1} 讓 Tab 不會停在這裡,外框沒有資訊量 */
@@ -37,6 +55,47 @@
 }
 
 .detail {
-  flex: 0 0 20rem;
+  flex: 0 0 var(--right-width);
   background: var(--color-column-aside);
+}
+
+/* 右欄收合且有選取項目時，改以抽屜覆蓋在中欄右側；固定於 .layout，不隨中欄捲動 */
+.detailDrawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: var(--right-width);
+  max-width: 100%;
+  border-left: 1px solid var(--color-divider);
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.toggleButton,
+.drawerClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.toggleButton[aria-disabled='true'] {
+  color: var(--color-text-subtle);
+  opacity: 0.5;
+  cursor: not-allowed;
 }

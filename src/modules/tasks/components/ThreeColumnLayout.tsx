@@ -1,15 +1,25 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { flushSync } from 'react-dom'
 import CategoryColumn from './CategoryColumn'
 import HabitBlock from './HabitBlock'
 import HabitDetail from './HabitDetail'
 import HabitList from './HabitList'
+import ResizeHandle from './ResizeHandle'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
 import styles from './ThreeColumnLayout.module.css'
+import {
+  DEFAULT_LAYOUT,
+  LAYOUT_STORAGE_KEY,
+  MIN_MIDDLE_WIDTH,
+  clampDragWidth,
+  parseStoredLayout,
+  resolveLayout,
+  type StoredLayout,
+} from '@/modules/tasks/lib/layout'
 import { useToday } from '@/modules/tasks/lib/useToday'
 import {
   generalMessage,
@@ -243,6 +253,152 @@ export default function ThreeColumnLayout() {
     (next: ViewId) => replaceParams((params) => params.set('view', next)),
     [replaceParams],
   )
+
+  // 版面欄寬與收合：第一次 render 一律用預設展開，避免 SSR 與 localStorage 不一致
+  const layoutRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState<number | null>(null)
+  const [storedLayout, setStoredLayout] = useState<StoredLayout>(DEFAULT_LAYOUT)
+  const dragRef = useRef<{
+    side: 'left' | 'right'
+    startX: number
+    startWidth: number
+    currentWidth: number
+  } | null>(null)
+
+  useEffect(() => {
+    try {
+      // 外部儲存在掛載後同步一次，之後由使用者切換。刻意在 effect 裡讀：伺服器端沒有這個值，
+      // render 時讀會 hydration 不一致；這裡多一次 render 是預期的
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStoredLayout(parseStoredLayout(window.localStorage.getItem(LAYOUT_STORAGE_KEY)))
+    } catch {
+      // 無痕模式或封鎖網站資料時讀不到：維持預設
+    }
+  }, [])
+
+  useEffect(() => {
+    const el = layoutRef.current
+    if (el === null) {
+      return
+    }
+    const updateWidth = () => {
+      setContainerWidth(el.clientWidth)
+    }
+    updateWidth()
+    const observer = new ResizeObserver(updateWidth)
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
+  const effective = resolveLayout(containerWidth, storedLayout)
+
+  const persistLayout = useCallback((next: StoredLayout) => {
+    setStoredLayout(next)
+    try {
+      window.localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(next))
+    } catch {
+      // 存不了就只在這次瀏覽有效
+    }
+  }, [])
+
+  const handleToggleLeft = useCallback(() => {
+    if (effective.autoLeftCollapsed) {
+      return
+    }
+    persistLayout({ ...storedLayout, leftCollapsed: !effective.leftCollapsed })
+  }, [effective.autoLeftCollapsed, effective.leftCollapsed, persistLayout, storedLayout])
+
+  const handleToggleRight = useCallback(() => {
+    if (effective.autoRightCollapsed) {
+      return
+    }
+    persistLayout({ ...storedLayout, rightCollapsed: !effective.rightCollapsed })
+  }, [effective.autoRightCollapsed, effective.rightCollapsed, persistLayout, storedLayout])
+
+  const handleResizeStart = useCallback(
+    (side: 'left' | 'right', clientX: number) => {
+      const startWidth = side === 'left' ? effective.leftWidth : effective.rightWidth
+      dragRef.current = { side, startX: clientX, startWidth, currentWidth: startWidth }
+      layoutRef.current?.setAttribute('data-resizing', 'true')
+    },
+    [effective.leftWidth, effective.rightWidth],
+  )
+
+  const handleResizeMove = useCallback(
+    (side: 'left' | 'right', clientX: number) => {
+      const drag = dragRef.current
+      const el = layoutRef.current
+      if (drag === null || el === null) {
+        return
+      }
+      const delta = clientX - drag.startX
+      const raw = side === 'left' ? drag.startWidth + delta : drag.startWidth - delta
+      const total = containerWidth ?? el.clientWidth
+      const otherWidth = side === 'left' ? effective.rightWidth : effective.leftWidth
+      const otherCollapsed = side === 'left' ? effective.rightCollapsed : effective.leftCollapsed
+      const clamped = clampDragWidth(side, raw, total, otherWidth, otherCollapsed)
+      drag.currentWidth = clamped
+      el.style.setProperty(side === 'left' ? '--left-width' : '--right-width', `${clamped}px`)
+    },
+    [containerWidth, effective.leftCollapsed, effective.leftWidth, effective.rightCollapsed, effective.rightWidth],
+  )
+
+  const handleResizeEnd = useCallback(
+    (side: 'left' | 'right', clientX: number) => {
+      const drag = dragRef.current
+      const el = layoutRef.current
+      if (drag === null) {
+        return
+      }
+      if (el !== null) {
+        const delta = clientX - drag.startX
+        const raw = side === 'left' ? drag.startWidth + delta : drag.startWidth - delta
+        const total = containerWidth ?? el.clientWidth
+        const otherWidth = side === 'left' ? effective.rightWidth : effective.leftWidth
+        const otherCollapsed = side === 'left' ? effective.rightCollapsed : effective.leftCollapsed
+        drag.currentWidth = clampDragWidth(side, raw, total, otherWidth, otherCollapsed)
+        el.removeAttribute('data-resizing')
+      }
+      const finalWidth = drag.currentWidth
+      dragRef.current = null
+      persistLayout(
+        side === 'left'
+          ? { ...storedLayout, leftWidth: finalWidth }
+          : { ...storedLayout, rightWidth: finalWidth },
+      )
+    },
+    [
+      containerWidth,
+      effective.leftCollapsed,
+      effective.leftWidth,
+      effective.rightCollapsed,
+      effective.rightWidth,
+      persistLayout,
+      storedLayout,
+    ],
+  )
+
+  const handleCloseDrawer = useCallback(() => {
+    if (view === 'habits') {
+      const targetId = selectedHabitId
+      replaceParams((params) => params.delete('habit'))
+      if (targetId !== null) {
+        tasksColumnRef.current
+          ?.querySelector<HTMLElement>(`li[data-habit-id="${targetId}"] [data-habit-control="row"]`)
+          ?.focus()
+      }
+      return
+    }
+    const targetId = selectedId
+    replaceParams((params) => params.delete('task'))
+    if (targetId !== null) {
+      tasksColumnRef.current
+        ?.querySelector<HTMLElement>(`li[data-task-id="${targetId}"] [data-task-control="row"]`)
+        ?.focus()
+    }
+  }, [replaceParams, selectedHabitId, selectedId, view])
 
   // 回傳 null 代表成功;失敗的形狀和寫入共用同一個 ApiError。
   // flushSync:回傳時新清單已經 commit 到 DOM,呼叫端接著就能依畫面上的列移焦點。
@@ -708,18 +864,73 @@ export default function ThreeColumnLayout() {
       <HabitBlock habits={displayHabits} onStep={stepHabit} />
     ) : undefined
 
+  const hasSelection = view === 'habits' ? selectedHabit !== undefined : selectedTask !== undefined
+  const drawerOpen = effective.rightCollapsed && hasSelection
+  const showDetailColumn = !effective.rightCollapsed || drawerOpen
+
+  const leftToggle = (
+    <button
+      type="button"
+      className={styles.toggleButton}
+      aria-label={effective.leftCollapsed ? '展開左欄' : '收合左欄'}
+      aria-expanded={!effective.leftCollapsed}
+      aria-disabled={effective.autoLeftCollapsed || undefined}
+      title={effective.autoLeftCollapsed ? '視窗太窄' : effective.leftCollapsed ? '展開左欄' : '收合左欄'}
+      onClick={handleToggleLeft}
+    >
+      {effective.leftCollapsed ? '▸' : '◂'}
+    </button>
+  )
+
+  const rightToggle = (
+    <button
+      type="button"
+      className={styles.toggleButton}
+      aria-label={effective.rightCollapsed ? '展開右欄' : '收合右欄'}
+      aria-expanded={!effective.rightCollapsed}
+      aria-disabled={effective.autoRightCollapsed || undefined}
+      title={effective.autoRightCollapsed ? '視窗太窄' : effective.rightCollapsed ? '展開右欄' : '收合右欄'}
+      onClick={handleToggleRight}
+    >
+      {effective.rightCollapsed ? '◂' : '▸'}
+    </button>
+  )
+
+  const layoutStyle = {
+    '--left-width': `${effective.leftWidth}px`,
+    '--right-width': `${effective.rightWidth}px`,
+    '--middle-min-width': `${MIN_MIDDLE_WIDTH}px`,
+  } as CSSProperties
+
   return (
-    <div className={styles.layout}>
-      <section className={`${styles.column} ${styles.categories}`}>
-        <CategoryColumn view={view} onSelect={handleSelectView} today={today} />
-      </section>
+    <div ref={layoutRef} className={styles.layout} style={layoutStyle}>
+      {!effective.leftCollapsed && (
+        <>
+          <section className={`${styles.column} ${styles.categories}`}>
+            <CategoryColumn view={view} onSelect={handleSelectView} today={today} />
+          </section>
+          <div className={styles.handleAnchor}>
+            <ResizeHandle
+              side="left"
+              ariaLabel="調整左欄寬度"
+              onResizeStart={handleResizeStart}
+              onResizeMove={handleResizeMove}
+              onResizeEnd={handleResizeEnd}
+            />
+          </div>
+        </>
+      )}
 
       {/* tabIndex={-1}:不進 Tab 順序,只讓程式在任務消失、清單空了時把焦點放過來 */}
       <section
         ref={tasksColumnRef}
         tabIndex={-1}
         aria-label={view === 'habits' ? '習慣清單' : '任務清單'}
-        className={`${styles.column} ${styles.tasks}`}
+        className={
+          effective.rightCollapsed
+            ? `${styles.column} ${styles.tasks} ${styles.tasksNoRightBorder}`
+            : `${styles.column} ${styles.tasks}`
+        }
       >
         {view === 'habits' ? (
           <HabitList
@@ -730,6 +941,8 @@ export default function ThreeColumnLayout() {
             onSelect={handleSelectHabit}
             onCreate={handleCreateHabit}
             onStep={stepHabit}
+            leftToggle={leftToggle}
+            rightToggle={drawerOpen ? undefined : rightToggle}
           />
         ) : (
           <TaskList
@@ -749,36 +962,65 @@ export default function ThreeColumnLayout() {
             onCreateMany={handleCreateMany}
             onToggle={handleToggle}
             habitBlock={habitBlock}
+            leftToggle={leftToggle}
+            rightToggle={drawerOpen ? undefined : rightToggle}
           />
         )}
       </section>
 
-      <section className={`${styles.column} ${styles.detail}`}>
-        {/* key 換掉 = 換任務就重新掛載:欄位錯誤與確認彈窗的狀態自動回到初始值,
-            不必用 effect 偵測 task.id 變化 */}
-        {view === 'habits' ? (
-          // 同一個理由:換習慣就重新掛載,草稿、欄位錯誤、確認彈窗隨卸載清除
-          <HabitDetail
-            key={selectedHabit?.id ?? 'empty'}
-            habit={selectedHabit}
-            onUpdate={handleUpdateHabit}
-            onTogglePause={handleTogglePause}
-            onDelete={handleDeleteHabit}
+      {!effective.rightCollapsed && (
+        <div className={styles.handleAnchor}>
+          <ResizeHandle
+            side="right"
+            ariaLabel="調整右欄寬度"
+            onResizeStart={handleResizeStart}
+            onResizeMove={handleResizeMove}
+            onResizeEnd={handleResizeEnd}
           />
-        ) : (
-          <TaskDetail
-            key={selectedTask?.id ?? 'empty'}
-            task={selectedTask}
-            today={today}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-            onSaveDate={handleSaveDate}
-            tasksVersion={tasksVersion}
-            // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
-            onChecklistError={setError}
-          />
-        )}
-      </section>
+        </div>
+      )}
+
+      {showDetailColumn && (
+        <section
+          aria-label={drawerOpen ? '詳細內容抽屜' : undefined}
+          className={
+            drawerOpen ? `${styles.column} ${styles.detail} ${styles.detailDrawer}` : `${styles.column} ${styles.detail}`
+          }
+        >
+          {drawerOpen && (
+            <div className={styles.drawerHeader}>
+              <button type="button" className={styles.drawerClose} onClick={handleCloseDrawer}>
+                關閉
+              </button>
+              {rightToggle}
+            </div>
+          )}
+          {/* key 換掉 = 換任務就重新掛載:欄位錯誤與確認彈窗的狀態自動回到初始值,
+              不必用 effect 偵測 task.id 變化 */}
+          {view === 'habits' ? (
+            // 同一個理由:換習慣就重新掛載,草稿、欄位錯誤、確認彈窗隨卸載清除
+            <HabitDetail
+              key={selectedHabit?.id ?? 'empty'}
+              habit={selectedHabit}
+              onUpdate={handleUpdateHabit}
+              onTogglePause={handleTogglePause}
+              onDelete={handleDeleteHabit}
+            />
+          ) : (
+            <TaskDetail
+              key={selectedTask?.id ?? 'empty'}
+              task={selectedTask}
+              today={today}
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
+              onSaveDate={handleSaveDate}
+              tasksVersion={tasksVersion}
+              // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
+              onChecklistError={setError}
+            />
+          )}
+        </section>
+      )}
     </div>
   )
 }
