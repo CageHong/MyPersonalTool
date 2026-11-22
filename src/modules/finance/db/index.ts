@@ -24,6 +24,10 @@ export function openDb(path: string) {
   const sqlite = new Database(path)
   // SQLite 預設不強制外鍵;這個 pragma 是 per-connection,每條連線都要設
   sqlite.pragma('foreign_keys = ON')
+  // 非記憶體資料庫開啟 WAL 模式，讓正式版、開發版與通知 runner 可以並存讀寫
+  if (path !== ':memory:') {
+    sqlite.pragma('journal_mode = WAL')
+  }
   return drizzle(sqlite, { schema })
 }
 

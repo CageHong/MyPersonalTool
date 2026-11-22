@@ -94,9 +94,93 @@
 - 在 worktree 以假資料(獨立 `PERSONAL_TOOLS_DATA_DIR` 指向暫存目錄)驗證 `NEXT_DIST_DIR=.next-prod npm run build`、`npx next start -p 3100` 與 `npm run dev`(3000)可同時啟動且首頁回 200,測試後關閉兩者並清理暫存。
 - **絕不執行 `launchctl` 或實際安裝任何 launchd job**。
 
+### 主線確認(2026-11-22):照計畫實作,加上以下修改
+
+1. **deploy 與正式版用同一份設定**:`deploy.sh` 的 migrate 與 build 所用的 `PERSONAL_TOOLS_DATA_DIR`、`NEXT_DIST_DIR`,從**已安裝的 plist** 讀(`/usr/libexec/PlistBuddy`),不要在 deploy 時重新推算。否則安裝時有設環境變數、deploy 時沒設,migration 會跑到另一份 DB。plist 不存在時直接停下,提示先跑 `npm run deploy:install`。
+2. **第 1 步多檢查工作區乾淨**(`git status --porcelain` 為空),否則沒 commit 的改動會被部署上去。
+3. **build 也帶上同一組環境變數**(`NODE_ENV=production`、資料夾),避免 build 時有程式讀到不同的資料夾。
+4. **第 3 步的 `bootout` 在服務沒載入時不算失敗**(例如上次 deploy 在第 4、5 步失敗、正式版已經是停止狀態),繼續往下。
+5. **README 加一段「換 node 版本之後」**:node 路徑寫在 plist 裡,而且 `better-sqlite3` 是原生模組;換版本後要 `npm rebuild better-sqlite3` 再 `npm run deploy:install`。這條也寫進回報的「最可能出錯的地方」。
+
+其餘(範本機制、失敗時正式版的狀態、WAL 只在非 `:memory:` 開、不執行 `launchctl`)都照計畫。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `next.config.ts`:依 `process.env.NEXT_DIST_DIR` 設定 `distDir`,未設定時維持預設 `.next`。
+  - `.gitignore`:加入 `/.next-prod/`。
+  - `src/modules/tasks/db/index.ts`:加入 `sqlite.pragma('journal_mode = WAL')` 與註解,其餘不動。
+  - `src/modules/finance/db/index.ts`:在 `openDb` 中 `path !== ':memory:'` 時加入 `sqlite.pragma('journal_mode = WAL')` 與註解,其餘不動。
+  - `deploy/macos/com.personal-tools.web.plist.template`:建立 LaunchAgent plist 範本(不含寫死路徑,以 `node` 絕對路徑執行 Next CLI,port 3100、`NEXT_DIST_DIR=.next-prod`)。
+  - `deploy/macos/install.sh`:建立支援 `--dry-run` 與 `--job` 的安裝腳本,動態推算 `node`、repo、`PERSONAL_TOOLS_DATA_DIR`、log 路徑並套用所有 `*.plist.template`。
+  - `deploy/macos/uninstall.sh`:建立支援 `--dry-run` 與 `--job` 的移除腳本。
+  - `deploy/macos/deploy.sh`:建立支援 `--dry-run` 的 deploy 腳本,依序檢查 `main` 與工作區乾淨 → `npm test` → `bootout`(未載入不算失敗)→ 從已安裝 plist 讀取 `PERSONAL_TOOLS_DATA_DIR` 與 `NEXT_DIST_DIR` 執行 migrate 與 `NODE_ENV=production` build(build 後還原 `tsconfig.json`)→ `bootstrap`,任一步失敗即停下並說明正式版狀態。
+  - `deploy/macos/README.md`:撰寫安裝、更新、看 log、手動停啟、移除與「換 Node 版本之後」的操作說明。
+  - `package.json`:新增 `deploy`、`deploy:install`、`deploy:uninstall` 三個 scripts。
+  - `docs/platform/backlog.md`:更新「常駐運行」進度。
 - 沒做什麼、為什麼:
+  - 未執行 `launchctl`、未實際安裝或載入任何 launchd job(依任務卡限制,由使用者在主 repo 執行)。
+  - 未修改 `eslint.config.mjs`(不在「可以改的檔案」內;詳見下方「最可能出錯的地方」)。
+  - 未實作通知 runner 與 Tailscale 手機存取(另一張卡／之後項目)。
 - 每個完成條件怎麼驗證的:
+  - **`npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`**:於移除驗證暫存 `.next-prod/` 後執行全部通過(`npm test` 65 suites、527 tests 全數通過,0 failed)。
+  - **`shellcheck`**:環境未安裝(`which shellcheck` 回傳 `shellcheck not found`),無法執行。
+  - **`grep -rn "/Users/" deploy/`**:輸出為空(無任何寫死使用者路徑)。
+  - **同時啟動 3100 與 3000 手動驗證**:以 `PERSONAL_TOOLS_DATA_DIR=/tmp/pt-deploy-test-data` 執行 `NODE_ENV=production NEXT_DIST_DIR=.next-prod ... npm run build` 成功後,同時在背景啟動 `NEXT_DIST_DIR=.next-prod npx next start -p 3100` 與 `npm run dev`(3000),以 `curl` 檢查 `http://127.0.0.1:3100/` 與 `http://127.0.0.1:3000/` 皆回傳 HTTP 200(`prod_3100=200`、`dev_3000=200`),隨後關閉兩個 server、刪除 `/tmp/pt-deploy-test-data` 與 `.next-prod/`,並還原 `tsconfig.json`。
+  - **`bash deploy/macos/install.sh --dry-run` 輸出全文**:
+    ```xml
+    === [dry-run] /Users/shihsiou/Library/LaunchAgents/com.personal-tools.web.plist ===
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>Label</key>
+      <string>com.personal-tools.web</string>
+
+      <key>ProgramArguments</key>
+      <array>
+        <string>/opt/homebrew/bin/node</string>
+        <string>/Users/shihsiou/Developer/TT/gemini/personal-tools/node_modules/next/dist/bin/next</string>
+        <string>start</string>
+        <string>-p</string>
+        <string>3100</string>
+      </array>
+
+      <key>WorkingDirectory</key>
+      <string>/Users/shihsiou/Developer/TT/gemini/personal-tools</string>
+
+      <key>EnvironmentVariables</key>
+      <dict>
+        <key>NODE_ENV</key>
+        <string>production</string>
+        <key>NEXT_DIST_DIR</key>
+        <string>.next-prod</string>
+        <key>PERSONAL_TOOLS_DATA_DIR</key>
+        <string>/Users/shihsiou/Developer/TT/gemini/personal-tools-data</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+      </dict>
+
+      <key>RunAtLoad</key>
+      <true/>
+
+      <key>KeepAlive</key>
+      <true/>
+
+      <key>StandardOutPath</key>
+      <string>/Users/shihsiou/Library/Logs/personal-tools/web.stdout.log</string>
+
+      <key>StandardErrorPath</key>
+      <string>/Users/shihsiou/Library/Logs/personal-tools/web.stderr.log</string>
+    </dict>
+    </plist>
+    === [dry-run] commands ===
+    mkdir -p "/Users/shihsiou/Library/Logs/personal-tools" "/Users/shihsiou/Library/LaunchAgents"
+    launchctl bootout "gui/501/com.personal-tools.web" 2>/dev/null || true
+    launchctl bootstrap "gui/501" "/Users/shihsiou/Library/LaunchAgents/com.personal-tools.web.plist"
+    ```
 - 最可能出錯的地方:
+  1. **換 Node 版本後原生模組與 plist 路徑失效**:plist 寫死了 `node` 絕對路徑,且 `better-sqlite3` 是綁定 Node ABI 的原生模組;換版本後必須先執行 `npm rebuild better-sqlite3` 再執行 `npm run deploy:install`(已寫入 `deploy/macos/README.md`)。
+  2. **`eslint.config.mjs` 尚未忽略 `.next-prod/**`**:實測在 `.next-prod/` 存在時執行 `npm run lint`,eslint 會掃描 `.next-prod/server/...` 並報錯。因為 `eslint.config.mjs` 不在任務卡「可以改的檔案」內未動;主 repo 跑 `npm run deploy` 產生 `.next-prod/` 後,建議在 `eslint.config.mjs` 的 `globalIgnores` 補上 `".next-prod/**"`。
+  3. **`next build` 帶 `NEXT_DIST_DIR=.next-prod` 會自動改寫 `tsconfig.json`**:實測 Next.js 會將 `.next-prod/types/**/*.ts` 寫入 `tsconfig.json`,導致工作區變髒、下次 `deploy.sh` 第 1 步會被擋下;已在 `deploy.sh` 第 5 步 build 成功後加上 `git checkout -- tsconfig.json`。
 - 疑問:
+  - 是否要由主線在 `eslint.config.mjs` 的 `globalIgnores` 補上 `".next-prod/**"`?

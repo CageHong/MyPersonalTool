@@ -16,6 +16,8 @@ function createDb() {
   const sqlite = new Database(DB_PATH)
   // SQLite 預設不強制外鍵;這個 pragma 是 per-connection,每條連線都要設
   sqlite.pragma('foreign_keys = ON')
+  // 開啟 WAL 模式，讓正式版、開發版與通知 runner 可以並存讀寫同一份資料庫
+  sqlite.pragma('journal_mode = WAL')
 
   return drizzle(sqlite, { schema })
 }

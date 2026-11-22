@@ -18,7 +18,10 @@
     "finance:import-v2": "tsx src/modules/finance/tools/import-v2.ts",
     "finance:fx-update": "tsx src/modules/finance/tools/fx-update.ts",
     "finance:import-statement": "tsx src/modules/finance/tools/import-statement.ts",
-    "notify:test": "tsx src/platform/notify/test-cli.ts"
+    "notify:test": "tsx src/platform/notify/test-cli.ts",
+    "deploy": "bash deploy/macos/deploy.sh",
+    "deploy:install": "bash deploy/macos/install.sh",
+    "deploy:uninstall": "bash deploy/macos/uninstall.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
