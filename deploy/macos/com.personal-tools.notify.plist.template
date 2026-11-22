@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.personal-tools.notify</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE_BIN__</string>
+    <string>__REPO_DIR__/node_modules/tsx/dist/cli.mjs</string>
+    <string>__REPO_DIR__/src/jobs/notify-cli.ts</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO_DIR__</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_ENV</key>
+    <string>production</string>
+    <key>PERSONAL_TOOLS_DATA_DIR</key>
+    <string>__DATA_DIR__</string>
+    <key>PATH</key>
+    <string>__NODE_DIR__:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+    <dict>
+      <key>Minute</key>
+      <integer>15</integer>
+    </dict>
+    <dict>
+      <key>Minute</key>
+      <integer>30</integer>
+    </dict>
+    <dict>
+      <key>Minute</key>
+      <integer>45</integer>
+    </dict>
+  </array>
+
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/notify.stdout.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/notify.stderr.log</string>
+</dict>
+</plist>
