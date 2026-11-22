@@ -3,9 +3,11 @@ import '../test/setup'
 import assert from 'node:assert/strict'
 import { before, beforeEach, describe, test } from 'node:test'
 import { applyMigrations, db } from '../db'
-import { habit, task, taskNotificationSent, taskNotificationSetting } from '../db/schema'
-import { addLog, createHabit, listHabits, pauseHabit, removeLog, updateHabit } from './habits'
-import { createTask, updateTask } from './tasks'
+import { habit, task, taskNotificationSent, taskNotificationSetting, taskReminder } from '../db/schema'
+import { addLog, createHabit, pauseHabit, removeLog } from './habits'
+import { createRuleFromTask } from './recurrence'
+import { createReminder, updateReminder, type Reminder } from './reminders'
+import { createTask, listTasks, updateTask } from './tasks'
 import { ValidationError } from './errors'
 import {
   dueTaskNotifications,
@@ -72,6 +74,7 @@ before(() => {
 beforeEach(() => {
   // 每個測試從空的資料開始;checklist、log、設定歷史、停止區間由外鍵 cascade 一起刪
   db.delete(taskNotificationSent).run()
+  db.delete(taskReminder).run()
   db.delete(taskNotificationSetting).run()
   db.delete(task).run()
   db.delete(habit).run()
@@ -134,36 +137,6 @@ describe('notification settings', () => {
   test('a rejected save leaves the stored settings unchanged', () => {
     assert.throws(() => saveNotificationSettings(settingsWith({ morning: { time: '16:00', enabled: true } })))
     assert.deepEqual(getNotificationSettings(), DEFAULTS)
-  })
-})
-
-describe('habit.reminderTime', () => {
-  test('is null unless given, and can be set on create', () => {
-    const plain = createHabit({ name: '閱讀', periodType: 'daily', target: 1 }, TODAY)
-    const reminded = createHabit({ name: '伸展', periodType: 'daily', target: 1, reminderTime: '19:30' }, TODAY)
-
-    assert.equal(plain.reminderTime, null)
-    assert.equal(reminded.reminderTime, '19:30')
-  })
-
-  test('can be set and cleared by updateHabit, and shows up in listHabits', () => {
-    const created = createHabit({ name: '閱讀', periodType: 'daily', target: 1 }, TODAY)
-
-    assert.equal(updateHabit(created.id, { reminderTime: '20:00' }, TODAY).reminderTime, '20:00')
-    assert.equal(listHabits(TODAY).find((row) => row.id === created.id)?.reminderTime, '20:00')
-    assert.equal(updateHabit(created.id, { reminderTime: null }, TODAY).reminderTime, null)
-  })
-
-  test('rejects values that are not HH:MM', () => {
-    const created = createHabit({ name: '閱讀', periodType: 'daily', target: 1 }, TODAY)
-
-    assertRejects(() => updateHabit(created.id, { reminderTime: '7:00' }, TODAY), {
-      reminderTime: 'invalid_value',
-    })
-    assertRejects(
-      () => createHabit({ name: '伸展', periodType: 'daily', target: 1, reminderTime: '25:00' }, TODAY),
-      { reminderTime: 'invalid_value' },
-    )
   })
 })
 
@@ -334,95 +307,341 @@ describe('evening summary', () => {
   })
 })
 
+
+// ---- 以下規格:decisions §6j 表末「(2026-11-22 改)」的條目 ----
+
+// 建立提醒時的「現在」:早於所有測試用的時刻,絕對提醒不會被當成過去
+const SETUP_NOW = at(YESTERDAY, '00:00')
+
+function habitReminder(habitId: number, time: string): Reminder {
+  return createReminder({ habitId }, { kind: 'daily', time }, SETUP_NOW)
+}
+
+function relativeReminder(taskId: number, daysBefore: number, time: string): Reminder {
+  return createReminder({ taskId }, { kind: 'relative', daysBefore, time }, SETUP_NOW)
+}
+
+function absoluteReminder(taskId: number, date: string, time: string): Reminder {
+  return createReminder({ taskId }, { kind: 'absolute', date, time }, SETUP_NOW)
+}
+
+// 已送標記的 key 帶提醒的時刻:送出後把時刻改晚,當天會再送一次
+function habitKey(reminder: Reminder, date: string): string {
+  return `reminder:${reminder.id}:${reminder.time}@${date}`
+}
+
+// 任務的 key 另外帶任務 id:同一條規則的兩個實例可能被改成同一天到期
+function taskKey(reminder: Reminder, taskId: number, date: string): string {
+  return `reminder:${reminder.id}:${taskId}:${reminder.time}@${date}`
+}
+
+function allSummariesOff() {
+  saveNotificationSettings(
+    settingsWith({
+      morning: { time: '08:00', enabled: false },
+      afternoon: { time: '15:00', enabled: false },
+      evening: { time: '21:00', enabled: false },
+    }),
+  )
+}
+
+describe('excludeFromSummary', () => {
+  test('a task marked so is left out of the morning and evening summaries', () => {
+    createTask({ title: '寫週報', dueDate: TODAY })
+    createTask({ title: '倒垃圾', dueDate: TODAY, excludeFromSummary: true })
+
+    assert.deepEqual(messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body, ['任務', '- 寫週報'].join('\n'))
+    assert.deepEqual(messageOf(TODAY, '21:00', `summary:evening@${TODAY}`).body, ['任務', '- 寫週報'].join('\n'))
+  })
+
+  test('a habit marked so is left out of all three summaries', () => {
+    // TOMORROW 是週日:晚上那則會列本週沒達標的習慣
+    createHabit({ name: '冥想', periodType: 'weekly', target: 6 }, '2026-09-14')
+    createHabit({ name: '跑步', periodType: 'weekly', target: 3, excludeFromSummary: true }, '2026-09-14')
+
+    assert.deepEqual(messageOf(TOMORROW, '08:00', `summary:morning@${TOMORROW}`).body, ['習慣', '- 冥想 0/6'].join('\n'))
+    assert.deepEqual(
+      messageOf(TOMORROW, '15:00', `summary:afternoon@${TOMORROW}`).body,
+      ['未完成', '- 冥想 0/6'].join('\n'),
+    )
+    assert.deepEqual(messageOf(TOMORROW, '21:00', `summary:evening@${TOMORROW}`).body, ['習慣', '- 冥想 0/6'].join('\n'))
+  })
+
+  test('when everything is marked so, the summary has nothing to say and is recorded as sent', () => {
+    createTask({ title: '倒垃圾', dueDate: TODAY, excludeFromSummary: true })
+
+    assert.deepEqual(keysAt(TODAY, '08:00'), [])
+    assert.ok(sentRows().some((row) => row.key === 'summary:morning' && row.date === TODAY))
+  })
+
+  test('does not affect individual reminders', () => {
+    allSummariesOff()
+    const t = createTask({ title: '倒垃圾', dueDate: TODAY, excludeFromSummary: true })
+    const h = createHabit({ name: '跑步', periodType: 'daily', target: 1, excludeFromSummary: true }, TODAY)
+    const tr = relativeReminder(t.id, 0, '19:00')
+    const hr = habitReminder(h.id, '19:00')
+
+    assert.deepEqual(keysAt(TODAY, '19:00').sort(), [habitKey(hr, TODAY), taskKey(tr, t.id, TODAY)].sort())
+  })
+})
+
+describe('morning summary: high priority group', () => {
+  test('lists unfinished high-priority tasks not already due today or overdue, between tasks and habits', () => {
+    createTask({ title: '寫週報', dueDate: TODAY, priority: 5 })
+    createTask({ title: '寫論文', priority: 5 })
+    createTask({ title: '訂機票', dueDate: '2026-09-25', priority: 5 })
+    createTask({ title: '整理照片', priority: 3 })
+    createTask({ title: '不想看到', priority: 5, excludeFromSummary: true })
+    const done = createTask({ title: '已經做完', priority: 5 })
+    updateTask(done.id, { done: true })
+    createHabit({ name: '冥想', periodType: 'daily', target: 1 }, TODAY)
+
+    assert.deepEqual(messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body, [
+      '任務',
+      '- 寫週報',
+      '高優先',
+      '- 寫論文',
+      '- 訂機票',
+      '習慣',
+      '- 冥想 0/1',
+    ].join('\n'))
+  })
+
+  test('alone is enough for the morning summary to be sent', () => {
+    createTask({ title: '寫論文', priority: 5 })
+
+    assert.deepEqual(messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body, ['高優先', '- 寫論文'].join('\n'))
+  })
+
+  test('a recurring high-priority task appears once, as its earliest unfinished instance', () => {
+    const source = createTask({ title: '健身', dueDate: TOMORROW, priority: 5 })
+    createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TOMORROW }, TODAY)
+
+    assert.deepEqual(messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body, ['高優先', '- 健身'].join('\n'))
+  })
+
+  test('is not in the afternoon or evening summaries', () => {
+    createTask({ title: '寫論文', priority: 5 })
+
+    assert.ok(!keysAt(TODAY, '15:00').includes(`summary:afternoon@${TODAY}`))
+    assert.ok(!keysAt(TODAY, '21:00').includes(`summary:evening@${TODAY}`))
+  })
+})
+
 describe('habit reminders', () => {
   test('are due from the reminder time while the habit has not reached its target', () => {
-    const habitRow = createHabit(
-      { name: '冥想', periodType: 'weekly', target: 6, reminderTime: '19:00' },
-      '2026-09-14',
-    )
-    addLog(habitRow.id, '2026-09-15', TODAY)
-    const key = `habit:${habitRow.id}@${TODAY}`
+    const h = createHabit({ name: '冥想', periodType: 'weekly', target: 6 }, '2026-09-14')
+    addLog(h.id, '2026-09-15', TODAY)
+    const r = habitReminder(h.id, '19:00')
 
-    assert.ok(!keysAt(TODAY, '18:59').includes(key))
-    assert.deepEqual(messageOf(TODAY, '19:00', key), { title: '習慣提醒', body: '冥想 1/6' })
+    assert.ok(!keysAt(TODAY, '18:59').includes(habitKey(r, TODAY)))
+    assert.deepEqual(messageOf(TODAY, '19:00', habitKey(r, TODAY)), { title: '習慣提醒', body: '冥想 1/6' })
+  })
+
+  test('each of several reminders on one habit is sent at its own time', () => {
+    allSummariesOff()
+    const h = createHabit({ name: '喝水', periodType: 'daily', target: 8 }, TODAY)
+    const morning = habitReminder(h.id, '09:00')
+    const afternoon = habitReminder(h.id, '14:00')
+
+    assert.deepEqual(keysAt(TODAY, '09:00'), [habitKey(morning, TODAY)])
+    markTaskNotificationsSent([habitKey(morning, TODAY)])
+    assert.deepEqual(keysAt(TODAY, '13:59'), [])
+    assert.deepEqual(keysAt(TODAY, '14:00'), [habitKey(afternoon, TODAY)])
   })
 
   test('are caught up for the rest of the day, then gone', () => {
-    const habitRow = createHabit({ name: '冥想', periodType: 'daily', target: 1, reminderTime: '07:00' }, TODAY)
+    const h = createHabit({ name: '冥想', periodType: 'daily', target: 1 }, TODAY)
+    const r = habitReminder(h.id, '07:00')
 
-    assert.ok(keysAt(TODAY, '23:59').includes(`habit:${habitRow.id}@${TODAY}`))
-    assert.ok(keysAt(TOMORROW, '06:59').every((key) => !key.startsWith(`habit:${habitRow.id}@`)))
+    assert.ok(keysAt(TODAY, '23:59').includes(habitKey(r, TODAY)))
+    assert.ok(keysAt(TOMORROW, '06:59').every((key) => !key.startsWith(`reminder:${r.id}:`)))
   })
 
   test('are not sent when the target is already met, but recorded as sent for the day', () => {
-    const habitRow = createHabit({ name: '伸展', periodType: 'daily', target: 1, reminderTime: '19:00' }, TODAY)
-    addLog(habitRow.id, TODAY, TODAY)
-    const key = `habit:${habitRow.id}@${TODAY}`
+    const h = createHabit({ name: '伸展', periodType: 'daily', target: 1 }, TODAY)
+    addLog(h.id, TODAY, TODAY)
+    const r = habitReminder(h.id, '19:00')
 
-    assert.ok(!keysAt(TODAY, '19:00').includes(key))
-    assert.ok(sentRows().some((row) => row.key === `habit:${habitRow.id}` && row.date === TODAY))
+    assert.ok(!keysAt(TODAY, '19:00').includes(habitKey(r, TODAY)))
+    assert.ok(sentRows().some((row) => row.key === `reminder:${r.id}:19:00` && row.date === TODAY))
 
     // 撤銷紀錄後,當天晚一點也不會突然收到
-    removeLog(habitRow.id, TODAY)
-    assert.ok(!keysAt(TODAY, '20:00').includes(key))
+    removeLog(h.id, TODAY)
+    assert.ok(!keysAt(TODAY, '20:00').includes(habitKey(r, TODAY)))
   })
 
   test('are not due for a paused habit', () => {
-    const habitRow = createHabit({ name: '跑步', periodType: 'weekly', target: 3, reminderTime: '19:00' }, TODAY)
-    pauseHabit(habitRow.id, TODAY)
+    const h = createHabit({ name: '跑步', periodType: 'weekly', target: 3 }, TODAY)
+    const r = habitReminder(h.id, '19:00')
+    pauseHabit(h.id, TODAY)
 
-    assert.ok(!keysAt(TODAY, '19:00').includes(`habit:${habitRow.id}@${TODAY}`))
+    assert.ok(!keysAt(TODAY, '19:00').includes(habitKey(r, TODAY)))
   })
 
   test('for a habit without a target, are always sent at the time, with just the name', () => {
-    const habitRow = createHabit({ name: '記體重', periodType: 'daily', target: null, reminderTime: '07:00' }, TODAY)
-    addLog(habitRow.id, TODAY, TODAY)
+    const h = createHabit({ name: '記體重', periodType: 'daily', target: null }, TODAY)
+    addLog(h.id, TODAY, TODAY)
+    const r = habitReminder(h.id, '07:00')
 
-    assert.deepEqual(messageOf(TODAY, '07:00', `habit:${habitRow.id}@${TODAY}`), {
-      title: '習慣提醒',
-      body: '記體重',
+    assert.deepEqual(messageOf(TODAY, '07:00', habitKey(r, TODAY)), { title: '習慣提醒', body: '記體重' })
+  })
+
+  test('moved to a later time after being sent, are due again at the new time', () => {
+    allSummariesOff()
+    const h = createHabit({ name: '冥想', periodType: 'daily', target: 1 }, TODAY)
+    const r = habitReminder(h.id, '09:00')
+    markTaskNotificationsSent([habitKey(r, TODAY)])
+
+    const moved = updateReminder(r.id, { kind: 'daily', time: '20:00' }, at(TODAY, '10:00'))
+    assert.deepEqual(keysAt(TODAY, '19:59'), [])
+    assert.deepEqual(keysAt(TODAY, '20:00'), [habitKey(moved, TODAY)])
+  })
+})
+
+describe('task reminders', () => {
+  test('a relative reminder is due on the day before the due date by daysBefore, from its time', () => {
+    allSummariesOff()
+    const t = createTask({ title: '繳電費', dueDate: TOMORROW })
+    const r = relativeReminder(t.id, 1, '20:00')
+
+    assert.deepEqual(keysAt(TODAY, '19:59'), [])
+    assert.deepEqual(messageOf(TODAY, '20:00', taskKey(r, t.id, TODAY)), {
+      title: '任務提醒',
+      body: '繳電費(明天到期)',
     })
   })
 
-  test('are not due for a habit without a reminder time', () => {
-    createHabit({ name: '冥想', periodType: 'daily', target: 1 }, TODAY)
-    saveNotificationSettings(
-      settingsWith({
-        morning: { time: '08:00', enabled: false },
-        afternoon: { time: '15:00', enabled: false },
-        evening: { time: '21:00', enabled: false },
-      }),
-    )
+  test('the body says how far the due date is', () => {
+    allSummariesOff()
+    const today = createTask({ title: '寫週報', dueDate: TODAY })
+    const later = createTask({ title: '報稅', dueDate: '2026-09-22' })
+    const noDate = createTask({ title: '整理照片' })
+    const overdue = createTask({ title: '繳電費', dueDate: YESTERDAY })
+    const r1 = relativeReminder(today.id, 0, '09:00')
+    const r2 = relativeReminder(later.id, 3, '09:00')
+    const r3 = absoluteReminder(noDate.id, TODAY, '09:00')
+    const r4 = absoluteReminder(overdue.id, TODAY, '09:00')
 
-    assert.deepEqual(keysAt(TODAY, '23:59'), [])
+    assert.equal(messageOf(TODAY, '09:00', taskKey(r1, today.id, TODAY)).body, '寫週報(今天到期)')
+    assert.equal(messageOf(TODAY, '09:00', taskKey(r2, later.id, TODAY)).body, '報稅(3 天後到期)')
+    assert.equal(messageOf(TODAY, '09:00', taskKey(r3, noDate.id, TODAY)).body, '整理照片')
+    assert.equal(messageOf(TODAY, '09:00', taskKey(r4, overdue.id, TODAY)).body, '繳電費(逾期)')
+  })
+
+  test('a relative reminder follows a changed due date', () => {
+    allSummariesOff()
+    const t = createTask({ title: '繳電費', dueDate: TOMORROW })
+    const r = relativeReminder(t.id, 1, '20:00')
+    updateTask(t.id, { dueDate: '2026-09-21' })
+
+    assert.deepEqual(keysAt(TODAY, '20:00'), [])
+    assert.deepEqual(keysAt(TOMORROW, '20:00'), [taskKey(r, t.id, TOMORROW)])
+  })
+
+  test('with the due date cleared, relative reminders wait and absolute ones are still sent', () => {
+    allSummariesOff()
+    const t = createTask({ title: '繳電費', dueDate: TODAY })
+    relativeReminder(t.id, 0, '09:00')
+    const absolute = absoluteReminder(t.id, TODAY, '09:00')
+    updateTask(t.id, { dueDate: null })
+
+    assert.deepEqual(keysAt(TODAY, '09:00'), [taskKey(absolute, t.id, TODAY)])
+  })
+
+  test('an absolute reminder is due on its date from its time, caught up that day only', () => {
+    allSummariesOff()
+    const t = createTask({ title: '打電話給房東' })
+    const r = absoluteReminder(t.id, TODAY, '10:30')
+
+    assert.deepEqual(keysAt(TODAY, '10:29'), [])
+    assert.deepEqual(keysAt(TODAY, '23:59'), [taskKey(r, t.id, TODAY)])
+    assert.deepEqual(keysAt(TOMORROW, '10:30'), [])
+  })
+
+  test('are not sent for a finished task, but recorded as sent for the day', () => {
+    allSummariesOff()
+    const t = createTask({ title: '繳電費', dueDate: TODAY })
+    const r = relativeReminder(t.id, 0, '09:00')
+    updateTask(t.id, { done: true })
+
+    assert.deepEqual(keysAt(TODAY, '09:00'), [])
+    assert.ok(sentRows().some((row) => row.key === `reminder:${r.id}:${t.id}:09:00` && row.date === TODAY))
+
+    // 取消完成後,當天晚一點也不會突然收到
+    updateTask(t.id, { done: false })
+    assert.deepEqual(keysAt(TODAY, '10:00'), [])
+  })
+})
+
+describe('recurrence rule reminders', () => {
+  function instancesOf(ruleId: number) {
+    return listTasks({ today: TODAY }).filter((row) => row.recurrenceRuleId === ruleId)
+  }
+
+  test('apply to each instance by its own due date', () => {
+    allSummariesOff()
+    const source = createTask({ title: '倒垃圾', dueDate: TODAY })
+    const rule = createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TODAY }, TODAY)
+    const r = createReminder({ ruleId: rule.id }, { kind: 'relative', daysBefore: 1, time: '20:00' }, SETUP_NOW)
+    const tomorrowInstance = instancesOf(rule.id).find((row) => row.dueDate === TOMORROW)
+    assert.ok(tomorrowInstance)
+
+    // 今天到期的那個實例,提醒時刻是昨天,已經過了
+    assert.deepEqual(keysAt(TODAY, '20:00'), [taskKey(r, tomorrowInstance.id, TODAY)])
+    assert.equal(messageOf(TODAY, '20:00', taskKey(r, tomorrowInstance.id, TODAY)).body, '倒垃圾(明天到期)')
+  })
+
+  test('skip a finished instance, and follow an instance whose due date was changed', () => {
+    allSummariesOff()
+    const source = createTask({ title: '倒垃圾', dueDate: TODAY })
+    const rule = createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TODAY }, TODAY)
+    createReminder({ ruleId: rule.id }, { kind: 'relative', daysBefore: 0, time: '19:00' }, SETUP_NOW)
+    const instances = instancesOf(rule.id)
+    const todayInstance = instances.find((row) => row.dueDate === TODAY)
+    const tomorrowInstance = instances.find((row) => row.dueDate === TOMORROW)
+    assert.ok(todayInstance && tomorrowInstance)
+
+    updateTask(todayInstance.id, { done: true })
+    assert.deepEqual(keysAt(TODAY, '19:00'), [])
+
+    // 明天的實例改成今天到期:今天 19:00 就提醒它
+    updateTask(tomorrowInstance.id, { dueDate: TODAY })
+    assert.equal(keysAt(TODAY, '19:30').length, 1)
   })
 })
 
 describe('markTaskNotificationsSent', () => {
   test('records each key for its date, and ignores keys already recorded', () => {
-    const habitRow = createHabit({ name: '冥想', periodType: 'daily', target: 1, reminderTime: '07:00' }, TODAY)
-    const keys = [`summary:morning@${TODAY}`, `habit:${habitRow.id}@${TODAY}`]
+    const h = createHabit({ name: '冥想', periodType: 'daily', target: 1 }, TODAY)
+    const r = habitReminder(h.id, '07:00')
+    const keys = [`summary:morning@${TODAY}`, habitKey(r, TODAY)]
 
     markTaskNotificationsSent(keys)
     markTaskNotificationsSent(keys)
 
     assert.deepEqual(sentRows(), [
-      { key: `habit:${habitRow.id}`, date: TODAY },
+      { key: `reminder:${r.id}:07:00`, date: TODAY },
       { key: 'summary:morning', date: TODAY },
     ])
   })
 })
 
 describe('due order', () => {
-  test('summaries come before habit reminders, habit reminders in habit list order', () => {
+  test('summaries first, then reminders by time, then by reminder id', () => {
     createTask({ title: '寫週報', dueDate: TODAY })
-    const stretch = createHabit({ name: '伸展', periodType: 'daily', target: 1, reminderTime: '07:00' }, TODAY)
-    const meditation = createHabit({ name: '冥想', periodType: 'daily', target: 1, reminderTime: '08:00' }, TODAY)
+    const stretch = createHabit({ name: '伸展', periodType: 'daily', target: 1 }, TODAY)
+    const bill = createTask({ title: '繳電費', dueDate: TOMORROW })
+    const meditation = createHabit({ name: '冥想', periodType: 'daily', target: 1 }, TODAY)
+    const late = habitReminder(stretch.id, '07:30')
+    const billReminder = relativeReminder(bill.id, 1, '07:00')
+    const early = habitReminder(meditation.id, '07:00')
 
     assert.deepEqual(keysAt(TODAY, '08:00'), [
       `summary:morning@${TODAY}`,
-      `habit:${stretch.id}@${TODAY}`,
-      `habit:${meditation.id}@${TODAY}`,
+      taskKey(billReminder, bill.id, TODAY),
+      habitKey(early, TODAY),
+      habitKey(late, TODAY),
     ])
   })
 })
