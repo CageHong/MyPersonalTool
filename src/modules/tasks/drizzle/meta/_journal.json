@@ -57,6 +57,13 @@
       "when": 1795359534822,
       "tag": "0007_sad_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795369258682,
+      "tag": "0008_futuristic_red_wolf",
+      "breakpoints": true
     }
   ]
 }

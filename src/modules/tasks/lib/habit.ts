@@ -48,7 +48,7 @@ export function periodStart(date: string, periodType: PeriodType): string {
 }
 
 // 週期最後一天:下一個週期的起始日前一天
-function periodEnd(start: string, periodType: PeriodType): string {
+export function periodEnd(start: string, periodType: PeriodType): string {
   if (periodType === 'daily') {
     return start
   }

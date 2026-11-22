@@ -18,3 +18,10 @@ export function isCalendarDate(value: unknown): value is string {
 
 // 無 / 低 / 中 / 高;刻意留空隙,之後插一級不動既有資料
 export const PRIORITY_VALUES: readonly number[] = [0, 1, 3, 5]
+
+// 時刻,HH:MM(24 小時制,00:00 到 23:59)
+export const DUE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+
+export function isTimeOfDay(value: unknown): value is string {
+  return typeof value === 'string' && DUE_TIME_PATTERN.test(value)
+}

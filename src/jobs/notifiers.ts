@@ -11,4 +11,15 @@ export type ToolNotifier = {
   markSent(keys: string[]): void | Promise<void>
 }
 
-export const NOTIFIERS: Partial<Record<ToolId, ToolNotifier>> = {}
+export const NOTIFIERS: Partial<Record<ToolId, ToolNotifier>> = {
+  tasks: {
+    async dueNotifications(now) {
+      const { dueTaskNotifications } = await import('../modules/tasks/server/notifications')
+      return dueTaskNotifications(now)
+    },
+    async markSent(keys) {
+      const { markTaskNotificationsSent } = await import('../modules/tasks/server/notifications')
+      markTaskNotificationsSent(keys)
+    },
+  },
+}

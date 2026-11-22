@@ -95,7 +95,29 @@
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `src/modules/tasks/db/schema.ts`: 新增 `taskNotificationSetting`（主鍵 `kind`）、`taskNotificationSent`（`(key, date)` 唯一鍵）與 `habit.reminderTime`
+  - `src/modules/tasks/drizzle/0008_futuristic_red_wolf.sql`（及 `meta/`）: 由 `npm run tasks:db:generate` 產生的 migration
+  - `src/modules/tasks/server/validation.ts`、`tasks.ts`: 共用 `DUE_TIME_PATTERN` 並匯出 `isTimeOfDay`
+  - `src/modules/tasks/lib/habit.ts`: 匯出 `periodEnd`
+  - `src/modules/tasks/server/habits.ts`: `createHabit`、`updateHabit` 支援 `reminderTime` 讀寫與驗證
+  - `src/modules/tasks/server/notifications.ts`: 實作 `getNotificationSettings`、`saveNotificationSettings`、`dueTaskNotifications`、`markTaskNotificationsSent`（以最後一個 `@` 切分 key，格式不對直接 throw）
+  - `src/app/api/tasks/notification-settings/route.ts`: 實作 `GET` / `PUT /api/tasks/notification-settings`
+  - `src/jobs/notifiers.ts`: `NOTIFIERS` 加入 `tasks`，以動態 `import()` 載入 tasks 模組
+  - `src/jobs/notify-cli.ts`: log 時間戳改為本地時間 `YYYY-MM-DD HH:MM:SS`
+  - `docs/tasks/data-model.md`、`api.md`、`backlog.md`: 補上新表、`habit.reminderTime`、端點與進度
 - 沒做什麼、為什麼:
+  - 未修改 `src/modules/tasks/db/migrations.test.ts` 的 `SEED`（新表不在倒數第二版 schema、`habit.reminder_time` 可空，原測試直接通過）
+  - 未做通知設定 UI 與右欄提醒時刻（屬卡 3 範圍）
 - 每個完成條件怎麼驗證的:
+  - `npx next typegen && npx tsc --noEmit && npm run lint && npm test`：全數通過（`npm test` 81 suites / 621 tests 全過，未改 `src/modules/tasks/server/notifications.test.ts`）
+  - 沙盒執行 `PERSONAL_TOOLS_DATA_DIR=/Users/shihsiou/Developer/TT/gemini/personal-tools-data npm run tasks:db:migrate` 與 `npm run notify:tick`：migration 套用成功，tick 輸出 `[2026-11-22 18:42:38] notify tick: sent=0 failed=0`（沙盒資料庫為空，無到期通知）
+  - 啟動暫存 dev server（port 3199，指向沙盒資料夾）以 `curl` 測試：
+    - `GET /api/tasks/notification-settings` → HTTP 200 回傳預設值 `08:00 / 15:00 / 21:00`
+    - `PUT`（`07:30 / 14:00 (false) / 21:30`）→ HTTP 200 更新成功
+    - `PUT`（順序不合 `16:00 / 14:00 / 21:30`）→ HTTP 400 `{"error":{"code":"VALIDATION_FAILED","message":"Validation failed","fields":{"times":"out_of_order"}}}`
+    - 最後以 `PUT` 還原預設值 → HTTP 200
 - 最可能出錯的地方:
+  - `fillInstances` 遇到鎖逾時（超過 5 秒）會把錯誤往上丟，runner 那次 tick 會記成 `due` 失敗，下一次 tick 重算
+  - `dueTaskNotifications` 若遇到無內容摘要或已達標習慣提醒，會先寫入 `task_notification_sent` 再回傳空／略過，這段寫入若失敗同樣會被記成 `due` 失敗並在下個 tick 重算
 - 疑問:
+  - 無。
