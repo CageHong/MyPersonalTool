@@ -23,6 +23,7 @@ export type CreateTaskInput = {
   priority?: number | null
   parentTaskId?: number | null
   pinned?: boolean
+  excludeFromSummary?: boolean
 }
 
 // key 不存在 = 不改;值為 null = 設成 null。
@@ -37,6 +38,7 @@ export type UpdateTaskPatch = {
   priority?: number | null
   parentTaskId?: number | null
   pinned?: boolean
+  excludeFromSummary?: boolean
   done?: boolean
 }
 
@@ -50,6 +52,7 @@ const UPDATABLE_KEYS = [
   'priority',
   'parentTaskId',
   'pinned',
+  'excludeFromSummary',
 ] as const
 
 function collectErrors(
@@ -84,6 +87,10 @@ function collectErrors(
   // 只收布林值;不接受 0 / 1,存進資料庫的形狀由這一層決定
   if (input.pinned !== undefined && typeof input.pinned !== 'boolean') {
     fields.pinned = 'invalid_value'
+  }
+
+  if (input.excludeFromSummary !== undefined && typeof input.excludeFromSummary !== 'boolean') {
+    fields.excludeFromSummary = 'invalid_value'
   }
 
   // 重複實例的歸屬只由 src/modules/tasks/server/recurrence.ts 設定;明確拒絕,不默默忽略
@@ -144,6 +151,7 @@ export function createTask(input: CreateTaskInput): Task {
       createdAt: Math.floor(Date.now() / 1000),
       parentTaskId: input.parentTaskId ?? null,
       pinned: input.pinned ?? false,
+      excludeFromSummary: input.excludeFromSummary ?? false,
     })
     .returning()
     .all()
@@ -196,6 +204,7 @@ export function createTasks(inputs: CreateTaskInput[]): Task[] {
           createdAt,
           parentTaskId: input.parentTaskId ?? null,
           pinned: input.pinned ?? false,
+          excludeFromSummary: input.excludeFromSummary ?? false,
         })
         .returning()
         .all()

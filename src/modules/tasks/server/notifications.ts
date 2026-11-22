@@ -1,12 +1,13 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db } from '../db'
-import { taskNotificationSent, taskNotificationSetting } from '../db/schema'
-import { formatIso } from '../lib/date'
+import { taskNotificationSent, taskNotificationSetting, taskReminder } from '../db/schema'
+import { addDays, diffDays, formatIso } from '../lib/date'
 import { periodEnd } from '../lib/habit'
-import { filterTasks } from '../lib/views'
+import { collapseRecurring, filterTasks } from '../lib/views'
 import { ValidationError } from './errors'
 import { listHabits, type HabitSummary } from './habits'
-import { listTasks } from './tasks'
+import type { Reminder } from './reminders'
+import { listTasks, type Task } from './tasks'
 import { isCalendarDate, isTimeOfDay } from './validation'
 
 export type TaskDueNotification = {
@@ -158,6 +159,7 @@ function formatHabitLine(habit: HabitSummary): string {
 function buildSummaryBody(
   kind: NotificationSummaryKind,
   todayTasks: readonly { title: string; dueDate: string | null }[],
+  highPriorityTasks: readonly { title: string }[],
   habits: HabitSummary[],
   today: string,
 ): string {
@@ -167,6 +169,9 @@ function buildSummaryBody(
   if (kind === 'morning') {
     if (todayTasks.length > 0) {
       sections.push('任務', ...formatTaskLines(todayTasks, today))
+    }
+    if (highPriorityTasks.length > 0) {
+      sections.push('高優先', ...highPriorityTasks.map((item) => `- ${item.title}`))
     }
     if (activeTargeted.length > 0) {
       sections.push('習慣', ...activeTargeted.map(formatHabitLine))
@@ -199,6 +204,49 @@ function buildSummaryBody(
   return sections.join('\n')
 }
 
+function formatTaskReminderBody(t: Task, today: string): string {
+  if (t.dueDate === null) {
+    return t.title
+  }
+  const days = diffDays(today, t.dueDate)
+  if (days < 0) {
+    return `${t.title}(逾期)`
+  }
+  if (days === 0) {
+    return `${t.title}(今天到期)`
+  }
+  if (days === 1) {
+    return `${t.title}(明天到期)`
+  }
+  return `${t.title}(${days} 天後到期)`
+}
+
+function evaluateTaskReminder(
+  reminder: Reminder,
+  t: Task,
+  today: string,
+  sentSet: Set<string>,
+  autoMarkKeys: string[],
+  due: TaskDueNotification[],
+): void {
+  const baseKey = `reminder:${reminder.id}:${t.id}:${reminder.time}`
+  if (sentSet.has(baseKey)) {
+    return
+  }
+  const runnerKey = `${baseKey}@${today}`
+  if (t.completedAt !== null) {
+    autoMarkKeys.push(runnerKey)
+    return
+  }
+  due.push({
+    key: runnerKey,
+    message: {
+      title: '任務提醒',
+      body: formatTaskReminderBody(t, today),
+    },
+  })
+}
+
 export function dueTaskNotifications(now: Date): TaskDueNotification[] {
   const { today, currentTime } = toLocalDateAndTime(now)
   const settings = getNotificationSettings()
@@ -210,8 +258,21 @@ export function dueTaskNotifications(now: Date): TaskDueNotification[] {
     .all()
   const sentSet = new Set(sentRows.map((row) => row.key))
 
-  const todayTasks = filterTasks(listTasks({ today }), 'today', today).tasks
+  const allTasks = listTasks({ today })
+  const taskById = new Map(allTasks.map((t) => [t.id, t]))
+  const collapsedTasks = collapseRecurring(allTasks, today).tasks
+  const todayTasks = filterTasks(allTasks, 'today', today).tasks.filter(
+    (t) => !taskById.get(t.id)!.excludeFromSummary,
+  )
+  const highPriorityTasks = collapsedTasks.filter(
+    (t) =>
+      t.completedAt === null &&
+      t.priority === 5 &&
+      !taskById.get(t.id)!.excludeFromSummary &&
+      (t.dueDate === null || t.dueDate > today),
+  )
   const habits = listHabits(today)
+  const summaryHabits = habits.filter((h) => !h.excludeFromSummary)
 
   const due: TaskDueNotification[] = []
   const autoMarkKeys: string[] = []
@@ -230,7 +291,7 @@ export function dueTaskNotifications(now: Date): TaskDueNotification[] {
       continue
     }
 
-    const body = buildSummaryBody(kind, todayTasks, habits, today)
+    const body = buildSummaryBody(kind, todayTasks, highPriorityTasks, summaryHabits, today)
     const runnerKey = `${baseKey}@${today}`
     if (!body) {
       autoMarkKeys.push(runnerKey)
@@ -246,29 +307,73 @@ export function dueTaskNotifications(now: Date): TaskDueNotification[] {
     })
   }
 
-  for (const h of habits) {
-    if (h.paused || h.reminderTime === null || currentTime < h.reminderTime) {
-      continue
+  const reminders = db
+    .select()
+    .from(taskReminder)
+    .orderBy(asc(taskReminder.time), asc(taskReminder.id))
+    .all()
+  const habitById = new Map(habits.map((h) => [h.id, h]))
+  const tasksByRuleId = new Map<number, Task[]>()
+  for (const t of allTasks) {
+    if (t.recurrenceRuleId !== null) {
+      const list = tasksByRuleId.get(t.recurrenceRuleId)
+      if (list) {
+        list.push(t)
+      } else {
+        tasksByRuleId.set(t.recurrenceRuleId, [t])
+      }
     }
-    const baseKey = `habit:${h.id}`
-    if (sentSet.has(baseKey)) {
+  }
+
+  for (const r of reminders) {
+    if (currentTime < r.time) {
       continue
     }
 
-    const runnerKey = `${baseKey}@${today}`
-    if (h.target !== null && h.progress.achieved) {
-      autoMarkKeys.push(runnerKey)
-      continue
+    if (r.habitId !== null) {
+      const h = habitById.get(r.habitId)
+      if (!h || h.paused) {
+        continue
+      }
+      const baseKey = `reminder:${r.id}:${r.time}`
+      if (sentSet.has(baseKey)) {
+        continue
+      }
+      const runnerKey = `${baseKey}@${today}`
+      if (h.target !== null && h.progress.achieved) {
+        autoMarkKeys.push(runnerKey)
+        continue
+      }
+      const body = h.target === null ? h.name : `${h.name} ${h.progress.count}/${h.target}`
+      due.push({
+        key: runnerKey,
+        message: {
+          title: '習慣提醒',
+          body,
+        },
+      })
+    } else if (r.taskId !== null) {
+      const t = taskById.get(r.taskId)
+      if (!t) {
+        continue
+      }
+      const isDueToday =
+        r.kind === 'absolute'
+          ? r.date === today
+          : t.dueDate !== null && addDays(t.dueDate, -r.daysBefore!) === today
+      if (!isDueToday) {
+        continue
+      }
+      evaluateTaskReminder(r, t, today, sentSet, autoMarkKeys, due)
+    } else if (r.ruleId !== null) {
+      const instances = tasksByRuleId.get(r.ruleId) ?? []
+      for (const t of instances) {
+        if (t.dueDate === null || addDays(t.dueDate, -r.daysBefore!) !== today) {
+          continue
+        }
+        evaluateTaskReminder(r, t, today, sentSet, autoMarkKeys, due)
+      }
     }
-
-    const body = h.target === null ? h.name : `${h.name} ${h.progress.count}/${h.target}`
-    due.push({
-      key: runnerKey,
-      message: {
-        title: '習慣提醒',
-        body,
-      },
-    })
   }
 
   if (autoMarkKeys.length > 0) {

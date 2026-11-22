@@ -31,6 +31,8 @@ export const task = sqliteTable(
     pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
     // Unix 秒;null = 建立後沒被編輯過;0 = 欄位上線前就存在的重複實例,是否編輯過未知(decisions §6a)
     editedAt: integer('edited_at'),
+    // 不進三則每日摘要;不影響個別提醒(decisions §6j)
+    excludeFromSummary: integer('exclude_from_summary', { mode: 'boolean' }).notNull().default(false),
   },
   // 同一規則同一天只有一個實例:補齊重跑或並發時靠它擋重複。NULL 彼此相異,一般任務不受影響
   (table) => [
@@ -102,6 +104,8 @@ export const taskRecurrenceRule = sqliteTable(
     title: text('title').notNull(),
     notes: text('notes'),
     priority: integer('priority').notNull().default(0),
+    // 不進三則每日摘要;會帶到新產生的實例(decisions §6j)
+    excludeFromSummary: integer('exclude_from_summary', { mode: 'boolean' }).notNull().default(false),
     // 日曆日,YYYY-MM-DD;實例已產生到哪一天(水位線)。null = 尚未產生
     generatedThrough: text('generated_through'),
     // Unix 秒;null = 仍在重複
@@ -151,8 +155,8 @@ export const habit = sqliteTable(
     target: integer('target'),
     // 清單順序,小的在前;不保證連號
     sortOrder: integer('sort_order').notNull(),
-    // HH:MM,可空;個別習慣提醒的時刻(decisions §6j)
-    reminderTime: text('reminder_time'),
+    // 不進三則每日摘要;不影響個別提醒(decisions §6j)
+    excludeFromSummary: integer('exclude_from_summary', { mode: 'boolean' }).notNull().default(false),
     // Unix 秒;沒有 schema 預設值,由 src/modules/tasks/server/ 填入(同 task.createdAt)
     createdAt: integer('created_at').notNull(),
   },
@@ -247,5 +251,36 @@ export const taskNotificationSent = sqliteTable(
   },
   (table) => [
     uniqueIndex('task_notification_sent_key_date_uq').on(table.key, table.date),
+  ],
+)
+
+// 任務、重複規則、習慣的個別提醒(decisions §6j)。
+// owner 用三個可空外鍵 + CHECK 恰好一個非空,確保刪除項目時提醒會 cascade 刪掉
+export const taskReminder = sqliteTable(
+  'task_reminder',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    taskId: integer('task_id').references(() => task.id, { onDelete: 'cascade' }),
+    ruleId: integer('rule_id').references(() => taskRecurrenceRule.id, { onDelete: 'cascade' }),
+    habitId: integer('habit_id').references(() => habit.id, { onDelete: 'cascade' }),
+    kind: text('kind', { enum: ['daily', 'relative', 'absolute'] }).notNull(),
+    // HH:MM
+    time: text('time').notNull(),
+    // 相對提醒專用:提前天數(任務 0..28,規則 0..6)
+    daysBefore: integer('days_before'),
+    // 絕對提醒專用:日曆日 YYYY-MM-DD
+    date: text('date'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    check(
+      'task_reminder_owner_check',
+      sql`((${table.taskId} IS NOT NULL) + (${table.ruleId} IS NOT NULL) + (${table.habitId} IS NOT NULL)) = 1`,
+    ),
+    check('task_reminder_kind_check', sql`${table.kind} IN ('daily', 'relative', 'absolute')`),
+    index('task_reminder_task_idx').on(table.taskId),
+    index('task_reminder_rule_idx').on(table.ruleId),
+    index('task_reminder_habit_idx').on(table.habitId),
   ],
 )
