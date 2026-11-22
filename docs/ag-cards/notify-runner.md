@@ -18,7 +18,7 @@
 - `key` 對 runner 是不透明字串:由工具自己決定內容(例如把日期編進去),runner 只負責原樣交回 `markSent`。
 - `src/jobs/notify.ts`:`runNotifyTick({ now, tools?, notifiers?, send? })`,預設值分別是 `TOOLS`(`src/platform/tools.ts`)、`NOTIFIERS`、`sendNotification`。回傳 `{ sent: { tool, key }[], failed: { tool, stage: 'due' | 'send' | 'markSent', key?, error }[] }`。行為見測試。
 - 一支執行一次 tick 的入口(例如 `src/jobs/notify-cli.ts`),把回報印到 stdout/stderr(launchd 的 log)。`package.json` 加 `notify:tick`。
-- `deploy/macos/com.personal-tools.notify.plist.template`:`StartInterval` 300、`RunAtLoad`,不要 `KeepAlive`;環境變數與 log 位置比照 web 那份。log 檔名用 `notify.*.log`。
+- `deploy/macos/com.personal-tools.notify.plist.template`:`StartInterval` 900(每 15 分鐘)、`RunAtLoad`,不要 `KeepAlive`;環境變數與 log 位置比照 web 那份。log 檔名用 `notify.*.log`。
 
 ## 可以改的檔案
 - 新增 `src/jobs/notifiers.ts`、`src/jobs/notify.ts`、tick 的入口;要的話可以加自己的測試檔
@@ -80,6 +80,13 @@
 
 ### 回應「疑問」
 - **分支切換會影響 runner 執行的程式**：接受這個設計，並明確寫進 `deploy/macos/README.md`。平常開發都在獨立 worktree 進行、主 repo 維持在 `main`，因此實際上很少受影響；在 `README.md` 提醒若在安裝時指定的 repo 目錄切換分支，下一次 5 分鐘 tick 就會跑該分支的程式（需要時可先用 `launchctl bootout` 暫停）。
+
+### 主線確認(2026-11-22)
+計畫通過,照做,只改下面兩點:
+1. **間隔改成每 15 分鐘**:`StartInterval` 用 `900`,不是 `300`(`docs/platform/decisions.md` §8 已更新);README 也寫 15 分鐘。
+2. **沙盒用 `gemini/personal-tools-data/`**,不要另開 `/tmp/...`(`AGENTS.md`)。
+
+分支問題照你的回應:接受,寫進 README(§8 已記為決策)。`runNotifyTick` 的 `now` 可以選填,沒問題。
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
