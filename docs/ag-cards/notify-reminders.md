@@ -33,6 +33,7 @@
 - `src/modules/tasks/db/schema.ts`、`npm run tasks:db:generate` 產生的 migration、上述那一個 custom migration、`src/modules/tasks/db/migrations.test.ts`(種子照倒數第二版)
 - `src/modules/tasks/server/notifications.ts`、`habits.ts`、`tasks.ts`、`recurrence.ts`、`validation.ts`、`errors.ts`(只在需要新錯誤類別時)
 - `src/modules/tasks/lib/views.ts`(只在需要匯出既有函式時)
+- `src/app/api/_lib/http.ts`(只在 `INVALID_ID_MESSAGES` 加 `reminderId` 一行)
 - `src/app/api/tasks/` 底下既有的 tasks、habits、recurrence-rules route(只在型別或欄位需要時)
 - **前端只能做到 `tsc` 會過**:`habit.reminderTime` 拿掉後,`src/modules/tasks/components/` 用到它的地方會壞,只做最小的移除(例如右欄那個輸入框先拿掉),不要做新的 UI
 - `docs/tasks/data-model.md`、`docs/tasks/api.md`、`docs/tasks/backlog.md`(通知那條:卡 3 後端完成、卡 4 UI 待做)
@@ -114,6 +115,12 @@
    - 同意主線方向：在 `createRuleFromTask` 的 transaction 內，將原任務上 `kind = 'relative'`（且 `daysBefore <= 6`）的提醒改掛到新規則（`UPDATE task_reminder SET task_id = NULL, rule_id = rule.id`），讓它成為規則範本並套用到所有實例（原任務本身已變成第一個實例，因此不會漏掉也不會重複送）；`kind = 'absolute'` 留在原任務上。若原任務碰巧有 `daysBefore > 6` 的相對提醒（規則上限為 6），因無法直接轉為規則提醒，擬留在原任務上（僅對第一個實例生效）以避免靜默截斷或拒絕轉換。
 2. **重複規則實例補齊與 `dueTaskNotifications`**：
    - 已確認 `src/modules/tasks/server/tasks.ts` 的 `listTasks({ today })` 會在查詢前呼叫 `fillInstances(today)`，而 `src/modules/tasks/server/recurrence.ts` 的 `FILL_AHEAD_DAYS = 6`（補齊終點 `today + 6` 含當天）。規則的 `daysBefore` 上限為 6，因此任何在今天觸發提醒的實例（`dueDate` 介於 `today` 到 `today + 6`）在 `listTasks({ today })` 回傳時都已落地。
+
+### 主線審查(2026-11-22)
+計畫確認,照做,另外兩點:
+1. `[reminderId]` route 不要自己寫 id 解析:在 `src/app/api/_lib/http.ts` 的 `INVALID_ID_MESSAGES` 加一行 `reminderId: 'Invalid reminder id'`,然後用 `parseId(raw, 'reminderId')`。這張卡只開放 `http.ts` 的這一行。
+2. `0011` 拿掉 `habit.reminder_time` 時,drizzle-kit 可能用「建新表 → 搬資料 → DROP 舊表 → 改名」的方式重建 `habit`。`runMigrations` 已經在 transaction 外關掉外鍵,所以 DROP 不會連帶刪掉子表,但還是要用測試確認。`migrations.test.ts` 的種子要讓 `habit_log`、`habit_pause`、`habit_settings_history`、`task_reminder` 都有掛在習慣上的資料,套用最新的 migration 後逐表比對筆數沒有少。
+疑問 1 的做法(`daysBefore > 6` 的相對提醒留在原任務)同意,把這條寫進 `docs/tasks/data-model.md`。
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
