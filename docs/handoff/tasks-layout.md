@@ -78,6 +78,20 @@
 - `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`。
 - 於 `npm run dev` 用假資料逐項手動驗證完成條件並記錄於回報。
 
+## 主線審查(2026-11-22)
+
+方向對,以下 7 點改進計畫後直接實作,不用再等確認。先 `git merge main`:§6k 新增了三列(縮放順序、自動收合時按鈕停用、待決兩項定案)。
+
+1. **抽屜不放在中欄 `<section>` 裡。** 中欄是 `overflow-y: auto` 的捲動容器,絕對定位的子元素會跟清單一起捲走;`captureFocus` 用 `column.contains(active)` 判斷焦點在中欄,抽屜放進去會把右欄的焦點誤判成中欄。改成右欄 `<section>` 只畫一份,收合且有選取時改套抽屜的 class(絕對定位蓋在中欄右側,`.layout` 設 `position: relative`)。從抽屜按展開時 `TaskDetail` / `HabitDetail` 不重新掛載、草稿保留,`key` 規則不動;`DetailDrawer` 不另外包右欄內容,只需要關閉鈕。
+2. **縮放順序寫進 `resolveLayout`**(§6k):先縮中欄到 360,再把左右欄縮到最小寬度(依各自超出最小值的部分等比例縮),都到底才自動收右欄、再收左欄。回傳實際畫出的 `leftWidth`、`rightWidth`,加上 `autoLeftCollapsed`、`autoRightCollapsed`。測試加:縮放順序(中欄先、兩側後)、自動收合旗標。
+3. **自動收合期間切換鈕停用**(§6k):`aria-disabled` + `title="視窗太窄"`,放寬後恢復。兩顆鈕都有 `aria-expanded`、`aria-label`(收合左欄 / 展開左欄 / 收合右欄 / 展開右欄),依實際畫面狀態顯示。
+4. **拖拉中不在每次 move 都 setState**(`ThreeColumnLayout` 一 setState 就重畫整份清單)。拖拉中用 ref 改 `.layout` 上的 CSS 自訂屬性,放開時才寫回 state 與 localStorage。用 Pointer Events + `setPointerCapture`,`pointerType !== 'mouse'` 就忽略。拖拉中鎖住 `cursor` 與 `user-select`。
+5. **把手不佔版面寬度**:絕對定位在分隔線上,最小寬度加總才會剛好等於門檻。不進 Tab 順序,不需要 `aria-valuenow`。
+6. **寬度只在 `lib/layout.ts` 的常數出現一次**:CSS 不寫 `min-width: 360px`,既有的 `flex: 0 0 15rem`、`20rem` 也改由常數經 inline style / CSS 自訂屬性帶入。
+7. **讀 localStorage 照 `HabitBlock.tsx` 的寫法**(try/catch + 同一條 eslint-disable 註解)。抽屜關閉後焦點移到該任務(或習慣)在中欄的列(`data-task-control="row"` / `data-habit-control="row"`)。
+
+其餘照你的計畫。完成條件另加三項手動檢查:清單捲動時抽屜固定不動;視窗小於 860px 時兩顆鈕的停用狀態;從抽屜按展開後,正在打的標題草稿還在。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
 - 沒做什麼、為什麼:
