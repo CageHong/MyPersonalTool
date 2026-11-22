@@ -87,7 +87,27 @@
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `src/modules/tasks/lib/layout.ts`:集中定義欄寬常數(`MIN_LEFT_WIDTH=180`、`MIN_MIDDLE_WIDTH=360`、`MIN_RIGHT_WIDTH=320`、預設 240/320)、`localStorage` key `'tasks:layout'` 與解析/clamp 函式,以及依 §6k 縮放順序(先縮中欄、再依超出比例縮兩側、最後右欄優先改抽屜/再左欄收起)計算的純函式 `resolveLayout`。
+  - `src/modules/tasks/lib/layout.test.ts`:撰寫 11 個單元測試涵蓋 `parseStoredLayout`、`resolveLayout`(寬度足夠、中欄先縮、兩側依比例後縮、右欄改抽屜、左欄也收、自動收合旗標、手動收合不受影響、視窗放寬回到使用者設定)與 `clampDragWidth`。
+  - `src/modules/tasks/components/ResizeHandle.tsx` 與 `ResizeHandle.module.css`:建立零佔位垂直拖拉把手,僅處理滑鼠 Pointer Events + `setPointerCapture`,不進 Tab 順序。
+  - `src/modules/tasks/components/TaskList.tsx`、`TaskList.module.css`、`HabitList.tsx`、`HabitList.module.css`:於中欄標題列最左與最右加入 `leftToggle` / `rightToggle` 插槽,使切換鈕在所有檢視下位置固定。
+  - `src/modules/tasks/components/ThreeColumnLayout.tsx` 與 `ThreeColumnLayout.module.css`:以 CSS 自訂屬性帶入欄寬與最小寬度,拖拉中僅改 DOM style 不觸發 `setState`,放開時寫入 state 與 `localStorage`;掛載後於 `useEffect` 讀 `localStorage` 與監聽 `ResizeObserver`;右欄 `<section>` 只畫一份並於收合且有選取時切換為抽屜樣式(固定於 `.layout` 不隨中欄捲動、中欄不變暗、點中欄不關、抽屜標題列放「關閉」與 `rightToggle` 以免被遮擋、關閉時焦點回中欄對應列)。
+  - `docs/tasks/ui/layout.md`:補上「欄寬、收合與抽屜」一節。
+  - `docs/tasks/backlog.md`:將「版面 session」標明已完成。
 - 沒做什麼、為什麼:
+  - 拖拉把手未支援觸控、抽屜開著時中欄未變暗且點中欄不關(依任務卡與 §6k 決策)。
 - 每個完成條件怎麼驗證的:
+  - **`npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`**:於最終修改後執行全過(`npm test` 68 suites / 538 tests 全過,含 `layout.test.ts` 11 tests)。
+  - **手動驗證(`npm run dev` + 暫存假資料 `/tmp/pt-tasks-layout-test`,透過無頭瀏覽器於 `http://localhost:3000/tasks` 實測)**:
+    1. **Hydration 檢查**:`1280x800` 開啟與重新整理皆無 hydration 警告或 console 錯誤。
+    2. **拖拉欄寬與持久化**:建立 22 筆假任務後,初始寬度 `240 / 720 / 320`px;左把手右拖 +60px、右把手左拖 -60px 變為 `300 / 600 / 380`px,重整後仍為 `300 / 600 / 380`px。
+    3. **兩顆切換鈕收合/展開與持久化**:點收合左欄、收合右欄後中欄擴為 `1280px`,重整後維持收合。
+    4. **抽屜行為與網址 `task`**:右欄收合時點任務開啟抽屜(`?task=1`),中欄不變暗、點中欄空白處不關抽屜、點另一任務切換至 `?task=2`;點抽屜「關閉」後移除網址 `task` 並將焦點移回中欄對應任務列按鈕。
+    5. **清單捲動時抽屜固定不動**:捲動中欄清單(`Test Task 1` 由 `y: 176.5` 捲至 `y: 1`),抽屜 `boundingBox` 固定在 `top=32` 不動。
+    6. **抽屜開著時按右欄展開鈕保留草稿**:於抽屜標題欄聚焦輸入 `" DRAFT2"`(不失焦),點「展開右欄」後抽屜消失、同任務於一般右欄顯示,且標題輸入框仍保有 `" DRAFT2"` 草稿。
+    7. **窄視窗自動收合與停用狀態、放寬復原**:恢復展開(`300 / 600 / 380`)後,縮至 `800x700`(< 860px)右欄自動收合、右鈕顯示 `aria-disabled="true"` 與 `title="視窗太窄"`;縮至 `480x700`(< 540px)左欄也自動收合、左鈕顯示 `aria-disabled="true"` 與 `title="視窗太窄"`;放回 `1280x800` 後兩鈕解除停用並恢復使用者原本的 `300 / 600 / 380`px 展開狀態。
 - 最可能出錯的地方:
+  - 抽屜開啟時覆蓋在 `.layout` 右上角,若 `rightToggle` 留在中欄標題列會被抽屜(及「關閉」鈕)遮住無法點擊,因此抽屜開啟時改將 `rightToggle` 放在 `.drawerHeader` 右端同一位置(同時中欄不重複畫第二顆)。
+  - 自動收合時兩顆切換鈕使用 `aria-disabled="true"` 而非原生 `disabled`,讓 `title="視窗太窄"` 提示仍可觸發且不掉焦點。
 - 疑問:
+  - 無。

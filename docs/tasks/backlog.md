@@ -10,7 +10,7 @@
 
 1. checklist(已完成)
 2. 重複任務、習慣(資料層與 API 已完成;重複任務的 UI 已完成,習慣 UI 為 H2)
-3. 版面 session:規則已定,見 `docs/tasks/decisions.md` §6k(欄寬拖拉、左右欄收合、抽屜)
+3. 版面 session(已完成):欄寬拖拉、左右欄收合、抽屜與窄視窗自動收合,見 `docs/tasks/decisions.md` §6k 與 `docs/tasks/ui/layout.md`
 4. 中欄的分組、排序、置頂(已完成,提前到版面 session 之前;決策見 `docs/tasks/decisions.md` §6d)
 5. 目標最小實體(決策見 `docs/tasks/decisions.md` §6e)
 6. 右欄的分類指派(需要 `list` 表與 `task.listId`)

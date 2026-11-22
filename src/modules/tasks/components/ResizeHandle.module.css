@@ -1,0 +1,26 @@
+/* 絕對定位覆蓋在分隔線上，不佔用 flex 版面寬度 */
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--space-1) * -1);
+  width: var(--space-2);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: transparent;
+  transition: background-color var(--motion-duration) var(--motion-easing);
+}
+
+.handle:hover::after {
+  background: var(--color-divider);
+}

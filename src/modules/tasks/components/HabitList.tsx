@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import HabitCircles from './HabitCircles'
 import NewHabitForm from './NewHabitForm'
 import TaskListSkeleton from './TaskListSkeleton'
@@ -15,9 +16,21 @@ type Props = {
   onSelect: (id: number) => void
   onCreate: (name: string) => Promise<ApiError | null>
   onStep: (habit: HabitItem, delta: 1 | -1) => void
+  leftToggle?: ReactNode
+  rightToggle?: ReactNode
 }
 
-export default function HabitList({ habits, loading, error, selectedId, onSelect, onCreate, onStep }: Props) {
+export default function HabitList({
+  habits,
+  loading,
+  error,
+  selectedId,
+  onSelect,
+  onCreate,
+  onStep,
+  leftToggle,
+  rightToggle,
+}: Props) {
   // 進行中的(含已滿額)在上,停止中的在底部自成一區;兩區內都維持 API 的順序(sortOrder)
   const active = habits.filter((habit) => !habit.paused)
   const paused = habits.filter((habit) => habit.paused)
@@ -63,6 +76,14 @@ export default function HabitList({ habits, loading, error, selectedId, onSelect
 
   return (
     <div className={styles.container}>
+      <header className={styles.toolbar}>
+        <div className={styles.toolbarLeft}>
+          {leftToggle}
+          <h2 className={styles.viewTitle}>習慣</h2>
+        </div>
+        <div className={styles.toolbarRight}>{rightToggle}</div>
+      </header>
+
       <NewHabitForm onCreate={onCreate} />
 
       {error !== null && (
