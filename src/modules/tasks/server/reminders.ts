@@ -1,7 +1,7 @@
 import { asc, count, eq } from 'drizzle-orm'
+import { localDate, localTime } from '@/platform/date'
 import { db } from '../db'
 import { habit, task, taskRecurrenceRule, taskReminder } from '../db/schema'
-import { formatIso } from '../lib/date'
 import { NotFoundError, ValidationError } from './errors'
 import { isCalendarDate, isTimeOfDay } from './validation'
 
@@ -21,17 +21,6 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000)
-}
-
-function toLocalDateAndTime(now: Date): { today: string; currentTime: string } {
-  const today = formatIso({
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    day: now.getDate(),
-  })
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
-  return { today, currentTime: `${hh}:${mm}` }
 }
 
 function resolveOwner(owner: ReminderOwner): { kind: OwnerKind; id: number } {
@@ -93,7 +82,8 @@ function validateInput(ownerKind: OwnerKind, input: ReminderInput, now: Date): v
     if (!isCalendarDate(input.date)) {
       fields.date = 'invalid_format'
     } else {
-      const { today, currentTime } = toLocalDateAndTime(now)
+      const today = localDate(now)
+      const currentTime = localTime(now)
       if (input.date < today || (input.date === today && isTimeOfDay(input.time) && input.time < currentTime)) {
         fields.date = 'in_past'
       }

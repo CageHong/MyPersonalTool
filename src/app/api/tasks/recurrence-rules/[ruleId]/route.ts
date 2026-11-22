@@ -1,5 +1,5 @@
 import { getRule, updateRule, type UpdateRuleChanges } from '@/modules/tasks/server/recurrence'
-import { todayIso } from '@/modules/tasks/lib/date'
+import { localDate } from '@/platform/date'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function GET(
@@ -35,7 +35,7 @@ export async function PATCH(
   }
 
   try {
-    return Response.json(updateRule(ruleId, body as UpdateRuleChanges, todayIso()))
+    return Response.json(updateRule(ruleId, body as UpdateRuleChanges, localDate(new Date())))
   } catch (error) {
     return handleError('[PATCH /api/tasks/recurrence-rules/[ruleId]]', error, 'Recurrence rule not found')
   }

@@ -1,5 +1,5 @@
 import { addLog, removeLog, setLogCount } from '@/modules/tasks/server/habits'
-import { todayIso } from '@/modules/tasks/lib/date'
+import { localDate } from '@/platform/date'
 import { errorResponse, handleError, parseId, readJsonObject } from '@/app/api/_lib/http'
 
 export async function POST(
@@ -19,7 +19,7 @@ export async function POST(
   }
 
   try {
-    return Response.json(addLog(habitId, body.date as string, todayIso()), { status: 201 })
+    return Response.json(addLog(habitId, body.date as string, localDate(new Date())), { status: 201 })
   } catch (error) {
     return handleError('[POST /api/tasks/habits/[habitId]/logs]', error, 'Habit not found')
   }
@@ -65,7 +65,7 @@ export async function PUT(
   const date = new URL(request.url).searchParams.get('date')
 
   try {
-    return Response.json(setLogCount(habitId, date as string, body.count as number, todayIso()))
+    return Response.json(setLogCount(habitId, date as string, body.count as number, localDate(new Date())))
   } catch (error) {
     return handleError('[PUT /api/tasks/habits/[habitId]/logs]', error, 'Habit not found')
   }

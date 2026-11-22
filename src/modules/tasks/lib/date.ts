@@ -1,3 +1,5 @@
+import { localDate } from '@/platform/date'
+
 // 日曆日一律是 YYYY-MM-DD 字串。Date 只在「這個月幾天 / 星期幾 / 加天數」時當計算器用,
 // 而且只用本地建構子與本地 getter:
 //   - new Date('2026-09-11') 會被當成 UTC 午夜解析 → 不用
@@ -24,10 +26,6 @@ function fromDate(date: Date): string {
     month: date.getMonth() + 1,
     day: date.getDate(),
   })
-}
-
-export function todayIso(): string {
-  return fromDate(new Date())
 }
 
 // 到下一個本地午夜的毫秒數
@@ -99,7 +97,7 @@ export function diffDays(from: string, to: string): number {
 }
 
 // ISO 字串的字典序就是時間序,直接比字串
-export function isOverdue(iso: string, today: string = todayIso()): boolean {
+export function isOverdue(iso: string, today: string = localDate(new Date())): boolean {
   return iso < today
 }
 
@@ -107,12 +105,12 @@ export function isOverdue(iso: string, today: string = todayIso()): boolean {
 // 今天到下週最後一天再加相對說法:今天、明天用專稱,本週內「週X」,下週「下週X」。
 // 逾期與更遠的只有日期(逾期的顏色由呼叫端處理)
 // formatListDate 的日期部分:M.D,不是今年才補年份。「原定 M.D」等只要日期的地方也用它
-export function formatListDay(iso: string, today: string = todayIso()): string {
+export function formatListDay(iso: string, today: string = localDate(new Date())): string {
   const { year, month, day } = parseIso(iso)
   return year === parseIso(today).year ? `${month}.${day}` : `${year}.${month}.${day}`
 }
 
-export function formatListDate(iso: string, today: string = todayIso()): string {
+export function formatListDate(iso: string, today: string = localDate(new Date())): string {
   const date = formatListDay(iso, today)
 
   const days = diffDays(today, iso)
@@ -134,7 +132,7 @@ export function formatListDate(iso: string, today: string = todayIso()): string 
 }
 
 // 重複選單的預覽:月/日 + 星期,跨年才補年份
-export function formatShortDate(iso: string, today: string = todayIso()): string {
+export function formatShortDate(iso: string, today: string = localDate(new Date())): string {
   const { year, month, day } = parseIso(iso)
   const prefix = year === parseIso(today).year ? '' : `${year}/`
   return `${prefix}${month}/${day} 週${WEEKDAY_LABELS[weekday(iso)]}`

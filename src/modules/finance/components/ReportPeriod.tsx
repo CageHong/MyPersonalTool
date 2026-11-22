@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { localDate } from '@/platform/date'
 import { getJson, loadErrorMessage } from '../lib/api'
-import { REPORT_PRESETS, localToday, reportRange } from '../lib/date'
+import { REPORT_PRESETS, reportRange } from '../lib/date'
 import type { ReportPreset } from '../lib/date'
 import { filterToSearchParams } from '../lib/transactions'
 import styles from './ReportsPage.module.css'
@@ -44,7 +45,7 @@ export type ReportPeriodState = {
 }
 
 export function useReportPeriod(): ReportPeriodState {
-  const [today] = useState(() => localToday())
+  const [today] = useState(() => localDate(new Date()))
   const [period, setPeriod] = useState<Period>(FALLBACK)
   const [saved, setSaved] = useState(false)
 

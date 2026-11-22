@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { RANGE_PRESETS, localToday, matchPreset, presetRange, rangeLabel, shiftRange } from '../lib/date'
+import { localDate } from '@/platform/date'
+import { RANGE_PRESETS, matchPreset, presetRange, rangeLabel, shiftRange } from '../lib/date'
 import type { RangePreset } from '../lib/date'
 import { KIND_LABELS, SEARCH_MAX_LENGTH, TRANSACTION_KINDS } from '../lib/transactions'
 import type { FinanceLookups, TransactionFilter, TransactionKind } from '../lib/transactions'
@@ -59,7 +60,7 @@ export default function TransactionFilters({ filter, lookups, onChange, onClear,
   }
 
   // 期間快捷用的「今天」:開頁時算一次就好(快捷是月、年為單位,跨日不影響)
-  const [today] = useState(() => localToday())
+  const [today] = useState(() => localDate(new Date()))
   const preset = matchPreset(filter.from, filter.to, today)
   function choosePreset(value: string) {
     if (value === 'all') set({ from: undefined, to: undefined })

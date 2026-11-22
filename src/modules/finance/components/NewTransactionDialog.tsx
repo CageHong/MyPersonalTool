@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
+import { localDate } from '@/platform/date'
 import { editErrorMessage, getJson, loadErrorMessage, postJson } from '../lib/api'
 import { balanceAccountOptions, categoryOptions } from '../lib/accounts'
-import { fromLocalInputValue, localToday, toLocalInputValue } from '../lib/date'
+import { fromLocalInputValue, toLocalInputValue } from '../lib/date'
 import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH } from '../lib/edit'
 import type { NewTransactionInput, PayeeChange } from '../lib/edit'
 import { formatMoney, parseAmount } from '../lib/money'
@@ -32,7 +33,7 @@ export default function NewTransactionDialog({ lookups, onClose, onCreated }: Pr
 
   const [template, setTemplate] = useState<TemplateKey>('expense')
   const [when, setWhen] = useState(() => toLocalInputValue(new Date().toISOString()).slice(0, 16))
-  const [date, setDate] = useState(() => localToday())
+  const [date, setDate] = useState(() => localDate(new Date()))
   const [accountId, setAccountId] = useState(firstAccount)
   const [toId, setToId] = useState(accounts[1]?.id ?? firstAccount)
   const [amount, setAmount] = useState('')

@@ -26,11 +26,6 @@ function partsOf(iso: string): { year: number; monthIndex: number; day: number }
   return { year, monthIndex: month - 1, day }
 }
 
-// 瀏覽器所在時區的今天
-export function localToday(now: Date = new Date()): string {
-  return formatLocalDate(now.toISOString())
-}
-
 // 快捷 → 日期範圍(含頭尾)。月與年給完整的期間,不截到今天:同一個月內每天都對得上同一個快捷
 export function presetRange(preset: RangePreset, today: string): { from: string; to: string } {
   const { year, monthIndex, day } = partsOf(today)

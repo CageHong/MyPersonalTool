@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { formatLocalDate, localToday, monthRange } from '../lib/date'
+import { localDate } from '@/platform/date'
+import { formatLocalDate, monthRange } from '../lib/date'
 import { formatMoney } from '../lib/money'
 import type { Overview } from '../lib/reports'
 import { transactionsHref } from '../lib/transactions'
@@ -18,7 +19,7 @@ const URL = '/api/finance/reports/overview'
 
 export default function OverviewPage() {
   const router = useRouter()
-  const [today] = useState(() => localToday())
+  const [today] = useState(() => localDate(new Date()))
   const { data, error, retry } = useReportData<Overview>(`${URL}?today=${today}`)
 
   if (error) {

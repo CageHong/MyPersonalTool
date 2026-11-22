@@ -1,8 +1,8 @@
 import { asc, eq, sql, type SQL } from 'drizzle-orm'
+import { localDate } from '@/platform/date'
 import { db } from '../db'
 import { task } from '../db/schema'
 import { BULK_MAX_LINES } from '../lib/bulk'
-import { todayIso } from '../lib/date'
 import { NotFoundError, ValidationError } from './errors'
 import { fillInstances } from './recurrence'
 import { DUE_TIME_PATTERN, isCalendarDate, PRIORITY_VALUES } from './validation'
@@ -126,7 +126,7 @@ const SORT_ORDERS: Record<TaskSort, SQL[]> = {
 
 export function listTasks(options: ListTasksOptions = {}): Task[] {
   // 讀取時補齊:實例在被看到之前產生(decisions §6)
-  fillInstances(options.today ?? todayIso())
+  fillInstances(options.today ?? localDate(new Date()))
   return db
     .select()
     .from(task)
