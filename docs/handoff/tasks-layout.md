@@ -28,7 +28,7 @@
 ## 實作計畫(Gemini 先填,等主線確認)
 
 ### 1. 純函式與測試(`src/modules/tasks/lib/layout.ts`、`src/modules/tasks/lib/layout.test.ts`)
-- 常數(像素):`MIN_LEFT_WIDTH = 180`、`MIN_MIDDLE_WIDTH = 360`、`MIN_RIGHT_WIDTH = 320`、`DEFAULT_LEFT_WIDTH = 240`、`DEFAULT_RIGHT_WIDTH = 320`。
+- 常數(像素,全案唯一來源):`MIN_LEFT_WIDTH = 180`、`MIN_MIDDLE_WIDTH = 360`、`MIN_RIGHT_WIDTH = 320`、`DEFAULT_LEFT_WIDTH = 240`、`DEFAULT_RIGHT_WIDTH = 320`。
 - `localStorage` 設定:
   - Key:`'tasks:layout'`
   - 資料形狀(`StoredLayout`):
@@ -40,43 +40,36 @@
       rightCollapsed: boolean
     }
     ```
-  - 提供純函式 `parseStoredLayout(raw: string | null): StoredLayout`(解析失敗或欄位型別不符時回傳預設值,寬度 clamp 至 `>= 對應最小值`)與 `clampColumnWidths(...)`。
-- **自動收合判斷**(`resolveLayout(input)`):
+  - 提供 `parseStoredLayout(raw: string | null): StoredLayout`(解析失敗時退回預設,寬度 clamp 至 `>= 對應最小值`)與 `clampDragWidth(...)`。
+- **縮放與自動收合判斷**(`resolveLayout(input)`):
   - 輸入:`containerWidth: number | null`、`stored: StoredLayout`。
-  - 若 `containerWidth === null || containerWidth <= 0`(首次掛載 `ResizeObserver` 尚未量到寬度):直接回傳 `stored` 的 `leftCollapsed` / `rightCollapsed`,不自動收合。
-  - 否則從使用者的 `leftCollapsed = stored.leftCollapsed`、`rightCollapsed = stored.rightCollapsed` 出發:
-    1. **右欄優先改抽屜**:若 `!rightCollapsed`,計算目前需要的最小總寬度 `required = (leftCollapsed ? 0 : MIN_LEFT_WIDTH) + MIN_MIDDLE_WIDTH + MIN_RIGHT_WIDTH`。若 `containerWidth < required`,則 `rightCollapsed = true`(標記 `autoRightCollapsed = true`)。
-    2. **左欄再收起**:若 `!leftCollapsed`,計算 `required = MIN_LEFT_WIDTH + MIN_MIDDLE_WIDTH`。若 `containerWidth < required`,則 `leftCollapsed = true`(標記 `autoLeftCollapsed = true`)。
-    3. 依最終展開狀態計算可視欄位的安全渲染寬度(確保不把中欄擠到 `MIN_MIDDLE_WIDTH` 以下)。
-  - **不覆寫儲存狀態**:`autoLeftCollapsed` / `autoRightCollapsed` 只存在衍生計算結果,絕不寫回 `localStorage`;視窗變寬時自動回到使用者的 `stored` 設定。
-  - `layout.test.ts` 涵蓋:寬度足夠、右欄改抽屜、左欄也收、使用者手動收合時不受影響(例:左欄已手動收合時窄到 680 以下才收右欄)、視窗變寬後回到使用者設定、非法 JSON 讀取與寬度下限 clamp。
+  - 若 `containerWidth === null || containerWidth <= 0`(尚未量到寬度):維持 `stored` 寬度與收合狀態,`autoLeftCollapsed = false`、`autoRightCollapsed = false`。
+  - 縮放順序(§6k):
+    1. **先縮中欄**至 `MIN_MIDDLE_WIDTH`(360)。
+    2. **再縮左右欄**至各自最小寬度:計算保留中欄 360 後的可分配側欄寬度,將超支部分依目前左右兩欄各自超出最小寬度(`width - minWidth`)的比例縮減,兩欄都不低於各自最小值。
+    3. **都到底才自動收合**:若 `containerWidth < (leftCollapsed ? 0 : MIN_LEFT_WIDTH) + MIN_MIDDLE_WIDTH + (rightCollapsed ? 0 : MIN_RIGHT_WIDTH)`,優先將右欄自動收合(`rightCollapsed = true`、`autoRightCollapsed = true`),並重新以剩餘左側欄計算縮放;若仍 `< MIN_LEFT_WIDTH + MIN_MIDDLE_WIDTH`,再將左欄自動收合(`leftCollapsed = true`、`autoLeftCollapsed = true`)。
+  - 回傳 `{ leftWidth, rightWidth, leftCollapsed, rightCollapsed, autoLeftCollapsed, autoRightCollapsed }`。`auto*` 旗標絕不寫回 `localStorage`,視窗放寬後自動回到使用者設定。
+  - `layout.test.ts` 涵蓋:寬度足夠、縮放順序(中欄先縮、兩側依超出比例後縮)、右欄改抽屜、左欄也收、自動收合旗標、使用者手動收合不受影響、視窗變寬回到使用者設定、非法 JSON 讀取。
 
 ### 2. 元件拆分(`src/modules/tasks/components/`)
 - **`ResizeHandle.tsx` + `ResizeHandle.module.css`**:
-  - 垂直拖拉把手(`role="separator"`、`aria-orientation="vertical"`、`aria-label`),只支援滑鼠 `onMouseDown` + `window` `mousemove` / `mouseup`(不做觸控)。
-  - 拖拉結束(`mouseup`)與拖拉過程中即時更新對應欄寬,並於 `mouseup` 時寫入 `localStorage`。
-- **`DetailDrawer.tsx` + `DetailDrawer.module.css`**:
-  - 覆蓋在中欄上方(中欄外層設 `position: relative`,抽屜採 `position: absolute; top: 0; right: 0; bottom: 0;`,寬度沿用 `rightWidth`,若中欄更窄則 `max-width: 100%`)。
-  - 頂端附「關閉」按鈕,點擊時從網址移除 `task`(或 `view=habits` 時移除 `habit`)。
-  - 抽屜開著時中欄**不變暗**、點中欄**不關抽屜**。
-- **`TaskList.tsx` / `TaskList.module.css` 與 `HabitList.tsx` / `HabitList.module.css`**:
-  - 接受 `leftToggle?: ReactNode` 與 `rightToggle?: ReactNode` props。
-  - `TaskList` 的 `<header className={styles.toolbar}>` 最左邊放 `leftToggle`、標題旁保留 `ViewSettingsMenu`、最右邊放 `rightToggle`。
-  - `HabitList` 補上對齊的 `<header className={styles.toolbar}>`(最左 `leftToggle`、標題「習慣」、最右 `rightToggle`),使兩顆切換鈕在所有檢視下位置固定不變。
+  - 不佔版面寬度(絕對定位於分隔線上,寬度 0 佔位 / 可點熱區 6px 置中覆蓋),不進 Tab 順序,不設 `aria-valuenow`。
+  - 使用 Pointer Events + `setPointerCapture`,`pointerType !== 'mouse'` 一律忽略。
+  - 拖拉中不 `setState`:透過 ref 直接更新 `.layout` 的 `--left-width` / `--right-width` CSS 變數並設 `data-resizing="true"` 鎖住 `cursor` 與 `user-select`;放開(`pointerup` / `pointercancel`)時才寫回 state 與 `localStorage`。
 - **`ThreeColumnLayout.tsx` + `ThreeColumnLayout.module.css`**:
-  - 首次 render 一律使用預設展開狀態(`DEFAULT_LEFT_WIDTH`、`DEFAULT_RIGHT_WIDTH`、`leftCollapsed: false`、`rightCollapsed: false`),避免 SSR hydration 不一致。
-  - 掛載後於 `useEffect` 讀取 `localStorage` 並以 `ResizeObserver` 監聽 `.layout` 容器寬度。
-  - 左欄(`!effective.leftCollapsed`)與左拖拉把手、中欄(`flex: 1; min-width: 360px` + `position: relative` 容納 `DetailDrawer`)、右拖拉把手與右欄(`!effective.rightCollapsed`)。
-  - 抽屜顯示條件:`effective.rightCollapsed && (view === 'habits' ? selectedHabit !== null : selectedTask !== null)`。按右欄展開鈕時設 `rightCollapsed: false` 並寫入 `localStorage`,抽屜隨即消失、同一個任務(或習慣)改在右欄顯示(`key` 相同或重新掛載於右欄)。
-  - 所有樣式只引用 `src/app/globals.css` 既有的語意變數(`--color-column-aside`、`--color-column-main`、`--color-divider`、`--space-*`、`--radius` 等),不改 `globals.css`。
+  - `.layout` 設 `position: relative`,並將 `MIN_MIDDLE_WIDTH`、`effective.leftWidth`、`effective.rightWidth` 透過 CSS 自訂屬性(`--middle-min-width`、`--left-width`、`--right-width`)傳入,CSS 不重複寫死欄寬數值。
+  - 首次 render 用預設展開狀態;掛載後於 `useEffect` 照 `HabitBlock.tsx` 寫法(`try/catch` + `// eslint-disable-next-line react-hooks/set-state-in-effect`)讀取 `localStorage`,並以 `ResizeObserver` 監聽 `.layout` 寬度。
+  - **右欄 `<section>` 只畫一份**:不放進中欄 `<section>` 內(避免中欄捲動與 `captureFocus` 誤判)。當 `effective.rightCollapsed && hasSelection` 時改套抽屜 class(絕對定位蓋在 `.layout` 右側,寬度 `--right-width`,中欄不變暗、點中欄不關),頂端顯示關閉鈕;按右欄展開鈕時直接切回一般欄 class,`TaskDetail` / `HabitDetail` 不重新掛載、草稿保留。關閉抽屜時從網址移除 `task` / `habit`,並將焦點移回中欄對應列(`[data-task-control="row"]` / `[data-habit-control="row"]`)。
+- **`TaskList.tsx` / `TaskList.module.css` 與 `HabitList.tsx` / `HabitList.module.css`**:
+  - 中欄標題列最左與最右放入 `leftToggle`、`rightToggle` 切換鈕。兩顆鈕依實際畫面狀態顯示 `aria-expanded` 與 `aria-label`(收合左欄 / 展開左欄 / 收合右欄 / 展開右欄),因視窗太窄而自動收合期間設 `aria-disabled="true"` 與 `title="視窗太窄"`,放寬後恢復。
 
 ### 3. 文件更新(`docs/tasks/ui/layout.md`、`docs/tasks/backlog.md`)
-- `docs/tasks/ui/layout.md`:補上「欄寬、收合與抽屜」一節,記錄最小寬度、切換鈕位置、抽屜觸發與關閉條件、`localStorage` 持久化與自動收合不覆寫使用者設定的規則。
+- `docs/tasks/ui/layout.md`:補上「欄寬、收合與抽屜」一節。
 - `docs/tasks/backlog.md`:將「版面 session」標明已完成。
 
 ### 4. 驗證步驟
 - `npx next typegen`、`npx tsc --noEmit`、`npm run lint`、`npm test`。
-- 於 `npm run dev` 用假資料逐項手動驗證完成條件並記錄於回報。
+- 於 `npm run dev` 用假資料逐項手動驗證完成條件(含清單捲動時抽屜固定不動、視窗 < 860px 時按鈕停用狀態、從抽屜按展開後標題草稿保留)並記錄於回報。
 
 ## 主線審查(2026-11-22)
 
