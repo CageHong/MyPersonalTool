@@ -131,7 +131,7 @@
   - `src/modules/tasks/lib/reminders.test.ts`: 新增提醒順序檢查、標籤格式化與錯誤中文訊息的單元測試。
   - `src/modules/tasks/components/CategoryColumn.tsx` / `.module.css`: 左欄底部（今日日期上方）加入「提醒」(`view=reminders`) 檢視入口。
   - `src/modules/tasks/components/RemindersView.tsx` / `.module.css`: 新增提醒視圖元件（每日摘要時刻與開關、接下來會送的提醒、不進摘要的項目，以及點擊項目跳轉至對應編輯欄）。
-  - `src/modules/tasks/components/ReminderEditor.tsx` / `.module.css`: 新增右欄個別提醒編輯器（支援一般任務相對／絕對、重複規則相對 0..6 天、習慣每天，上限 5 則，經佇列送出與重抓）。
+  - `src/modules/tasks/components/ReminderEditor.tsx` / `.module.css`: 新增右欄個別提醒編輯器（支援一般任務相對／絕對、重複規則相對 0..6 天、習慣每天，上限 5 則，經佇列送出與重抓；審查修正：載入提醒的 `useEffect` 改為只依賴 `query` 字串、由 `query` 判斷 404 訊息，避免父元件每次 render 傳入新 `owner` 物件字面值時重抓）。
   - `src/modules/tasks/components/TaskDetail.tsx`: 整合 `ReminderEditor`（一般任務綁 `taskId`、重複實例綁 `ruleId`）與「不進摘要」開關（重複實例送 `PATCH /api/tasks/recurrence-rules/:ruleId`）。
   - `src/modules/tasks/components/HabitDetail.tsx`: 整合 `ReminderEditor`（綁 `habitId`）與「不進摘要」開關。
   - `src/modules/tasks/components/ThreeColumnLayout.tsx`: 整合 `view=reminders` 視圖切換、通知設定／接下來提醒／進行中規則的讀取與重抓、規則 `excludeFromSummary` 更新，以及從提醒視圖跳轉至任務或習慣編輯欄。

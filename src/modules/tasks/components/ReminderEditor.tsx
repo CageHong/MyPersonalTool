@@ -34,14 +34,14 @@ function ownerQuery(owner: ReminderOwner): string {
   return `habitId=${owner.habitId}`
 }
 
-function ownerNotFoundMessage(owner: ReminderOwner, failure: ApiError): string | null {
+function queryNotFoundMessage(query: string, failure: ApiError): string | null {
   if (failure.kind !== 'general') {
     return null
   }
-  if ('habitId' in owner) {
+  if (query.startsWith('habitId=')) {
     return habitMessage(failure.code)
   }
-  if ('ruleId' in owner) {
+  if (query.startsWith('ruleId=')) {
     return recurrenceRuleMessage(failure.code)
   }
   return generalMessage(failure.code)
@@ -91,7 +91,7 @@ export default function ReminderEditor({ owner, today, onError, onChanged }: Pro
         if (!response.ok) {
           const failure = await readApiError(response)
           if (!ignore) {
-            onError(ownerNotFoundMessage(owner, failure))
+            onError(queryNotFoundMessage(query, failure))
           }
           return
         }
@@ -112,7 +112,7 @@ export default function ReminderEditor({ owner, today, onError, onChanged }: Pro
     return () => {
       ignore = true
     }
-  }, [enqueue, onError, owner, query])
+  }, [enqueue, onError, query])
 
   function clearErrors() {
     setFieldErrors((current) => (Object.keys(current).length === 0 ? current : {}))
@@ -147,13 +147,13 @@ export default function ReminderEditor({ owner, today, onError, onChanged }: Pro
             setFieldErrors(failure.fields)
             onError(null)
           } else {
-            onError(ownerNotFoundMessage(owner, failure))
+            onError(queryNotFoundMessage(query, failure))
           }
           return failure
         }
         setFieldErrors({})
         const refetchFailure = await fetchReminders()
-        onError(refetchFailure === null ? null : ownerNotFoundMessage(owner, refetchFailure))
+        onError(refetchFailure === null ? null : queryNotFoundMessage(query, refetchFailure))
         onChanged?.()
         return refetchFailure
       } catch {
@@ -182,7 +182,7 @@ export default function ReminderEditor({ owner, today, onError, onChanged }: Pro
         }
         setFieldErrors({})
         const refetchFailure = await fetchReminders()
-        onError(refetchFailure === null ? null : ownerNotFoundMessage(owner, refetchFailure))
+        onError(refetchFailure === null ? null : queryNotFoundMessage(query, refetchFailure))
         onChanged?.()
         return refetchFailure
       } catch {
