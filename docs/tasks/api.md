@@ -22,6 +22,7 @@
 | PATCH | `/api/tasks/checklist-items/:itemId` | 部分更新 `{ title?, done? }` |
 | DELETE | `/api/tasks/checklist-items/:itemId` | 刪除 |
 | POST | `/api/tasks/tasks/:id/recurrence` | 把任務變成重複規則的第一個實例,body `{ freq, interval, weekdays?, startDate, until? }`(`until` 早於第一個日期回 `before_start`);成功 201,回傳規則 |
+| GET | `/api/tasks/recurrence-rules` | 列出進行中的重複規則(`endedAt` 為 null,依 id 升冪) |
 | GET | `/api/tasks/recurrence-rules/:ruleId` | 規則欄位加 `checklist: string[]`(範本標題);已停止的規則照樣回傳 |
 | PATCH | `/api/tasks/recurrence-rules/:ruleId` | 部分更新規則參數與範本 `{ freq?, interval?, weekdays?, startDate?, until?, title?, notes?, priority?, excludeFromSummary?, checklist? }`(`until: null` = 改回永不結束);已停止的規則回 400 |
 | POST | `/api/tasks/recurrence-rules/:ruleId/stop` | 停止重複,冪等,沒有 body |
@@ -42,7 +43,7 @@
 | POST | `/api/tasks/reminders` | 新增個別提醒,body 為 `{ taskId \| ruleId \| habitId, ...input }`(單一項目上限 5 則);成功 201 |
 | PUT | `/api/tasks/reminders/:reminderId` | 整份替換提醒設定(沿用原 owner) |
 | DELETE | `/api/tasks/reminders/:reminderId` | 刪除個別提醒;成功 204 |
-| GET | `/api/tasks/upcoming-notifications` | (卡 4,尚未實作)接下來 24 小時會送的通知,依日期、時刻排序;每筆 `{ kind: 'summary', date, time, summary, title }`、`{ kind: 'habit', date, time, reminderId, habitId, title }` 或 `{ kind: 'task', date, time, reminderId, taskId, ruleId, title }`(實例還沒產生時 `taskId` 是 null)。規則見 decisions §6j |
+| GET | `/api/tasks/upcoming-notifications` | 接下來 24 小時會送的通知,依日期、時刻排序;每筆 `{ kind: 'summary', date, time, summary, title }`、`{ kind: 'habit', date, time, reminderId, habitId, title }` 或 `{ kind: 'task', date, time, reminderId, taskId, ruleId, title }`(實例還沒產生時 `taskId` 是 null)。規則見 decisions §6j |
 
 用 PATCH 不用 PUT:勾完成只改 `completedAt` 一個欄位,不是整個資源替換。
 

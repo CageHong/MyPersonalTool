@@ -155,6 +155,8 @@ export function firstOccurrence(rule: RecurrenceSpec): string {
 // 只列畫面用得到的欄位
 export type RecurrenceRuleView = RecurrenceSpec & {
   id: number
+  title?: string
+  excludeFromSummary?: boolean
   // Unix 秒;null = 仍在重複
   endedAt: number | null
 }

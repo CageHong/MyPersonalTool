@@ -118,7 +118,36 @@
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `src/modules/tasks/server/notifications.ts`: 新增 `UpcomingNotification` 型別與 `upcomingTaskNotifications(now)`，並在 `dueTaskNotifications` 中讓重複任務實例的 `excludeFromSummary` 依重複規則欄位判斷（涵蓋今天／逾期與高優先組）。
+  - `src/app/api/tasks/upcoming-notifications/route.ts`: 新增 `GET /api/tasks/upcoming-notifications` route handler。
+  - `src/modules/tasks/server/recurrence.ts`: 修改 `updateRule` 於排程欄位未變更時就地更新未來未完成實例（含 checklist 範本替換），並新增 `listRules()` 列出進行中規則（`endedAt` 為 null，依 id 升冪）。
+  - `src/app/api/tasks/recurrence-rules/route.ts`: 新增 `GET /api/tasks/recurrence-rules` route handler。
+  - `src/modules/tasks/lib/views.ts`: `ViewId` 與 `VIEWS` 加入 `'reminders'`，`filterByView` 對 `'reminders'` 回傳空陣列。
+  - `src/modules/tasks/lib/tasks.ts`: `Task` 與 `TaskPatch` 加入 `excludeFromSummary?: boolean`。
+  - `src/modules/tasks/lib/habitView.ts`: `HabitItem` 與 `HabitPatch` 加入 `excludeFromSummary?: boolean`。
+  - `src/modules/tasks/lib/recurrence.ts`: `RecurrenceRuleView` 加入 `title?: string` 與 `excludeFromSummary?: boolean`。
+  - `src/modules/tasks/lib/errors.ts`: 加入 `times.out_of_order`、`date.in_past`、`date.invalid_format`、`reminders.too_many`、`daysBefore.invalid_value`、`kind.invalid_value`、`time.invalid_value` 的中文訊息與 `reminderMessage`。
+  - `src/modules/tasks/lib/reminders.ts`: 新增提醒與通知設定的前端型別、`areSummaryTimesInOrder` 與 `formatReminderLabel`。
+  - `src/modules/tasks/lib/reminders.test.ts`: 新增提醒順序檢查、標籤格式化與錯誤中文訊息的單元測試。
+  - `src/modules/tasks/components/CategoryColumn.tsx` / `.module.css`: 左欄底部（今日日期上方）加入「提醒」(`view=reminders`) 檢視入口。
+  - `src/modules/tasks/components/RemindersView.tsx` / `.module.css`: 新增提醒視圖元件（每日摘要時刻與開關、接下來會送的提醒、不進摘要的項目，以及點擊項目跳轉至對應編輯欄）。
+  - `src/modules/tasks/components/ReminderEditor.tsx` / `.module.css`: 新增右欄個別提醒編輯器（支援一般任務相對／絕對、重複規則相對 0..6 天、習慣每天，上限 5 則，經佇列送出與重抓）。
+  - `src/modules/tasks/components/TaskDetail.tsx`: 整合 `ReminderEditor`（一般任務綁 `taskId`、重複實例綁 `ruleId`）與「不進摘要」開關（重複實例送 `PATCH /api/tasks/recurrence-rules/:ruleId`）。
+  - `src/modules/tasks/components/HabitDetail.tsx`: 整合 `ReminderEditor`（綁 `habitId`）與「不進摘要」開關。
+  - `src/modules/tasks/components/ThreeColumnLayout.tsx`: 整合 `view=reminders` 視圖切換、通知設定／接下來提醒／進行中規則的讀取與重抓、規則 `excludeFromSummary` 更新，以及從提醒視圖跳轉至任務或習慣編輯欄。
+  - `docs/tasks/api.md`: 新增 `GET /api/tasks/recurrence-rules` 並移除 `GET /api/tasks/upcoming-notifications` 的「尚未實作」標記。
+  - `docs/tasks/ui/reminders.md`: 新增提醒視圖與右欄提醒編輯器的 UI 規格文件。
+  - `docs/tasks/ui/layout.md`: 在三欄檢視說明補上左欄底部的「提醒」(`view=reminders`)。
+  - `docs/tasks/backlog.md`: 從開發順序與待做清單移除已完成的通知卡 4 UI 項目。
 - 沒做什麼、為什麼:
+  - `src/app/globals.css` 與 `src/app/tasks/`: 既有語意層 CSS 變數與路由結構已足夠，無需修改。
+  - 未修改 `src/modules/tasks/server/recurrence.test.ts`: 見下方 `tsc` 說明，遵守「主線的測試不能改」規則。
 - 每個完成條件怎麼驗證的:
+  - `npx next typegen`、`npm run lint`、`npm test`: `next typegen` 成功；`npm run lint` 0 錯誤；`npm test` 680 項測試（含主線的 `upcomingTaskNotifications`、`updateRule: non-schedule changes update instances in place`、`excludeFromSummary on recurring tasks follows the rule` 與新增的 `reminders.test.ts`）全部通過。
+  - `npx tsc --noEmit`: 本次修改與新增的所有檔案均無型別錯誤；唯主線提供的 `src/modules/tasks/server/recurrence.test.ts` 第 773 行 `.map((instance) => [instance.occurrenceDate, instance.id])` 未加 `as const`，使 `date` 被推論為 `string | number | null`，在第 779、783 行傳入 `instanceOn(rule.id, date!)` 時報 `TS2345`。依規則不改主線測試，在此回報。
+  - 瀏覽器沙盒驗證 (`PERSONAL_TOOLS_DATA_DIR=gemini/personal-tools-data`): 啟動 dev server 並在瀏覽器實際走過：(1) 提醒視圖將早上總覽改為 `16:00` 顯示「順序不對,還沒儲存」，改回 `08:00` 警告消失並自動 `PUT` 儲存；(2) 一般任務新增／刪除提醒、加滿 5 則時新增表單消失並顯示「最多只能設 5 則提醒」；(3) 重複任務實例右欄僅提供相對提醒（當天／提前 1..6 天），新增與刪除提醒，切換「不進摘要」送出規則 `PATCH`；(4) 習慣右欄新增與刪除每天提醒並切換「不進摘要」；(5) 在提醒視圖確認「接下來會送的提醒」與「不進摘要的項目」（任務、重複規則、習慣）皆正確列出，點擊任務與習慣分別跳轉至 `?view=open&task=13` 與 `?view=habits&habit=1` 並開啟右欄編輯面板。
 - 最可能出錯的地方:
+  - 重複任務實例在右欄切換「不進摘要」時，顯示狀態需優先讀取 `useRecurrenceRule` 載入的 `rule.excludeFromSummary`（因為今天或過去已產生的實例自身的 `task.excludeFromSummary` 不會被 `updateRule` 改寫）；已在 `TaskDetail` 以 `ruleState.rule.excludeFromSummary` 為準，並於 `PATCH` 規則後透過 `refetch()` 遞增 `tasksVersion` 觸發規則與 `recurrenceRules` 同步重抓。
+  - `upcomingTaskNotifications` 針對習慣跨日（明天）的達標判斷：需先檢查 `periodStart(remindDateForTime, h.periodType) === h.periodStart`，只有明天與今天仍在同一週期且今天已達標時才略過（例如每日習慣今天已達標，明天是新週期仍要列出）。
 - 疑問:
+  - `src/modules/tasks/server/recurrence.test.ts` 第 773 行的 `[instance.occurrenceDate, instance.id]` 是否由主線補上 `as const` 以消除 `tsc --noEmit` 在第 779、783 行的 `TS2345`？

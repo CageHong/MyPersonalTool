@@ -4,6 +4,7 @@ import DueDateDialog from './DueDateDialog'
 import DueDateTrigger from './DueDateTrigger'
 import PriorityMenu from './PriorityMenu'
 import RecurrenceSummary, { useRecurrenceRule } from './RecurrenceSummary'
+import ReminderEditor from './ReminderEditor'
 import TaskChecklist from './TaskChecklist'
 import TaskNotesField from './TaskNotesField'
 import TaskTitleField from './TaskTitleField'
@@ -29,6 +30,11 @@ type Props = {
   tasksVersion: number
   // checklist 的泛用錯誤顯示在中欄新增列下方,和任務的錯誤同一個位置
   onChecklistError: (message: string | null) => void
+  onUpdateRule?: (
+    ruleId: number,
+    patch: { excludeFromSummary: boolean },
+  ) => Promise<ApiError | null>
+  onReminderChanged?: () => void
 }
 
 export default function TaskDetail({
@@ -39,6 +45,8 @@ export default function TaskDetail({
   onSaveDate,
   tasksVersion,
   onChecklistError,
+  onUpdateRule,
+  onReminderChanged,
 }: Props) {
   // 存「正在確認刪除哪一筆」而不是布林值:換任務自動失效,刪除成功或失敗後都清成 null
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
@@ -57,6 +65,7 @@ export default function TaskDetail({
   const summaryTriggerRef = useRef<HTMLButtonElement>(null)
   // 寫入排隊期間觸發鈕還在,可以再開一次再送一次;不停用按鈕,用 ref 擋掉第二次送出。完成後一律重設
   const dateSavePendingRef = useRef(false)
+  const ruleExcludePendingRef = useRef(false)
   // 同一件事的 state 版本,給畫面用:寫入進行中時規則資料還是舊的(重抓還沒發生、版本還沒變),
   // 這段期間日期選單不能拿它組請求
   const [savingDate, setSavingDate] = useState(false)
@@ -272,6 +281,63 @@ export default function TaskDetail({
           />
         </div>
       )}
+
+      <div className={styles.field}>
+        <span className={styles.fieldLabel}>提醒</span>
+        <ReminderEditor
+          key={
+            task.recurrenceRuleId !== null
+              ? `rule-${task.recurrenceRuleId}`
+              : `task-${task.id}`
+          }
+          owner={
+            task.recurrenceRuleId !== null
+              ? { ruleId: task.recurrenceRuleId }
+              : { taskId: task.id }
+          }
+          today={today}
+          onError={onChecklistError}
+          onChanged={onReminderChanged}
+        />
+      </div>
+
+      <div className={`${styles.field} ${styles.menuField}`}>
+        <span className={styles.fieldLabel}>每日摘要</span>
+        {(() => {
+          const isRecurring = task.recurrenceRuleId !== null
+          const excluded =
+            isRecurring && ruleState?.status === 'loaded'
+              ? Boolean(ruleState.rule.excludeFromSummary)
+              : Boolean(task.excludeFromSummary)
+          return (
+            <button
+              type="button"
+              className={styles.toggle}
+              aria-pressed={excluded}
+              aria-label="不進摘要"
+              onClick={() => {
+                if (isRecurring && task.recurrenceRuleId !== null) {
+                  if (ruleExcludePendingRef.current || !onUpdateRule) {
+                    return
+                  }
+                  ruleExcludePendingRef.current = true
+                  void onUpdateRule(task.recurrenceRuleId, {
+                    excludeFromSummary: !excluded,
+                  }).finally(() => {
+                    ruleExcludePendingRef.current = false
+                  })
+                } else {
+                  void saveField('excludeFromSummary', {
+                    excludeFromSummary: !excluded,
+                  })
+                }
+              }}
+            >
+              {excluded ? '不進摘要' : '進摘要'}
+            </button>
+          )
+        })()}
+      </div>
 
       {/* 只在開啟時掛載:關閉即卸載,草稿跟著消失。已完成的任務不傳 recurrence,選單只有日期 */}
       {dateMenuOpener !== null && (

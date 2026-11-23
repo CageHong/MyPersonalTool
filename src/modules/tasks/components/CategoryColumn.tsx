@@ -13,17 +13,28 @@ export default function CategoryColumn({ view, onSelect, today }: Props) {
   return (
     <div className={styles.column}>
       <nav className={styles.views}>
-        {VIEWS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={item.id === view ? `${styles.view} ${styles.current}` : styles.view}
-            onClick={() => onSelect(item.id)}
-            aria-current={item.id === view}
-          >
-            {item.label}
-          </button>
-        ))}
+        {VIEWS.map((item) => {
+          const isCurrent = item.id === view
+          const isBottom = item.id === 'reminders'
+          const className = [
+            styles.view,
+            isCurrent ? styles.current : '',
+            isBottom ? styles.bottomView : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={className}
+              onClick={() => onSelect(item.id)}
+              aria-current={isCurrent}
+            >
+              {item.label}
+            </button>
+          )
+        })}
       </nav>
 
       <p className={styles.today}>{formatLongDate(today)}</p>

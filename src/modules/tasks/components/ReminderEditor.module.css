@@ -1,0 +1,92 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-row-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  font-size: var(--text-sm);
+}
+
+.itemLabel {
+  color: var(--color-text);
+}
+
+.delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-checklist-delete);
+  cursor: pointer;
+}
+
+.delete:hover {
+  color: var(--color-checklist-delete-hover);
+}
+
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.select,
+.input {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-field-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-field-text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.prefix {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.addButton {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.addButton:hover {
+  background: var(--color-field-selected-bg);
+}
+
+.limitNote {
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+}
+
+.fieldError {
+  color: var(--color-error-text);
+  font-size: var(--text-sm);
+}

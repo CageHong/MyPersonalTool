@@ -21,7 +21,20 @@ export const NETWORK_ERROR: ApiError = { kind: 'general', code: 'NETWORK' }
 
 // 畫面上真的有欄位可以標示的 key。API 的 fields 還會出現 id、body 這種協定層的 key,
 // 它們沒有對應的輸入框,歸類成泛用錯誤
-const DISPLAY_FIELDS = ['title', 'notes', 'dueDate', 'priority', 'name', 'target'] as const
+const DISPLAY_FIELDS = [
+  'title',
+  'notes',
+  'dueDate',
+  'priority',
+  'name',
+  'target',
+  'times',
+  'date',
+  'reminders',
+  'daysBefore',
+  'kind',
+  'time',
+] as const
 
 const GENERAL_CODES: readonly string[] = ['NOT_FOUND', 'INTERNAL_ERROR', 'VALIDATION_FAILED']
 
@@ -31,6 +44,13 @@ const FIELD_MESSAGES: Record<string, string> = {
   'priority.invalid_value': '優先級只能是無、低、中、高',
   'name.required': '名稱不能空白',
   'target.invalid_value': '目標次數要是 1 以上的整數;留空代表只記錄次數',
+  'times.out_of_order': '順序不對,必須是早上 < 下午 < 晚上',
+  'date.invalid_format': '日期格式不正確,要像 2026-09-18',
+  'date.in_past': '提醒時間已經過了,請選未來的時間',
+  'reminders.too_many': '最多只能設 5 則提醒',
+  'daysBefore.invalid_value': '提前天數不正確',
+  'kind.invalid_value': '提醒類型不正確',
+  'time.invalid_value': '時刻格式不正確,要像 09:00',
 }
 
 const GENERAL_MESSAGES: Record<GeneralCode, string> = {
@@ -64,6 +84,11 @@ export function recurrenceRuleMessage(code: GeneralCode): string {
 // 習慣的一般寫入(新增、改欄位、停止、刪除)的泛用錯誤。404 是「習慣」不見了
 export function habitMessage(code: GeneralCode): string {
   return code === 'NOT_FOUND' ? '找不到這個習慣,可能已經被刪除了' : generalMessage(code)
+}
+
+// 提醒與通知設定的泛用錯誤。404 是提醒或所屬項目不見了
+export function reminderMessage(code: GeneralCode): string {
+  return code === 'NOT_FOUND' ? '找不到這則提醒,可能已經被刪除了' : generalMessage(code)
 }
 
 // 習慣計數失敗:畫面已經從樂觀值還原成伺服器上的次數,訊息要講明,不能靜靜還原。

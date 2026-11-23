@@ -7,6 +7,7 @@ import CategoryColumn from './CategoryColumn'
 import HabitBlock from './HabitBlock'
 import HabitDetail from './HabitDetail'
 import HabitList from './HabitList'
+import RemindersView from './RemindersView'
 import ResizeHandle from './ResizeHandle'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
@@ -39,6 +40,12 @@ import {
   type ViewSettings,
 } from '@/modules/tasks/lib/listView'
 import type { RecurrenceRequest } from '@/modules/tasks/lib/recurrenceDraft'
+import type { RecurrenceRuleView } from '@/modules/tasks/lib/recurrence'
+import {
+  DEFAULT_NOTIFICATION_SETTINGS,
+  type NotificationSettings,
+  type UpcomingNotificationItem,
+} from '@/modules/tasks/lib/reminders'
 import { earliestIncomplete, filterTasks, parseView, type ViewId } from '@/modules/tasks/lib/views'
 import type { NewTask, Task, TaskPatch } from '@/modules/tasks/lib/tasks'
 
@@ -205,6 +212,13 @@ export default function ThreeColumnLayout() {
   const countOverridesRef = useRef(new Map<number, PeriodCount[]>())
   const [countOverrides, setCountOverrides] = useState<ReadonlyMap<number, PeriodCount[]>>(new Map())
   const pendingCountsRef = useRef(new Map<number, number>())
+
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(
+    DEFAULT_NOTIFICATION_SETTINGS,
+  )
+  const [upcomingNotifications, setUpcomingNotifications] = useState<UpcomingNotificationItem[]>([])
+  const [recurrenceRules, setRecurrenceRules] = useState<RecurrenceRuleView[]>([])
+  const [remindersLoading, setRemindersLoading] = useState(true)
 
   const today = useToday()
   const view = parseView(searchParams.get('view'))
@@ -392,6 +406,33 @@ export default function ThreeColumnLayout() {
     }
   }, [replaceParams, selectedHabitId, selectedId, view])
 
+  const refetchRules = useCallback(async (): Promise<ApiError | null> => {
+    const response = await fetch('/api/tasks/recurrence-rules')
+    if (!response.ok) {
+      return await readApiError(response)
+    }
+    setRecurrenceRules((await response.json()) as RecurrenceRuleView[])
+    return null
+  }, [])
+
+  const refetchNotificationSettings = useCallback(async (): Promise<ApiError | null> => {
+    const response = await fetch('/api/tasks/notification-settings')
+    if (!response.ok) {
+      return await readApiError(response)
+    }
+    setNotificationSettings((await response.json()) as NotificationSettings)
+    return null
+  }, [])
+
+  const refetchUpcomingNotifications = useCallback(async (): Promise<ApiError | null> => {
+    const response = await fetch('/api/tasks/upcoming-notifications')
+    if (!response.ok) {
+      return await readApiError(response)
+    }
+    setUpcomingNotifications((await response.json()) as UpcomingNotificationItem[])
+    return null
+  }, [])
+
   // 回傳 null 代表成功;失敗的形狀和寫入共用同一個 ApiError。
   // flushSync:回傳時新清單已經 commit 到 DOM,呼叫端接著就能依畫面上的列移焦點。
   // 這時右欄若已換成空狀態,確認彈窗連同 <dialog> 一起卸載、背景 inert 已解除,focus() 才有效
@@ -405,8 +446,10 @@ export default function ThreeColumnLayout() {
       setTasks(next)
       setTasksVersion((version) => version + 1)
     })
+    void refetchRules()
+    void refetchUpcomingNotifications()
     return null
-  }, [])
+  }, [refetchRules, refetchUpcomingNotifications])
 
   const refetchViewSettings = useCallback(async (): Promise<ApiError | null> => {
     const response = await fetch('/api/tasks/list-views')
@@ -441,8 +484,29 @@ export default function ThreeColumnLayout() {
     const next = (await response.json()) as HabitItem[]
     habitsRef.current = next
     flushSync(() => setHabits(next))
+    void refetchUpcomingNotifications()
     return null
-  }, [])
+  }, [refetchUpcomingNotifications])
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [settingsFailure, upcomingFailure, rulesFailure] = await Promise.all([
+          refetchNotificationSettings(),
+          refetchUpcomingNotifications(),
+          refetchRules(),
+        ])
+        const failure = settingsFailure ?? upcomingFailure ?? rulesFailure
+        if (failure !== null) {
+          setError(toGeneralMessage(failure))
+        }
+      } catch {
+        setError(generalMessage('NETWORK'))
+      } finally {
+        setRemindersLoading(false)
+      }
+    })()
+  }, [refetchNotificationSettings, refetchRules, refetchUpcomingNotifications])
 
   useEffect(() => {
     void (async () => {
@@ -850,15 +914,87 @@ export default function ThreeColumnLayout() {
     [mutateHabit, replaceParams],
   )
 
+  const handleUpdateRule = useCallback(
+    (ruleId: number, patch: { excludeFromSummary: boolean }) =>
+      mutate(() =>
+        fetch(`/api/tasks/recurrence-rules/${ruleId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        }),
+      ),
+    [mutate],
+  )
+
+  const handleSaveNotificationSettings = useCallback(
+    (next: NotificationSettings): Promise<ApiError | null> =>
+      enqueue(async () => {
+        try {
+          const response = await fetch('/api/tasks/notification-settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(next),
+          })
+          if (!response.ok) {
+            const failure = await readApiError(response)
+            setError(toGeneralMessage(failure))
+            return failure
+          }
+          const [settingsFailure, upcomingFailure] = await Promise.all([
+            refetchNotificationSettings(),
+            refetchUpcomingNotifications(),
+          ])
+          const refetchFailure = settingsFailure ?? upcomingFailure
+          setError(refetchFailure === null ? null : toGeneralMessage(refetchFailure))
+          return refetchFailure
+        } catch {
+          setError(generalMessage('NETWORK'))
+          return NETWORK_ERROR
+        }
+      }),
+    [enqueue, refetchNotificationSettings, refetchUpcomingNotifications],
+  )
+
+  const handleReminderChanged = useCallback(() => {
+    void refetchUpcomingNotifications()
+  }, [refetchUpcomingNotifications])
+
+  const handleOpenTaskFromReminders = useCallback(
+    (taskId: number, targetView: ViewId = 'open') => {
+      replaceParams((params) => {
+        params.set('view', targetView)
+        params.delete('habit')
+        params.set('task', String(taskId))
+      })
+    },
+    [replaceParams],
+  )
+
+  const handleOpenHabitFromReminders = useCallback(
+    (habitId: number) => {
+      replaceParams((params) => {
+        params.set('view', 'habits')
+        params.delete('task')
+        params.set('habit', String(habitId))
+      })
+    },
+    [replaceParams],
+  )
+
   // 中欄小區塊只在今天與全部未完成出現;習慣還在載入時不畫,免得先閃一下空狀態
   const habitBlock =
     (view === 'today' || view === 'open') && !habitsLoading ? (
       <HabitBlock habits={displayHabits} onStep={stepHabit} />
     ) : undefined
 
-  const hasSelection = view === 'habits' ? selectedHabit !== undefined : selectedTask !== undefined
+  const hasSelection =
+    view === 'habits'
+      ? selectedHabit !== undefined
+      : view === 'reminders'
+        ? false
+        : selectedTask !== undefined
   const drawerOpen = effective.rightCollapsed && hasSelection
-  const showDetailColumn = !effective.rightCollapsed || drawerOpen
+  const showDetailColumn = view !== 'reminders' && (!effective.rightCollapsed || drawerOpen)
 
   const leftToggle = (
     <button
@@ -917,14 +1053,29 @@ export default function ThreeColumnLayout() {
       <section
         ref={tasksColumnRef}
         tabIndex={-1}
-        aria-label={view === 'habits' ? '習慣清單' : '任務清單'}
+        aria-label={view === 'habits' ? '習慣清單' : view === 'reminders' ? '提醒' : '任務清單'}
         className={
-          effective.rightCollapsed
+          effective.rightCollapsed || view === 'reminders'
             ? `${styles.column} ${styles.tasks} ${styles.tasksNoRightBorder}`
             : `${styles.column} ${styles.tasks}`
         }
       >
-        {view === 'habits' ? (
+        {view === 'reminders' ? (
+          <RemindersView
+            settings={notificationSettings}
+            upcoming={upcomingNotifications}
+            tasks={tasks}
+            rules={recurrenceRules}
+            habits={displayHabits}
+            today={today}
+            loading={loading || habitsLoading || remindersLoading}
+            error={error}
+            onSaveSettings={handleSaveNotificationSettings}
+            onOpenTask={handleOpenTaskFromReminders}
+            onOpenHabit={handleOpenHabitFromReminders}
+            leftToggle={leftToggle}
+          />
+        ) : view === 'habits' ? (
           <HabitList
             habits={displayHabits}
             loading={habitsLoading}
@@ -960,7 +1111,7 @@ export default function ThreeColumnLayout() {
         )}
       </section>
 
-      {!effective.rightCollapsed && (
+      {!effective.rightCollapsed && view !== 'reminders' && (
         <div className={styles.handleAnchor}>
           <ResizeHandle
             side="right"
@@ -994,9 +1145,12 @@ export default function ThreeColumnLayout() {
             <HabitDetail
               key={selectedHabit?.id ?? 'empty'}
               habit={selectedHabit}
+              today={today}
               onUpdate={handleUpdateHabit}
               onTogglePause={handleTogglePause}
               onDelete={handleDeleteHabit}
+              onError={setError}
+              onReminderChanged={handleReminderChanged}
             />
           ) : (
             <TaskDetail
@@ -1009,6 +1163,8 @@ export default function ThreeColumnLayout() {
               tasksVersion={tasksVersion}
               // setError 是穩定的參考,TaskChecklist 的載入 effect 不會因此重跑
               onChecklistError={setError}
+              onUpdateRule={handleUpdateRule}
+              onReminderChanged={handleReminderChanged}
             />
           )}
         </section>

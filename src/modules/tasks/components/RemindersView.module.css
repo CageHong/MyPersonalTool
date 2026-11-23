@@ -1,0 +1,151 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.toolbarLeft,
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.viewTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.heading {
+  color: var(--color-field-label);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+}
+
+.summaryRow,
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-row-border);
+}
+
+.summaryRow:last-child,
+.row:last-child {
+  border-bottom: 0;
+}
+
+.summaryLabel {
+  font-size: var(--text-base);
+}
+
+.summaryControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.timeInput {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-field-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-field-text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.toggleButton {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.toggleButton[aria-pressed='true'] {
+  background: var(--color-field-selected-bg);
+  font-weight: var(--weight-semibold);
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.timeBadge {
+  color: var(--color-row-meta);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.itemButton {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemButton:hover {
+  text-decoration: underline;
+}
+
+.itemText {
+  min-width: 0;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kindMeta {
+  color: var(--color-row-meta);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.empty {
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+}
+
+.fieldError,
+.error {
+  color: var(--color-error-text);
+  font-size: var(--text-sm);
+}
