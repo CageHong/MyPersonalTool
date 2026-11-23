@@ -770,17 +770,17 @@ describe('updateRule: non-schedule changes update instances in place', () => {
     const { rule, todayItemId, before, future, reminder } = setup()
     const futureIdsBefore = before
       .filter((instance) => instance.occurrenceDate! > TODAY && instance.completedAt === null)
-      .map((instance) => [instance.occurrenceDate, instance.id])
+      .map((instance) => [instance.occurrenceDate!, instance.id] as const)
 
     updateRule(rule.id, { title: 'new', notes: 'n', priority: 5, excludeFromSummary: true }, TODAY)
 
     assertPastAndCompletedUnchanged(rule.id, before, todayItemId)
     assert.deepEqual(
-      futureIdsBefore.map(([date]) => [date, instanceOn(rule.id, date!)!.id]),
+      futureIdsBefore.map(([date]) => [date, instanceOn(rule.id, date)!.id]),
       futureIdsBefore,
     )
     for (const [date] of futureIdsBefore) {
-      const instance = instanceOn(rule.id, date!)!
+      const instance = instanceOn(rule.id, date)!
       assert.equal(instance.title, 'new')
       assert.equal(instance.notes, 'n')
       assert.equal(instance.priority, 5)
