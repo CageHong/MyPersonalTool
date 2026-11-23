@@ -1,9 +1,15 @@
 import { asc, eq } from 'drizzle-orm'
 import { localDate, localTime } from '@/platform/date'
 import { db } from '../db'
-import { taskNotificationSent, taskNotificationSetting, taskReminder } from '../db/schema'
+import {
+  taskNotificationSent,
+  taskNotificationSetting,
+  taskRecurrenceRule,
+  taskReminder,
+} from '../db/schema'
 import { addDays, diffDays } from '../lib/date'
-import { periodEnd } from '../lib/habit'
+import { periodEnd, periodStart } from '../lib/habit'
+import { expandRule } from '../lib/recurrence'
 import { collapseRecurring, filterTasks } from '../lib/views'
 import { ValidationError } from './errors'
 import { listHabits, type HabitSummary } from './habits'
@@ -20,6 +26,32 @@ export type TaskDueNotification = {
 }
 
 export type NotificationSummaryKind = 'morning' | 'afternoon' | 'evening'
+
+export type UpcomingNotification =
+  | {
+      kind: 'summary'
+      date: string
+      time: string
+      summary: NotificationSummaryKind
+      title: string
+    }
+  | {
+      kind: 'habit'
+      date: string
+      time: string
+      reminderId: number
+      habitId: number
+      title: string
+    }
+  | {
+      kind: 'task'
+      date: string
+      time: string
+      reminderId: number
+      taskId: number | null
+      ruleId: number | null
+      title: string
+    }
 
 export type NotificationSummarySetting = {
   time: string
@@ -251,15 +283,27 @@ export function dueTaskNotifications(now: Date): TaskDueNotification[] {
 
   const allTasks = listTasks({ today })
   const taskById = new Map(allTasks.map((t) => [t.id, t]))
+  const allRules = db.select().from(taskRecurrenceRule).all()
+  const ruleById = new Map(allRules.map((r) => [r.id, r]))
+  const isExcludedFromSummary = (taskId: number): boolean => {
+    const full = taskById.get(taskId)!
+    if (full.recurrenceRuleId !== null) {
+      const rule = ruleById.get(full.recurrenceRuleId)
+      if (rule) {
+        return rule.excludeFromSummary
+      }
+    }
+    return full.excludeFromSummary
+  }
   const collapsedTasks = collapseRecurring(allTasks, today).tasks
   const todayTasks = filterTasks(allTasks, 'today', today).tasks.filter(
-    (t) => !taskById.get(t.id)!.excludeFromSummary,
+    (t) => !isExcludedFromSummary(t.id),
   )
   const highPriorityTasks = collapsedTasks.filter(
     (t) =>
       t.completedAt === null &&
       t.priority === 5 &&
-      !taskById.get(t.id)!.excludeFromSummary &&
+      !isExcludedFromSummary(t.id) &&
       (t.dueDate === null || t.dueDate > today),
   )
   const habits = listHabits(today)
@@ -372,4 +416,179 @@ export function dueTaskNotifications(now: Date): TaskDueNotification[] {
   }
 
   return due
+}
+
+function isWithinNext24Hours(
+  date: string,
+  time: string,
+  today: string,
+  tomorrow: string,
+  currentTime: string,
+): boolean {
+  return (date === today && time > currentTime) || (date === tomorrow && time <= currentTime)
+}
+
+export function upcomingTaskNotifications(now: Date): UpcomingNotification[] {
+  const today = localDate(now)
+  const tomorrow = addDays(today, 1)
+  const currentTime = localTime(now)
+  const settings = getNotificationSettings()
+
+  const allTasks = listTasks({ today })
+  const taskById = new Map(allTasks.map((t) => [t.id, t]))
+  const habits = listHabits(today)
+  const habitById = new Map(habits.map((h) => [h.id, h]))
+  const allRules = db.select().from(taskRecurrenceRule).all()
+  const ruleById = new Map(allRules.map((r) => [r.id, r]))
+
+  const tasksByRuleId = new Map<number, Task[]>()
+  for (const t of allTasks) {
+    if (t.recurrenceRuleId !== null) {
+      const list = tasksByRuleId.get(t.recurrenceRuleId)
+      if (list) {
+        list.push(t)
+      } else {
+        tasksByRuleId.set(t.recurrenceRuleId, [t])
+      }
+    }
+  }
+
+  const upcoming: UpcomingNotification[] = []
+
+  for (const date of [today, tomorrow]) {
+    for (const kind of SUMMARY_KINDS) {
+      const setting = settings[kind]
+      if (!setting.enabled || !isWithinNext24Hours(date, setting.time, today, tomorrow, currentTime)) {
+        continue
+      }
+      upcoming.push({
+        kind: 'summary',
+        date,
+        time: setting.time,
+        summary: kind,
+        title: SUMMARY_TITLES[kind],
+      })
+    }
+  }
+
+  const reminders = db
+    .select()
+    .from(taskReminder)
+    .orderBy(asc(taskReminder.time), asc(taskReminder.id))
+    .all()
+
+  for (const r of reminders) {
+    const remindDateForTime = r.time > currentTime ? today : tomorrow
+
+    if (r.habitId !== null) {
+      const h = habitById.get(r.habitId)
+      if (!h || h.paused) {
+        continue
+      }
+      if (
+        h.target !== null &&
+        periodStart(remindDateForTime, h.periodType) === h.periodStart &&
+        h.progress.achieved === true
+      ) {
+        continue
+      }
+      upcoming.push({
+        kind: 'habit',
+        date: remindDateForTime,
+        time: r.time,
+        reminderId: r.id,
+        habitId: h.id,
+        title: h.name,
+      })
+    } else if (r.taskId !== null) {
+      const t = taskById.get(r.taskId)
+      if (!t || t.completedAt !== null) {
+        continue
+      }
+      const remindDate =
+        r.kind === 'absolute'
+          ? r.date
+          : t.dueDate !== null
+            ? addDays(t.dueDate, -r.daysBefore!)
+            : null
+      if (
+        remindDate === null ||
+        !isWithinNext24Hours(remindDate, r.time, today, tomorrow, currentTime)
+      ) {
+        continue
+      }
+      upcoming.push({
+        kind: 'task',
+        date: remindDate,
+        time: r.time,
+        reminderId: r.id,
+        taskId: t.id,
+        ruleId: null,
+        title: t.title,
+      })
+    } else if (r.ruleId !== null) {
+      const instances = tasksByRuleId.get(r.ruleId) ?? []
+      for (const t of instances) {
+        if (t.completedAt !== null || t.dueDate === null) {
+          continue
+        }
+        const remindDate = addDays(t.dueDate, -r.daysBefore!)
+        if (!isWithinNext24Hours(remindDate, r.time, today, tomorrow, currentTime)) {
+          continue
+        }
+        upcoming.push({
+          kind: 'task',
+          date: remindDate,
+          time: r.time,
+          reminderId: r.id,
+          taskId: t.id,
+          ruleId: r.ruleId,
+          title: t.title,
+        })
+      }
+
+      const rule = ruleById.get(r.ruleId)
+      if (rule && rule.endedAt === null) {
+        const occurrenceDate = addDays(remindDateForTime, r.daysBefore!)
+        if (
+          (rule.generatedThrough === null || occurrenceDate > rule.generatedThrough) &&
+          expandRule(rule, occurrenceDate, occurrenceDate).length > 0
+        ) {
+          upcoming.push({
+            kind: 'task',
+            date: remindDateForTime,
+            time: r.time,
+            reminderId: r.id,
+            taskId: null,
+            ruleId: rule.id,
+            title: rule.title,
+          })
+        }
+      }
+    }
+  }
+
+  upcoming.sort((a, b) => {
+    if (a.date !== b.date) {
+      return a.date < b.date ? -1 : 1
+    }
+    if (a.time !== b.time) {
+      return a.time < b.time ? -1 : 1
+    }
+    if (a.kind === 'summary' && b.kind === 'summary') {
+      return SUMMARY_KINDS.indexOf(a.summary) - SUMMARY_KINDS.indexOf(b.summary)
+    }
+    if (a.kind === 'summary' || b.kind === 'summary') {
+      return a.kind === 'summary' ? -1 : 1
+    }
+    if (a.reminderId !== b.reminderId) {
+      return a.reminderId - b.reminderId
+    }
+    if (a.kind === 'task' && b.kind === 'task') {
+      return (a.taskId ?? Infinity) - (b.taskId ?? Infinity)
+    }
+    return 0
+  })
+
+  return upcoming
 }

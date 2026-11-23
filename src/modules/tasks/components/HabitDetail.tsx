@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
+import ReminderEditor from './ReminderEditor'
 import { fieldMessage, type ApiError, type FieldErrors } from '@/modules/tasks/lib/errors'
 import { PERIOD_OPTIONS, streakLabel, type HabitItem, type HabitPatch } from '@/modules/tasks/lib/habitView'
 import { useDraft } from '@/modules/tasks/lib/useDraft'
@@ -9,9 +10,12 @@ import styles from './HabitDetail.module.css'
 // ThreeColumnLayout 以 key={habit.id} 掛載:換習慣時草稿、錯誤、確認彈窗隨卸載清除
 type Props = {
   habit: HabitItem | undefined
+  today: string
   onUpdate: (id: number, patch: HabitPatch) => Promise<ApiError | null>
   onTogglePause: (habit: HabitItem) => Promise<ApiError | null>
   onDelete: (id: number) => Promise<ApiError | null>
+  onError: (message: string | null) => void
+  onReminderChanged?: () => void
 }
 
 // 目標次數的輸入框是字串:空白 = 紀錄型(null);看起來不是數字的原樣送出,由伺服器回欄位錯誤。
@@ -33,7 +37,15 @@ export default function HabitDetail({ habit, ...handlers }: Props) {
 }
 
 // 拆出來讓 hook 與欄位的閉包都拿到確定存在的 habit
-function HabitEditor({ habit, onUpdate, onTogglePause, onDelete }: Props & { habit: HabitItem }) {
+function HabitEditor({
+  habit,
+  today,
+  onUpdate,
+  onTogglePause,
+  onDelete,
+  onError,
+  onReminderChanged,
+}: Props & { habit: HabitItem }) {
   // 存正在確認刪除哪一筆,不存布林值(同 TaskDetail)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
@@ -189,6 +201,35 @@ function HabitEditor({ habit, onUpdate, onTogglePause, onDelete }: Props & { hab
         <span>全期累計 {habit.totalLogs} 次</span>
         {/* 紀錄型沒有 streak */}
         {habit.target !== null && habit.streak !== null && <span>{streakLabel(habit.periodType, habit.streak)}</span>}
+      </div>
+
+      <div className={styles.field}>
+        <span className={styles.fieldLabel}>提醒</span>
+        <ReminderEditor
+          owner={{ habitId: habit.id }}
+          today={today}
+          onError={onError}
+          onChanged={onReminderChanged}
+        />
+      </div>
+
+      <div className={styles.field}>
+        <span className={styles.fieldLabel}>每日摘要</span>
+        <div>
+          <button
+            type="button"
+            className={styles.option}
+            aria-pressed={Boolean(habit.excludeFromSummary)}
+            aria-label="不進摘要"
+            onClick={() =>
+              void saveField('excludeFromSummary', {
+                excludeFromSummary: !habit.excludeFromSummary,
+              })
+            }
+          >
+            {habit.excludeFromSummary ? '不進摘要' : '進摘要'}
+          </button>
+        </div>
       </div>
 
       {/* 同一個按鈕原地換文字與動作:停止後焦點留在這裡,習慣移到「已停止」也不會掉到 body */}

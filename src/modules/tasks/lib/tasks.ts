@@ -10,6 +10,8 @@ export type Task = {
   createdAt: number
   // 置頂:在任何清單都固定在最上方的獨立區塊
   pinned: boolean
+  // 不進三則每日摘要
+  excludeFromSummary?: boolean
   // 重複規則產生的實例才有;有值時右欄顯示規則摘要,不顯示「重複」按鈕
   recurrenceRuleId: number | null
   occurrenceDate: string | null
@@ -51,6 +53,7 @@ export type TaskPatch = {
   priority?: number
   dueDate?: string | null
   pinned?: boolean
+  excludeFromSummary?: boolean
 }
 
 // 截止日彈窗的草稿。之後要加 dueTime 與重複規則,所以是物件不是單一字串

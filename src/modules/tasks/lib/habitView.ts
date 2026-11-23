@@ -13,6 +13,7 @@ export type HabitItem = {
   // null = 紀錄型:只記次數,沒有達成、沒有 streak
   target: number | null
   paused: boolean
+  excludeFromSummary?: boolean
   progress: { count: number; target: number | null; achieved: boolean | null }
   // 紀錄型為 null
   streak: number | null
@@ -26,6 +27,7 @@ export type HabitPatch = {
   name?: string
   periodType?: PeriodType
   target?: number | null
+  excludeFromSummary?: boolean
 }
 
 export function countOf(periodCounts: PeriodCount[]): number {

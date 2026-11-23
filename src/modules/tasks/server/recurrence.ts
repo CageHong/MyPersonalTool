@@ -390,9 +390,11 @@ export function updateRule(
       nextTemplate !== undefined &&
       (nextTemplate.length !== currentTemplate.length ||
         nextTemplate.some((title, i) => title !== currentTemplate[i]))
-    const ruleChanged = (Object.keys(merged) as (keyof typeof merged)[]).some(
-      (key) => merged[key] !== existing[key],
-    )
+    const scheduleKeys = ['freq', 'interval', 'weekdays', 'startDate', 'until'] as const
+    const contentKeys = ['title', 'notes', 'priority', 'excludeFromSummary'] as const
+    const scheduleChanged = scheduleKeys.some((key) => merged[key] !== existing[key])
+    const contentChanged = contentKeys.some((key) => merged[key] !== existing[key])
+    const ruleChanged = scheduleChanged || contentChanged
 
     // 沒有實際變化就不重生實例(上面的補齊照常保留)
     if (!ruleChanged && !templateChanged) {
@@ -410,13 +412,55 @@ export function updateRule(
       insertTemplate(tx, ruleId, nextTemplate)
     }
 
-    deleteFutureIncomplete(tx, ruleId, today)
-    // 從明天起用新規則重新產生;今天的實例屬於舊規則,不補(見 decisions §8)
-    tx.update(taskRecurrenceRule)
-      .set({ generatedThrough: today })
-      .where(eq(taskRecurrenceRule.id, ruleId))
-      .run()
-    fillRule(tx, selectRule(tx, ruleId), today)
+    if (scheduleChanged) {
+      deleteFutureIncomplete(tx, ruleId, today)
+      // 從明天起用新規則重新產生;今天的實例屬於舊規則,不補(見 decisions §8)
+      tx.update(taskRecurrenceRule)
+        .set({ generatedThrough: today })
+        .where(eq(taskRecurrenceRule.id, ruleId))
+        .run()
+      fillRule(tx, selectRule(tx, ruleId), today)
+    } else {
+      const futureIncompleteCondition = and(
+        eq(task.recurrenceRuleId, ruleId),
+        gt(task.occurrenceDate, today),
+        isNull(task.completedAt),
+      )
+      if (contentChanged) {
+        tx.update(task)
+          .set({
+            title: merged.title,
+            notes: merged.notes,
+            priority: merged.priority,
+            excludeFromSummary: merged.excludeFromSummary,
+          })
+          .where(futureIncompleteCondition)
+          .run()
+      }
+      if (nextTemplate !== undefined && templateChanged) {
+        const futureInstances = tx
+          .select({ id: task.id })
+          .from(task)
+          .where(futureIncompleteCondition)
+          .all()
+        const timestamp = now()
+        for (const instance of futureInstances) {
+          tx.delete(taskChecklistItem).where(eq(taskChecklistItem.taskId, instance.id)).run()
+          nextTemplate.forEach((title, position) => {
+            tx.insert(taskChecklistItem)
+              .values({
+                taskId: instance.id,
+                title,
+                position,
+                completedAt: null,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+              })
+              .run()
+          })
+        }
+      }
+    }
 
     return selectRuleDetail(tx, ruleId)
   })
@@ -447,4 +491,14 @@ export function stopRule(ruleId: number, today: string): RecurrenceRuleDetail {
 // 已停止的規則照樣回傳(endedAt 有值)
 export function getRule(ruleId: number): RecurrenceRuleDetail {
   return selectRuleDetail(db, ruleId)
+}
+
+// 只列進行中的規則(endedAt 為 null),依 id 升冪
+export function listRules(): RecurrenceRule[] {
+  return db
+    .select()
+    .from(taskRecurrenceRule)
+    .where(isNull(taskRecurrenceRule.endedAt))
+    .orderBy(asc(taskRecurrenceRule.id))
+    .all()
 }
