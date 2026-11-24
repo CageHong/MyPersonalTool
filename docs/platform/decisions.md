@@ -26,6 +26,7 @@
 | 決策 | 理由 |
 |---|---|
 | REST 風格,錯誤碼三種:`VALIDATION_FAILED`(400)、`NOT_FOUND`(404)、`INTERNAL_ERROR`(500) | 所有工具共用同一套錯誤形狀 |
+| 不屬於任何工具的平台 API 用 `/api/platform/` 開頭(2026-11-24,第一個是 App 圖示 `/api/platform/icon`);`platform` 保留給平台,不能當工具 id | 「網址一律 `/api/<工具>/` 開頭」原本沒有平台的位置;給平台一個固定的命名空間,規則仍然沒有例外 |
 
 ## 3. 樣式基礎(`src/app/globals.css`)
 
@@ -149,6 +150,7 @@
 | SQLite 改開 WAL(目前沒開) | 正式版、開發版、runner 會同時讀寫同一份正式資料 |
 | 接受 MacBook 睡眠時全部停止。runner 找「到期而且還沒送」的提醒,醒來時補送;太舊的跳過不送 | 使用者接受睡眠的限制;補送讓睡眠不會漏提醒,跳過避免一次湧進一堆 |
 | 打開方式:Safari 的「加入 Dock」 | 不用碰終端機,用起來像一般 app |
+| App 圖示屬於資料,不進 git:放在 `<資料夾>/platform/icon.png`(只認這個檔名),由 `/api/platform/icon` 每次請求讀檔;不符合規範(PNG、正方形、至少 180×180)或不存在時用 `src/platform/assets/default-icon.png`,不符合時在 log 記原因(2026-11-24) | 換圖示不用 commit、不用重新 build 或 deploy。放棄:圖示放 repo 的 `src/app/apple-icon.png`(每次換都要 commit + deploy)、在 app 裡做上傳頁(換圖不常發生,不值得)、在伺服器縮圖(要加影像套件;Dock 與手機都能直接用大圖)。限制:Safari 只在「加入 Dock」時複製一次圖示,換圖後要重新加入 Dock |
 | 跑法相關的檔案(launchd plist、deploy 腳本)放 `deploy/macos/`,不混進 `src/` | 跑法是「這台機器怎麼跑」,不是程式的一部分;換機器(§10)只是多一種跑法 |
 | 每個 LaunchAgent 從自己的啟動腳本(`deploy/macos/bin/`)啟動,plist 的 `ProgramArguments` 不直接寫 `node`;`node` 的路徑由 plist 的環境變數 `NODE_BIN` 帶入(2026-11-22 補) | macOS 的背景項目管理(BTM)用 `ProgramArguments` 的第一個執行檔辨識背景項目。web 與 notify 原本都登記成同一個 ad-hoc 簽章的 Homebrew `node`,notify 每 15 分鐘跑一次,每次都跳「已加入背景項目:node」通知;改成各自的腳本,讓兩個 job 的執行檔分開。改完後只在重新安裝時各跳一次新項目通知,之後排程執行不再通知(2026-11-22 18:15 的排程執行確認) |
 

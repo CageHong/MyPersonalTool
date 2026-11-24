@@ -72,6 +72,14 @@ launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.personal-tool
 launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.personal-tools.notify.plist"
 ```
 
+## 換 App 圖示
+
+1. 準備一張 PNG,正方形、至少 180×180(建議 512×512 以上)
+2. 存成 `personal-tools-data/platform/icon.png`(用 Finder 拖進去覆蓋即可;只認這個檔名,其他檔案會被忽略,備用的圖可以放在旁邊)
+3. 不用重新 deploy。瀏覽器分頁重新整理就會換;Dock 上的 App 要從 Dock 移除、把 `~/Applications` 裡的舊 App 丟到垃圾桶,再用 Safari 打開 `http://localhost:3100` →「檔案」→「加入 Dock」
+
+圖不符合規範時會改用預設圖示,原因寫在 `~/Library/Logs/personal-tools/web.stderr.log`(搜尋 `[icon]`)。
+
 ## 移除
 
 ```bash

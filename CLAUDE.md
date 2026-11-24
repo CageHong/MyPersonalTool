@@ -16,7 +16,7 @@
 |---|---|---|
 | `src/modules/tasks/`、`src/app/tasks/`、`src/app/api/tasks/` | tasks | `.claude/rules/tasks.md` |
 | `src/modules/finance/`、`src/app/finance/`、`src/app/api/finance/`、`packages/statement-parsers/`、`packages/receipt-parsers/` | finance | `.claude/rules/finance.md` |
-| `src/platform/`、`src/app/api/_lib/`、`src/app/globals.css`、`src/app/layout.tsx`、`src/app/page.tsx`、根目錄的設定檔 | 平台 | 本檔、`docs/platform/` |
+| `src/platform/`、`src/app/api/_lib/`、`src/app/api/platform/`、`src/app/globals.css`、`src/app/layout.tsx`、`src/app/page.tsx`、根目錄的設定檔 | 平台 | 本檔、`docs/platform/` |
 
 工具規則可以比本檔嚴,不能放寬;看起來衝突時先停下來問。新增工具時:加一個 `.claude/rules/<工具>.md`(`paths` 涵蓋上表那幾類位置),並在上表加一列。
 
@@ -47,7 +47,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
 ## 目錄結構
 
 - `src/app/<工具>/` — 頁面(網址 `/<工具>`);`src/app/page.tsx` 是首頁(各工具的入口)
-- `src/app/api/<工具>/` — route handler(網址一律以 `/api/<工具>/` 開頭,沒有例外)
+- `src/app/api/<工具>/` — route handler(網址一律以 `/api/<工具>/` 開頭,沒有例外;不屬於任何工具的平台 API 用 `/api/platform/`,`platform` 不能當工具 id)
 - `src/app/api/_lib/` — route handler 共用的 HTTP 輔助函式
 - `src/app/globals.css` — 全站共用的 CSS 變數(`:root`)
 - `src/modules/<工具>/` — 一個工具的全部程式:
@@ -57,7 +57,7 @@ Next.js 的正確寫法一律查 `node_modules/next/dist/docs/01-app/`。
   - `lib/` — 前後端共用的純函式與型別(不碰資料庫與檔案系統)
   - `drizzle/` — migration 檔(進版控);設定在 `drizzle.config.ts`,用 `npm run <工具>:db:generate` 產生。套用一律經過 `src/platform/migrations.ts` 的 `runMigrations`(`npm run <工具>:db:migrate` 是工具自己的 `tools/migrate.ts`),不直接用 `drizzle-kit migrate` 或 Drizzle 的 `migrate`。每個工具有一支測試(`db/migrations.test.ts`)檢查最新的 migration 不會弄丟資料;它的種子照倒數第二版的 schema 寫,migration 改到種子用到的欄位時跟著更新。已經套用過的 migration 不改 `meta/_journal.json` 的 `when`(Drizzle 用它判斷哪些還沒套用)
   - 工具額外的資料夾寫在工具規則檔
-- `src/platform/` — 各工具共用、不屬於任何一個工具的程式:資料夾位置 `dataDir.ts`、套用 migration 的 `migrations.ts`、業務錯誤的基底 `errors.ts`;測試輔助在 `testing/`
+- `src/platform/` — 各工具共用、不屬於任何一個工具的程式:資料夾位置 `dataDir.ts`、套用 migration 的 `migrations.ts`、業務錯誤的基底 `errors.ts`、App 圖示 `icon.ts`(預設圖在 `assets/`);測試輔助在 `testing/`
 - `packages/<套件>/` — npm workspaces 的套件(目前有 `statement-parsers`、`receipt-parsers`):不匯入 `src/` 的任何東西;`src/` 的程式從套件名稱 `@personal-tools/<套件>` 匯入
 - 資料庫不在 repo 裡:`<資料夾>/<工具>/`,資料夾由 `PERSONAL_TOOLS_DATA_DIR` 指定,預設是 repo 旁邊的 `personal-tools-data/`
 
