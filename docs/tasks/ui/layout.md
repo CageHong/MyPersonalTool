@@ -12,7 +12,9 @@
 | 任務清單 | 頂端是新增列,下方是任務列;點任務列選取它 |
 | 編輯欄 | 顯示被選取的任務,各欄位可編輯 |
 
-本輪的智慧檢視只有查詢條件,沒有自訂清單表:今天、未來 7 天、全部未完成、已完成。另外有「習慣」(`view=habits`,中欄換成習慣清單、右欄換成習慣的編輯面板,見 `docs/tasks/ui/habits.md`)與左欄底部的「提醒」(`view=reminders`,中欄與右欄整組換成提醒管理面板,見 `docs/tasks/ui/reminders.md`)。
+本輪的智慧檢視只有查詢條件,沒有自訂清單表:今天、未來 7 天、全部未完成、已完成。另外有「習慣」(`view=habits`,中欄換成習慣清單、右欄換成習慣的編輯面板,見 `docs/tasks/ui/habits.md`)與左欄底部的「提醒」(`view=reminders`,中欄與右欄整組換成提醒管理面板,見 `docs/tasks/ui/reminders.md`)、「垃圾桶」(`view=trash`,排在左欄最底端)。
+
+**垃圾桶視圖(`view=trash`)**：中欄(`TrashList`)抓取 `GET /api/tasks/trash`,依刪除時間由新到舊列出,沒有新增列、沒有分組排序設定、沒有勾選框;標題列右側在非空時顯示「清空垃圾桶」(經 `ConfirmDialog` 確認)。右欄(`TrashDetail`)唯讀顯示欄位與 checklist(不顯示提醒編輯器),底部提供「還原」與「永久刪除」(經 `ConfirmDialog` 確認)。一般任務右欄(`TaskDetail`)的「刪除」改為軟刪除移進垃圾桶,不跳確認也不顯示復原提示。垃圾桶的寫入(還原、永久刪除、清空)走同一條佇列,成功後重抓 `GET /api/tasks/tasks` 與 `GET /api/tasks/trash` 並沿用焦點遞補規則。
 
 **中欄頂端是標題列:清單名稱加分組與排序的選單**(`ViewSettingsMenu`)。選單有三組單選:分組(不分組 / 日期 / 優先級)、排序(建立時間 / 截止日 / 優先級 / 標題)、順序(兩個方向,說法跟著排序欄位走)。點選即存、選完不關;換排序欄位時方向回到該欄位的起始方向。每個清單各存一份,存在伺服器(`task_list_view`),寫入後重抓 `GET /api/tasks/list-views`,不做樂觀更新。
 

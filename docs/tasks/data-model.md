@@ -28,10 +28,11 @@
 | `pinned` | integer(布林)預設 false | 否 | 置頂,全域語意:在任何清單都進最上方的置頂區塊。只收布林值 |
 | `editedAt` | integer (Unix 秒) | 是 | `null` = 建立後未被編輯過;`0` = 欄位上線前既有的未完成重複實例,是否編輯過未知 |
 | `excludeFromSummary` | integer(布林)預設 false | 否 | 不進三則每日摘要;不影響個別提醒 |
+| `deletedAt` | integer (Unix 秒) | 是 | `null` = 未刪除;有值 = 在垃圾桶(軟刪除,見 decisions §6h) |
 
 ### 時間處理規則
 
-- 絕對瞬間一律存 **Unix 秒數整數**(`createdAt`、`completedAt`、`scheduledAt`)。
+- 絕對瞬間一律存 **Unix 秒數整數**(`createdAt`、`completedAt`、`scheduledAt`、`deletedAt`)。
 - `dueDate` 是**日曆日**,存文字 `YYYY-MM-DD`,不要轉成時間戳(理由見 `docs/tasks/decisions.md` §2)。
 - `dueDate`、`startDate` 必須是真實存在的日曆日(`isCalendarDate`,在 `src/modules/tasks/server/validation.ts`);`2026-02-30` 這種形狀合法但不存在的日期回 `invalid_format`。
 - `dueTime` 與 `dueDate` 分開,因為「9/10 到期」和「9/10 15:00 到期」語意不同。
@@ -57,6 +58,16 @@
 - 收 `CreateTaskInput[]`,1 到 100 筆(`BATCH_MAX`,與 `src/modules/tasks/lib/bulk.ts` 的 `BULK_MAX_LINES` 同值);空陣列或不是陣列 → `tasks: required`,超過 → `tasks: too_many`。
 - 驗證在寫入前全部做完,錯誤的 key 是「索引.欄位」(例:`1.title: required`)。
 - 整批在一個 transaction 裡寫入,共用同一個 `createdAt`;順序靠 id 遞增保住。
+
+### 軟刪除與垃圾桶(`server/trash.ts`)
+
+- `deleteTask(id)` 改為軟刪除:把 `deletedAt` 設為當下 Unix 秒(不動其他欄位含 `editedAt`),checklist 與提醒保留;已在垃圾桶或找不到回 `NotFoundError`。
+- 查詢預設排除垃圾桶:`listTasks()`、`updateTask`、checklist 寫入(新增、修改、刪除、排序)、提醒查詢與寫入(`listReminders`、`createReminder`、`updateReminder`、`deleteReminder`)、`createRuleFromTask` 都把垃圾桶內任務當作不存在(`NotFoundError`)。唯一例外是 `listChecklistItems(taskId)`,供垃圾桶右欄唯讀顯示。
+- `listTrash()` 只列 `deletedAt IS NOT NULL`,依 `deletedAt` 降冪、再以 `id` 降冪排序。
+- `restoreTask(id)` 把垃圾桶內任務的 `deletedAt` 清回 `null` 並回傳;非垃圾桶任務回 `NotFoundError`。
+- `purgeTask(id)` 永久硬刪單筆垃圾桶任務(非垃圾桶回 `NotFoundError`),`emptyTrash()` 硬刪全部垃圾桶任務並回傳刪除筆數;兩者透過外鍵 `ON DELETE CASCADE` 一併刪除 checklist 與提醒。
+- 重複任務:改排程與停止重複呼叫的 `deleteFutureIncomplete` 連垃圾桶裡的未來未完成實例一起硬刪;「錯過就跳過」(`deleteMissedUntouched`)與非排程欄位的就地更新不動垃圾桶裡的實例。
+- 垃圾桶任務不進摘要也不發個別提醒(通知層透過 `listTasks()` 取任務),還原後同日內恢復提醒。
 
 ## `task_list_view`
 

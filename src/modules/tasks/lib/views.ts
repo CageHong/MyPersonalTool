@@ -1,10 +1,10 @@
 import { addDays } from './date'
 import type { Task } from './tasks'
 
-// habits、reminders 不是任務的查詢條件:中欄與右欄整組換掉
-export type ViewId = 'today' | 'next7' | 'open' | 'done' | 'habits' | 'reminders'
+// habits、reminders、trash 不是一般任務清單的查詢條件:中欄與右欄各有對應元件
+export type ViewId = 'today' | 'next7' | 'open' | 'done' | 'habits' | 'reminders' | 'trash'
 
-// 順序即分類欄的顯示順序(reminders 在左欄底部)
+// 順序即分類欄的顯示順序(reminders 與 trash 在左欄底部,trash 在最後)
 export const VIEWS: { id: ViewId; label: string }[] = [
   { id: 'today', label: '今天' },
   { id: 'next7', label: '未來 7 天' },
@@ -12,6 +12,7 @@ export const VIEWS: { id: ViewId; label: string }[] = [
   { id: 'done', label: '已完成' },
   { id: 'habits', label: '習慣' },
   { id: 'reminders', label: '提醒' },
+  { id: 'trash', label: '垃圾桶' },
 ]
 
 // 新增的任務預設沒有 dueDate,落在「今天」會看不到它;預設用未完成的超集
@@ -124,9 +125,10 @@ function filterByView(tasks: Task[], view: ViewId, today: string): Task[] {
       return tasks.filter((task) => task.completedAt === null)
     case 'done':
       return tasks.filter((task) => task.completedAt !== null)
-    // 習慣與提醒視圖不畫任務清單;回空陣列,網址上的 task 會被 ThreeColumnLayout 的 effect 清掉
+    // 習慣、提醒、垃圾桶視圖不走一般任務清單篩選;回空陣列
     case 'habits':
     case 'reminders':
+    case 'trash':
       return []
   }
 }

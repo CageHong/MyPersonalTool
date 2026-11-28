@@ -15,6 +15,8 @@ export type Task = {
   // 重複規則產生的實例才有;有值時右欄顯示規則摘要,不顯示「重複」按鈕
   recurrenceRuleId: number | null
   occurrenceDate: string | null
+  // Unix 秒;null 或未傳表示未在垃圾桶,有值表示在垃圾桶內
+  deletedAt?: number | null
 }
 
 export type NewTask = {

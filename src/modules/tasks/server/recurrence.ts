@@ -125,7 +125,7 @@ function insertTemplate(tx: Tx, ruleId: number, titles: string[]): void {
   })
 }
 
-// 改規則與停止重複共用的邊界:只動今天之後、未完成的實例。
+// 改規則與停止重複共用的邊界:只動今天之後、未完成的實例(連垃圾桶裡的一起硬刪,見 decisions §6h)。
 // 今天的、逾期的、已完成的都是已經發生的紀錄,不被規則變更改寫。checklist 隨 cascade 刪除
 function deleteFutureIncomplete(tx: Tx, ruleId: number, today: string): void {
   tx.delete(task)
@@ -140,12 +140,14 @@ function deleteFutureIncomplete(tx: Tx, ruleId: number, today: string): void {
 }
 
 // 錯過就跳過（decisions §6a）：刪掉未完成、occurrenceDate 與 dueDate 都早於今天、且未編輯過的實例（checklist 依 cascade 一起刪）
+// 垃圾桶裡的實例不動（decisions §6h）
 function deleteMissedUntouched(tx: Tx, ruleId: number, today: string): void {
   tx.delete(task)
     .where(
       and(
         eq(task.recurrenceRuleId, ruleId),
         isNull(task.completedAt),
+        isNull(task.deletedAt),
         lt(task.occurrenceDate, today),
         lt(task.dueDate, today),
         isNull(task.editedAt),
@@ -236,7 +238,12 @@ export function createRuleFromTask(
   }
 
   return db.transaction((tx) => {
-    const [source] = tx.select().from(task).where(eq(task.id, taskId)).limit(1).all()
+    const [source] = tx
+      .select()
+      .from(task)
+      .where(and(eq(task.id, taskId), isNull(task.deletedAt)))
+      .limit(1)
+      .all()
     if (!source) {
       throw new NotFoundError(taskId)
     }
@@ -425,6 +432,7 @@ export function updateRule(
         eq(task.recurrenceRuleId, ruleId),
         gt(task.occurrenceDate, today),
         isNull(task.completedAt),
+        isNull(task.deletedAt),
       )
       if (contentChanged) {
         tx.update(task)

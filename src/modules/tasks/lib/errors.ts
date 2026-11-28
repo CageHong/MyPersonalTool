@@ -91,6 +91,11 @@ export function reminderMessage(code: GeneralCode): string {
   return code === 'NOT_FOUND' ? '找不到這則提醒,可能已經被刪除了' : generalMessage(code)
 }
 
+// 垃圾桶寫入(還原、永久刪除)的泛用錯誤。404 代表任務可能已被還原或永久刪除
+export function trashMessage(code: GeneralCode): string {
+  return code === 'NOT_FOUND' ? '找不到這個任務,可能已被還原或永久刪除' : generalMessage(code)
+}
+
 // 習慣計數失敗:畫面已經從樂觀值還原成伺服器上的次數,訊息要講明,不能靜靜還原。
 // 400 多半是習慣剛被停止(停止中不能記錄)或畫面不是最新的
 export function habitCountMessage(code: GeneralCode): string {

@@ -33,6 +33,8 @@ export const task = sqliteTable(
     editedAt: integer('edited_at'),
     // 不進三則每日摘要;不影響個別提醒(decisions §6j)
     excludeFromSummary: integer('exclude_from_summary', { mode: 'boolean' }).notNull().default(false),
+    // Unix 秒;null = 未刪除,有值 = 在垃圾桶(decisions §6h)
+    deletedAt: integer('deleted_at'),
   },
   // 同一規則同一天只有一個實例:補齊重跑或並發時靠它擋重複。NULL 彼此相異,一般任務不受影響
   (table) => [

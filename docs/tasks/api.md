@@ -10,11 +10,15 @@
 
 | 方法 | 路徑 | 說明 |
 |---|---|---|
-| GET | `/api/tasks/tasks` | 列出全部;查詢前先補齊重複實例,所以不是 safe,但冪等(水位線 + 唯一鍵) |
+| GET | `/api/tasks/tasks` | 列出全部未進垃圾桶的任務;查詢前先補齊重複實例,所以不是 safe,但冪等(水位線 + 唯一鍵) |
 | POST | `/api/tasks/tasks` | 建立;不可設定 `recurrenceRuleId`、`occurrenceDate`(收到回 `VALIDATION_FAILED`,值為 `not_allowed`) |
 | POST | `/api/tasks/tasks/batch` | 批次建立 `{ tasks: [...] }`(每筆同 POST `/api/tasks/tasks` 的 body),1 到 100 筆,整批成功才寫入;成功 201,回傳陣列。錯誤的 `fields` key 是「索引.欄位」 |
-| PATCH | `/api/tasks/tasks/:id` | 部分更新 `{ title?, notes?, dueDate?, dueTime?, scheduledAt?, durationMinutes?, priority?, parentTaskId?, pinned?, excludeFromSummary?, done? }`;不收 `completedAt`;不可設定 `recurrenceRuleId`、`occurrenceDate`(`not_allowed`);回傳的 task 含唯讀欄位 `editedAt` |
-| DELETE | `/api/tasks/tasks/:id` | 刪除 |
+| PATCH | `/api/tasks/tasks/:id` | 部分更新 `{ title?, notes?, dueDate?, dueTime?, scheduledAt?, durationMinutes?, priority?, parentTaskId?, pinned?, excludeFromSummary?, done? }`;不收 `completedAt`;不可設定 `recurrenceRuleId`、`occurrenceDate`(`not_allowed`);垃圾桶內任務回 404;回傳的 task 含唯讀欄位 `editedAt`、`deletedAt` |
+| DELETE | `/api/tasks/tasks/:id` | 軟刪除(移至垃圾桶,checklist 與提醒保留);已在垃圾桶回 404;成功 204 |
+| GET | `/api/tasks/trash` | 列出垃圾桶裡的任務,依 `deletedAt` 降冪、再以 `id` 降冪排序 |
+| DELETE | `/api/tasks/trash` | 清空垃圾桶(永久硬刪所有垃圾桶任務,連同 checklist 與提醒);成功 200,回 `{ deleted: number }` |
+| POST | `/api/tasks/trash/:id/restore` | 還原垃圾桶裡的任務(非垃圾桶任務回 404);沒有 body;成功 200,回還原後的任務 |
+| DELETE | `/api/tasks/trash/:id` | 永久硬刪單筆垃圾桶任務(非垃圾桶任務回 404),連同 checklist 與提醒;成功 204 |
 | GET | `/api/tasks/tasks/:id/checklist-items` | 列出該任務的 checklist 項目(依 position) |
 | POST | `/api/tasks/tasks/:id/checklist-items` | 新增項目,放在最後 |
 | POST | `/api/tasks/tasks/:id/checklist-items/batch` | 批次新增 `{ titles: [...] }`,1 到 100 筆,整批放在最後,整批成功才寫入;成功 201 |

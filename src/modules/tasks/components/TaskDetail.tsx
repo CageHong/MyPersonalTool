@@ -1,5 +1,4 @@
 import { useId, useRef, useState } from 'react'
-import ConfirmDialog from './ConfirmDialog'
 import DueDateDialog from './DueDateDialog'
 import DueDateTrigger from './DueDateTrigger'
 import PriorityMenu from './PriorityMenu'
@@ -48,16 +47,14 @@ export default function TaskDetail({
   onUpdateRule,
   onReminderChanged,
 }: Props) {
-  // 存「正在確認刪除哪一筆」而不是布林值:換任務自動失效,刪除成功或失敗後都清成 null
-  const [confirmingId, setConfirmingId] = useState<number | null>(null)
   // 欄位錯誤集中放這一層:訊息畫在欄位下方的 .field 裡,四個欄位共用同一套。
   // 生命週期綁在掛載上:ThreeColumnLayout 用 key={task.id} 渲染這個元件,
   // 換任務就重新掛載,狀態自動回到 {},這裡不必再分辨錯誤屬於哪一筆
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   // 訊息元素的 id 不寫死,同一頁出現兩個右欄也不會撞
   const errorIdPrefix = useId()
-  // 刪除確認取消(或刪除失敗)後焦點回到刪除鈕
-  const deleteButtonRef = useRef<HTMLButtonElement>(null)
+  // 寫入排隊期間不停用刪除鈕,用 ref 擋掉連點重複送出
+  const deletePendingRef = useRef(false)
   // 日期選單有兩個觸發鈕:截止日(A)與實例的規則摘要(B)。記住是哪一個打開的,關閉時焦點回到它。
   // 兩個觸發鈕在送出後都還在(建立規則後摘要列才出現,但 A 一直都在),焦點不會掉到 body
   const [dateMenuOpener, setDateMenuOpener] = useState<'date' | 'summary' | null>(null)
@@ -162,20 +159,6 @@ export default function TaskDetail({
   return (
     // data-task-id:任務離開視圖時,ThreeColumnLayout 靠它認出焦點原本在右欄的哪個任務
     <article className={styles.detail} data-task-id={task.id}>
-      <ConfirmDialog
-        open={confirmingId === task.id}
-        title="刪除任務?"
-        description={`「${task.title}」刪除後無法復原。`}
-        confirmLabel="刪除"
-        // 失敗時 handleDelete 已經 setError,任務與選取不動;成功或失敗都關閉彈窗
-        onConfirm={async () => {
-          await onDelete(task.id)
-          setConfirmingId(null)
-        }}
-        onCancel={() => setConfirmingId(null)}
-        triggerRef={deleteButtonRef}
-      />
-
       <div className={styles.field}>
         <label className={styles.fieldLabel} htmlFor="task-title">
           標題
@@ -376,12 +359,19 @@ export default function TaskDetail({
 
       {/* 刪除放在最底部,和編輯欄位隔開 */}
       <div className={styles.footer}>
-        {/* 目前是硬刪除,所以需要確認;改成軟刪除後可拿掉確認,改成復原提示 */}
+        {/* 軟刪除移進垃圾桶,不跳確認也不顯示復原提示(decisions §6h) */}
         <button
-          ref={deleteButtonRef}
           type="button"
           className={styles.delete}
-          onClick={() => setConfirmingId(task.id)}
+          onClick={() => {
+            if (deletePendingRef.current) {
+              return
+            }
+            deletePendingRef.current = true
+            void onDelete(task.id).finally(() => {
+              deletePendingRef.current = false
+            })
+          }}
           aria-label={`刪除「${task.title}」`}
         >
           刪除

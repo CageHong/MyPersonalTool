@@ -1,0 +1,140 @@
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  color: var(--color-field-label);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.title {
+  color: var(--color-text);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.completed {
+  color: var(--color-row-done-text);
+  text-decoration: line-through;
+}
+
+.notes {
+  color: var(--color-text);
+  font-size: var(--text-base);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.value {
+  color: var(--color-text);
+  font-size: var(--text-sm);
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  list-style: none;
+}
+
+.checklistItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  color: var(--color-text);
+  font-size: var(--text-base);
+}
+
+.checklistDone .checklistTitle {
+  color: var(--color-checklist-done-text);
+  text-decoration: line-through;
+}
+
+.checklistTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 靜態唯讀勾選記號,外觀與 Checkbox 對齊但不接受互動 */
+.checkBox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  border: 2px solid var(--color-priority-none);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.checkBoxChecked {
+  border-color: var(--color-checkbox-checked-bg);
+  background: var(--color-checkbox-checked-bg);
+}
+
+.checkBoxChecked::after {
+  content: '';
+  width: 0.35em;
+  height: 0.6em;
+  border: solid var(--color-checkbox-check);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+.restoreButton {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-action-border);
+  border-radius: var(--radius);
+  background: var(--color-action-bg);
+  color: var(--color-action-text);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.delete {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--color-destructive-text);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.empty {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-subtle);
+  text-align: center;
+}

@@ -167,7 +167,43 @@
 
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
+  - `src/modules/tasks/db/schema.ts`：`task` 新增可空欄位 `deletedAt`（`deleted_at`，Unix 秒）。
+  - `src/modules/tasks/drizzle/0012_short_boomerang.sql`、`meta/0012_snapshot.json`、`meta/_journal.json`：由 `npm run tasks:db:generate` 產生 `ALTER TABLE task ADD deleted_at integer;`。
+  - `src/modules/tasks/db/migrations.test.ts`：`SEED` 依倒數第二版（`0011`）移除 `habit.reminder_time` 欄位；0008 測試未動。
+  - `src/modules/tasks/server/tasks.ts`：`listTasks`、`updateTask` 排除垃圾桶，`deleteTask` 改軟刪除（寫入 `deletedAt`，不動 `editedAt`，已在垃圾桶回 `NotFoundError`）。
+  - `src/modules/tasks/server/trash.ts`（新）：實作 `listTrash`、`restoreTask`、`purgeTask`、`emptyTrash`。
+  - `src/modules/tasks/server/checklist.ts`：拆 `assertLiveTaskExists`／`assertAnyTaskExists`，`listChecklistItems` 允許查垃圾桶任務，其餘寫入（含依 item id 的 `updateChecklistItem`、`deleteChecklistItem`）擋下垃圾桶任務。
+  - `src/modules/tasks/server/reminders.ts`：`assertOwnerExists` 對 `task` 加 `isNull(task.deletedAt)`，並在 `updateReminder`、`deleteReminder` 檢查所屬任務是否在垃圾桶。
+  - `src/modules/tasks/server/recurrence.ts`：`deleteMissedUntouched`、`createRuleFromTask`、`updateRule` 非排程就地更新加 `isNull(task.deletedAt)`；`deleteFutureIncomplete` 維持不加條件。
+  - `src/app/api/tasks/trash/route.ts`（新）：`GET` 呼叫 `listTrash()`、`DELETE` 呼叫 `emptyTrash()` 回 `200` `{ deleted }`。
+  - `src/app/api/tasks/trash/[id]/route.ts`（新）：`DELETE` 呼叫 `purgeTask(id)` 回 `204`。
+  - `src/app/api/tasks/trash/[id]/restore/route.ts`（新）：`POST` 呼叫 `restoreTask(id)` 回 `200` 還原後的任務。
+  - `src/modules/tasks/lib/tasks.ts`：`Task` 新增選填欄位 `deletedAt?: number | null`。
+  - `src/modules/tasks/lib/views.ts`：`ViewId` 加 `'trash'`，`VIEWS` 尾端加 `{ id: 'trash', label: '垃圾桶' }`，`filterByView` 加 `case 'trash': return []`。
+  - `src/modules/tasks/lib/errors.ts`：新增 `trashMessage`（404 顯示任務可能已被還原或永久刪除）。
+  - `src/modules/tasks/components/CategoryColumn.tsx`：補註解說明 `reminders` 的 `.bottomView` 將提醒與垃圾桶一併靠底。
+  - `src/modules/tasks/components/TaskDetail.tsx`：移除刪除確認對話框，點「刪除」直接軟刪除並以 `deletePendingRef` 防連點。
+  - `src/modules/tasks/components/TrashList.tsx`、`TrashList.module.css`（新）：垃圾桶中欄唯讀清單、標題列右側「清空垃圾桶」與 `ConfirmDialog`、保留 `data-task-id`/`data-task-control="row"` 供焦點遞補。
+  - `src/modules/tasks/components/TrashDetail.tsx`、`TrashDetail.module.css`（新）：垃圾桶右欄唯讀檢視（含唯讀 checklist 與重複摘要、不顯示提醒），底部「還原」（`restorePendingRef` 防連點）與「永久刪除」（`ConfirmDialog`）。
+  - `src/modules/tasks/components/ThreeColumnLayout.tsx`：整合垃圾桶狀態、`refetchTrash`、寫入佇列雙重抓（`GET /api/tasks/tasks` + `GET /api/tasks/trash`）、焦點遞補與中右欄切換。
+  - `docs/tasks/data-model.md`、`docs/tasks/api.md`、`docs/tasks/ui/layout.md`：同步記錄軟刪除欄位、API 端點與垃圾桶 UI 行為。
 - 沒做什麼、為什麼:
+  - 未改 `server/notifications.ts`：如預期完全透過 `listTasks` 排除垃圾桶任務，`notifications.test.ts` 全過。
+  - 未改 `TaskList.tsx`：比照 `HabitList` 獨立出 `TrashList`，不動既有過場與分組邏輯。
+  - 未處理有子任務的母任務（依 §6h 留給 §6g）；未改 `globals.css`（全程只使用既有語意變數）。
 - 每個完成條件怎麼驗證的:
+  - `npx next typegen && npx tsc --noEmit && npm run lint && npm test`：全部通過（0 type errors、0 lint errors/warnings、714/714 tests passed，含 `db/migrations.test.ts`、`trash.test.ts`、`notifications.test.ts`、`checklist.test.ts`、`reminders.test.ts`、`recurrence.test.ts`、`views.test.ts`）。
+  - 沙盒資料庫遷移：`PERSONAL_TOOLS_DATA_DIR=~/Developer/TT/gemini/personal-tools-data npm run tasks:db:migrate` 套用 `0012` 到沙盒 `tasks.db`（未碰正式 `personal-tools-data/`）。
+  - 沙盒 `npm run dev -- --port 3099` + Headless Chrome CDP 實測 4 個 UI 情境（皆通過、0 console/page exception，測試用假資料測畢已清空）：
+    1. 在「今天」選取含 2 筆 checklist 的任務點「刪除」→ 確認未開啟 `dialog[open]`、從「今天」消失、切至「垃圾桶」出現、點選後右欄顯示兩筆 checklist 且無任何可編輯 input/textarea/select。
+    2. 點「還原」→ 從垃圾桶消失、切回「今天」重新出現且兩筆 checklist 仍在。
+    3. 建立每日重複任務並完成今天實例，於「未來 7 天」刪除明天實例，整頁 reload 後驗證 `GET /api/tasks/tasks` 未再長出明天的實例。
+    4. 於「垃圾桶」點「永久刪除」→ 開啟 `dialog[open]` → 點「取消」任務仍在 → 再點並確認後移除；點「清空垃圾桶」→ 開啟 `dialog[open]` → 點「取消」任務仍在 → 再點並確認「清空」後顯示「垃圾桶是空的」。
 - 最可能出錯的地方:
+  - **`ThreeColumnLayout` 的 render 期切換偵測（`inTrashView`／`trashLoading`）**：
+    - 為什麼不會每次 render 都觸發：`inTrashView` 記錄上一次渲染是否處於 `view === 'trash'`。進入 `trash` 當次 render 時 `view === 'trash' && !inTrashView` 成立，立刻 `setInTrashView(true)` 與 `setTrashLoading(true)` 觸發同一次提交前的重繪；重繪時 `inTrashView` 已是 `true`，條件不再成立。之後只要停留在 `trash`（選取別筆、還原、永久刪除、清空）兩個分支都不會再進入。直接載入 `/tasks?view=trash` 時初值即為 `true`，連第一次也不會觸發額外 render。
+    - 從垃圾桶切回其他視圖時狀態怎麼收：`view !== 'trash' && inTrashView` 成立一次，把 `inTrashView` 與 `trashLoading` 都重設為 `false`；同時抓取垃圾桶的 `useEffect` cleanup 會呼叫 `controller.abort()`，中止尚未回來的 `GET /api/tasks/trash`（`aborted` 時不寫 `trashedTasks`、`error`、`trashLoading`）。
+  - **React Compiler 與 `refetchTrash` 的 memoization**：`flushSync(() => { setTrashedTasks(next) })` 讓 React Compiler 推斷 `setTrashedTasks` 為依賴，因此在 `useCallback` 依賴陣列顯式放入 `[setTrashedTasks]` 通過 lint；若日後重構這段要保留此依賴。
+  - **垃圾桶寫入與 `mutate` 的雙重抓**：還原／永久刪除／清空時以 `Promise.all([refetch(), refetchTrash()])` 重抓並各自 `flushSync`，若 `tasks` 與 `trash` 其中一支失敗會回報第一個錯誤且不動焦點；但若主寫入已成功而其中一支重抓失敗，前端兩份清單可能短暫不一致，直到下次重抓補齊。
 - 疑問:
+  - 無。

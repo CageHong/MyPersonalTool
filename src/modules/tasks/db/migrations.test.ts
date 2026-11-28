@@ -22,7 +22,7 @@ INSERT INTO task (id, title, created_at, recurrence_rule_id, occurrence_date) VA
   (1, 'Water plants', 0, 1, '2030-01-01');
 INSERT INTO task (id, title, created_at, parent_task_id) VALUES (2, 'Buy soil', 0, 1);
 INSERT INTO task_checklist_item (task_id, title, position, created_at, updated_at) VALUES (1, 'Kitchen', 0, 0, 0);
-INSERT INTO habit (id, name, period_type, target, sort_order, reminder_time, created_at) VALUES (1, 'Read', 'weekly', 3, 0, '09:00', 0);
+INSERT INTO habit (id, name, period_type, target, sort_order, created_at) VALUES (1, 'Read', 'weekly', 3, 0, 0);
 INSERT INTO habit_log (habit_id, date, created_at) VALUES (1, '2030-01-02', 0);
 INSERT INTO habit_pause (habit_id, start_date) VALUES (1, '2030-02-01');
 INSERT INTO habit_settings_history (habit_id, period_type, target, effective_from) VALUES (1, 'weekly', 3, '2030-01-01');

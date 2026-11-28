@@ -1,4 +1,4 @@
-import { asc, eq, sql, type SQL } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql, type SQL } from 'drizzle-orm'
 import { localDate } from '@/platform/date'
 import { db } from '../db'
 import { task } from '../db/schema'
@@ -130,6 +130,7 @@ export function listTasks(options: ListTasksOptions = {}): Task[] {
   return db
     .select()
     .from(task)
+    .where(isNull(task.deletedAt))
     .orderBy(...SORT_ORDERS[options.sort ?? 'default'])
     .all()
 }
@@ -242,7 +243,12 @@ export function updateTask(id: number, patch: UpdateTaskPatch): Task {
   }
 
   return db.transaction((tx) => {
-    const [existing] = tx.select().from(task).where(eq(task.id, id)).limit(1).all()
+    const [existing] = tx
+      .select()
+      .from(task)
+      .where(and(eq(task.id, id), isNull(task.deletedAt)))
+      .limit(1)
+      .all()
     if (!existing) {
       throw new NotFoundError(id)
     }
@@ -271,8 +277,14 @@ export function updateTask(id: number, patch: UpdateTaskPatch): Task {
   })
 }
 
+// 軟刪除:移至垃圾桶,不動其他欄位(含 editedAt),checklist 與提醒保留(decisions §6h)
 export function deleteTask(id: number): void {
-  const [deleted] = db.delete(task).where(eq(task.id, id)).returning({ id: task.id }).all()
+  const [deleted] = db
+    .update(task)
+    .set({ deletedAt: Math.floor(Date.now() / 1000) })
+    .where(and(eq(task.id, id), isNull(task.deletedAt)))
+    .returning({ id: task.id })
+    .all()
   if (!deleted) {
     throw new NotFoundError(id)
   }

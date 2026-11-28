@@ -1,4 +1,4 @@
-import { asc, eq, max } from 'drizzle-orm'
+import { and, asc, eq, isNull, max } from 'drizzle-orm'
 import { db } from '../db'
 import { task, taskChecklistItem } from '../db/schema'
 import { BULK_MAX_LINES } from '../lib/bulk'
@@ -22,7 +22,20 @@ function markTaskEdited(tx: Tx, taskId: number, timestamp: number): void {
   tx.update(task).set({ editedAt: timestamp }).where(eq(task.id, taskId)).run()
 }
 
-function assertTaskExists(executor: typeof db | Tx, taskId: number): void {
+function assertLiveTaskExists(executor: typeof db | Tx, taskId: number): void {
+  const [found] = executor
+    .select({ id: task.id })
+    .from(task)
+    .where(and(eq(task.id, taskId), isNull(task.deletedAt)))
+    .limit(1)
+    .all()
+  if (!found) {
+    throw new NotFoundError(taskId)
+  }
+}
+
+// 查詢 checklist 例外允許垃圾桶內的任務:右欄要唯讀顯示(decisions §6h)
+function assertAnyTaskExists(executor: typeof db | Tx, taskId: number): void {
   const [found] = executor
     .select({ id: task.id })
     .from(task)
@@ -51,7 +64,7 @@ function assertTitle(title: unknown): asserts title is string {
 }
 
 export function listChecklistItems(taskId: number): ChecklistItem[] {
-  assertTaskExists(db, taskId)
+  assertAnyTaskExists(db, taskId)
   return selectItems(db, taskId)
 }
 
@@ -61,7 +74,7 @@ export function createChecklistItem(taskId: number, title: string): ChecklistIte
   // 查任務與取最大 position 放在同一個 transaction,新項目才一定排在最後
   return db.transaction((tx) => {
     // 先查,不讓外鍵錯誤變成 500
-    assertTaskExists(tx, taskId)
+    assertLiveTaskExists(tx, taskId)
 
     const [{ last }] = tx
       .select({ last: max(taskChecklistItem.position) })
@@ -107,7 +120,7 @@ export function createChecklistItems(taskId: number, titles: string[]): Checklis
   }
 
   return db.transaction((tx) => {
-    assertTaskExists(tx, taskId)
+    assertLiveTaskExists(tx, taskId)
 
     const [{ last }] = tx
       .select({ last: max(taskChecklistItem.position) })
@@ -155,6 +168,7 @@ export function updateChecklistItem(id: number, patch: UpdateChecklistItemPatch)
     if (!existing) {
       throw new NotFoundError(id)
     }
+    assertLiveTaskExists(tx, existing.taskId)
 
     // 只收集真的會改變的欄位:重複勾選保留原本的完成時間,值沒變就不動 updatedAt
     const updates: Partial<Pick<ChecklistItem, 'title' | 'completedAt'>> = {}
@@ -188,15 +202,18 @@ export function updateChecklistItem(id: number, patch: UpdateChecklistItemPatch)
 // 其餘項目的 position 不重編,留下空號不影響排序
 export function deleteChecklistItem(id: number): void {
   db.transaction((tx) => {
-    const [deleted] = tx
-      .delete(taskChecklistItem)
+    const [existing] = tx
+      .select({ id: taskChecklistItem.id, taskId: taskChecklistItem.taskId })
+      .from(taskChecklistItem)
       .where(eq(taskChecklistItem.id, id))
-      .returning({ id: taskChecklistItem.id, taskId: taskChecklistItem.taskId })
+      .limit(1)
       .all()
-    if (!deleted) {
+    if (!existing) {
       throw new NotFoundError(id)
     }
-    markTaskEdited(tx, deleted.taskId, now())
+    assertLiveTaskExists(tx, existing.taskId)
+    tx.delete(taskChecklistItem).where(eq(taskChecklistItem.id, id)).run()
+    markTaskEdited(tx, existing.taskId, now())
   })
 }
 
@@ -204,7 +221,7 @@ export function deleteChecklistItem(id: number): void {
 // 順序是清單的屬性,不是項目內容,所以不動 updatedAt
 export function reorderChecklistItems(taskId: number, itemIds: number[]): ChecklistItem[] {
   return db.transaction((tx) => {
-    assertTaskExists(tx, taskId)
+    assertLiveTaskExists(tx, taskId)
 
     const currentIds = new Set(selectItems(tx, taskId).map((item) => item.id))
     const matches =

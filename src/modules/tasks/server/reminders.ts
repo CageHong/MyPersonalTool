@@ -1,4 +1,4 @@
-import { asc, count, eq } from 'drizzle-orm'
+import { and, asc, count, eq, isNull } from 'drizzle-orm'
 import { localDate, localTime } from '@/platform/date'
 import { db } from '../db'
 import { habit, task, taskRecurrenceRule, taskReminder } from '../db/schema'
@@ -45,7 +45,19 @@ function ownerColumn(kind: OwnerKind) {
 }
 
 function assertOwnerExists(executor: typeof db | Tx, kind: OwnerKind, id: number): void {
-  const table = kind === 'task' ? task : kind === 'rule' ? taskRecurrenceRule : habit
+  if (kind === 'task') {
+    const [found] = executor
+      .select({ id: task.id })
+      .from(task)
+      .where(and(eq(task.id, id), isNull(task.deletedAt)))
+      .limit(1)
+      .all()
+    if (!found) {
+      throw new NotFoundError(id)
+    }
+    return
+  }
+  const table = kind === 'rule' ? taskRecurrenceRule : habit
   const [found] = executor.select({ id: table.id }).from(table).where(eq(table.id, id)).limit(1).all()
   if (!found) {
     throw new NotFoundError(id)
@@ -148,6 +160,9 @@ export function updateReminder(id: number, input: ReminderInput, now: Date): Rem
     if (!existing) {
       throw new NotFoundError(id)
     }
+    if (existing.taskId !== null) {
+      assertOwnerExists(tx, 'task', existing.taskId)
+    }
 
     const ownerKind: OwnerKind =
       existing.taskId !== null ? 'task' : existing.ruleId !== null ? 'rule' : 'habit'
@@ -170,8 +185,19 @@ export function updateReminder(id: number, input: ReminderInput, now: Date): Rem
 }
 
 export function deleteReminder(id: number): void {
-  const [deleted] = db.delete(taskReminder).where(eq(taskReminder.id, id)).returning({ id: taskReminder.id }).all()
-  if (!deleted) {
-    throw new NotFoundError(id)
-  }
+  db.transaction((tx) => {
+    const [existing] = tx
+      .select({ id: taskReminder.id, taskId: taskReminder.taskId })
+      .from(taskReminder)
+      .where(eq(taskReminder.id, id))
+      .limit(1)
+      .all()
+    if (!existing) {
+      throw new NotFoundError(id)
+    }
+    if (existing.taskId !== null) {
+      assertOwnerExists(tx, 'task', existing.taskId)
+    }
+    tx.delete(taskReminder).where(eq(taskReminder.id, id)).run()
+  })
 }

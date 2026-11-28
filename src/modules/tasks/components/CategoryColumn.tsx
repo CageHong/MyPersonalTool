@@ -15,6 +15,7 @@ export default function CategoryColumn({ view, onSelect, today }: Props) {
       <nav className={styles.views}>
         {VIEWS.map((item) => {
           const isCurrent = item.id === view
+          // reminders 是底部群組的第一項,margin-top: auto 把提醒與其後的垃圾桶一起推到底部
           const isBottom = item.id === 'reminders'
           const className = [
             styles.view,

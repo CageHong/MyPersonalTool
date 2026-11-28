@@ -11,6 +11,8 @@ import RemindersView from './RemindersView'
 import ResizeHandle from './ResizeHandle'
 import TaskDetail from './TaskDetail'
 import TaskList from './TaskList'
+import TrashDetail from './TrashDetail'
+import TrashList from './TrashList'
 import styles from './ThreeColumnLayout.module.css'
 import {
   DEFAULT_LAYOUT,
@@ -29,6 +31,7 @@ import {
   habitMessage,
   NETWORK_ERROR,
   readApiError,
+  trashMessage,
   type ApiError,
 } from '@/modules/tasks/lib/errors'
 import { countOf, stepCounts, type HabitItem, type HabitPatch, type PeriodCount } from '@/modules/tasks/lib/habitView'
@@ -57,6 +60,11 @@ function toGeneralMessage(failure: ApiError): string | null {
 // 習慣的一般寫入失敗;欄位錯誤由右欄的欄位自己畫
 function toHabitMessage(failure: ApiError): string | null {
   return failure.kind === 'general' ? habitMessage(failure.code) : null
+}
+
+// 垃圾桶寫入失敗(還原、永久刪除、清空)
+function toTrashMessage(failure: ApiError): string | null {
+  return failure.kind === 'general' ? trashMessage(failure.code) : null
 }
 
 // 網址上的值(task、habit)是使用者可以亂打的字串;不是正整數就當作沒選取
@@ -222,6 +230,20 @@ export default function ThreeColumnLayout() {
 
   const today = useToday()
   const view = parseView(searchParams.get('view'))
+  // 垃圾桶清單:進入 trash 視圖才抓取,不與一般任務混在同一個 state。
+  // inTrashView 記上一次渲染是否在垃圾桶視圖:只在跨進或離開 trash 那一次同步更新 trashLoading,
+  // 同一視圖內重繪不會觸發額外 render;切進 trash 當下立即設 true,避免載入前網址清理 effect 誤清 ?task=
+  const [trashedTasks, setTrashedTasks] = useState<Task[]>([])
+  const [trashLoading, setTrashLoading] = useState(view === 'trash')
+  const [inTrashView, setInTrashView] = useState(view === 'trash')
+  if (view === 'trash' && !inTrashView) {
+    setInTrashView(true)
+    setTrashLoading(true)
+  } else if (view !== 'trash' && inTrashView) {
+    setInTrashView(false)
+    setTrashLoading(false)
+  }
+
   // 篩選在前端做,GET /api/tasks/tasks 照舊拿全部。重複實例每條規則只剩一個代表,
   // 非代表的實例不在 visibleTasks 裡,所以也選不到(網址上的 task 會被下面的 effect 清掉)
   const { tasks: visibleTasks, overdueCounts } = filterTasks(tasks, view, today)
@@ -235,7 +257,10 @@ export default function ThreeColumnLayout() {
 
   const selectedId = parseSelectedId(searchParams.get('task'))
   // 從看得到的那些裡面找:選取的任務被檢視濾掉時,下面的 effect 會清掉 task 參數
-  const selectedTask = visibleTasks.find((task) => task.id === selectedId)
+  const selectedTask =
+    view === 'trash'
+      ? trashedTasks.find((task) => task.id === selectedId)
+      : visibleTasks.find((task) => task.id === selectedId)
 
   const displayHabits = habits.map((habit) => withOverride(habit, countOverrides.get(habit.id)))
   // 習慣視圖的選取:?view=habits&habit=ID。其他視圖不讀這個參數
@@ -451,6 +476,21 @@ export default function ThreeColumnLayout() {
     return null
   }, [refetchRules, refetchUpcomingNotifications])
 
+  const refetchTrash = useCallback(
+    async (signal?: AbortSignal): Promise<ApiError | null> => {
+      const response = await fetch('/api/tasks/trash', { signal })
+      if (!response.ok) {
+        return await readApiError(response)
+      }
+      const next = (await response.json()) as Task[]
+      flushSync(() => {
+        setTrashedTasks(next)
+      })
+      return null
+    },
+    [setTrashedTasks],
+  )
+
   const refetchViewSettings = useCallback(async (): Promise<ApiError | null> => {
     const response = await fetch('/api/tasks/list-views')
     if (!response.ok) {
@@ -548,6 +588,32 @@ export default function ThreeColumnLayout() {
     })()
   }, [refetch])
 
+  useEffect(() => {
+    if (view !== 'trash') {
+      return
+    }
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        const failure = await refetchTrash(controller.signal)
+        if (!controller.signal.aborted) {
+          setError(failure === null ? null : toTrashMessage(failure))
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setError(generalMessage('NETWORK'))
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setTrashLoading(false)
+        }
+      }
+    })()
+    return () => {
+      controller.abort()
+    }
+  }, [refetchTrash, view])
+
   // 網址指到看不到的任務(被刪掉、手打的 id、被檢視濾掉)就把參數清掉,右欄回空狀態。
   // 要等 loading 結束才判斷,否則首次載入時 tasks 還是空的,合法的 ?task= 會被誤刪。
   // 從右欄刪除時由 handleDelete 在成功後直接清,不靠這個 effect;兩邊都清也是同一個結果。
@@ -560,10 +626,12 @@ export default function ThreeColumnLayout() {
     // 寫入結束後只用一次:之後任務因為別的原因(刪除)消失,照原本的規則清掉
     const ruleWrite = lastRuleWriteRef.current
     lastRuleWriteRef.current = null
-    if (loading || selectedId === null || selectedTask !== undefined) {
+    const selectionLoading = view === 'trash' ? trashLoading : loading
+    if (selectionLoading || selectedId === null || selectedTask !== undefined) {
       return
     }
     if (
+      view !== 'trash' &&
       ruleWrite !== null &&
       ruleWrite.taskId === selectedId &&
       !tasks.some((task) => task.id === selectedId)
@@ -575,7 +643,7 @@ export default function ThreeColumnLayout() {
       }
     }
     replaceParams((params) => params.delete('task'))
-  }, [loading, replaceParams, ruleWritePending, selectedId, selectedTask, tasks])
+  }, [loading, replaceParams, ruleWritePending, selectedId, selectedTask, tasks, trashLoading, view])
 
   const enqueue = useCallback(<T,>(job: () => Promise<T>): Promise<T> => {
     const next = queueRef.current.then(job)
@@ -589,8 +657,13 @@ export default function ThreeColumnLayout() {
   // 多個請求時放進同一個佇列工作、依序送出:例如日期選單先改截止日、再改規則(規則的錨點是那個日期)。
   // 遇到第一個失敗就停,不拿被拒的日期去改規則;前面已經成功的仍然重抓一次,畫面要跟上伺服器
   const mutate = useCallback(
-    (requests: (() => Promise<Response>) | (() => Promise<Response>)[]): Promise<ApiError | null> => {
+    (
+      requests: (() => Promise<Response>) | (() => Promise<Response>)[],
+      options?: { includeTrash?: boolean; errorMessage?: (failure: ApiError) => string | null },
+    ): Promise<ApiError | null> => {
       const list = Array.isArray(requests) ? requests : [requests]
+      const formatError = options?.errorMessage ?? toGeneralMessage
+      const includeTrash = options?.includeTrash ?? false
       // 在呼叫當下(事件處理中)同步記錄焦點,不等 job 開始才讀:
       // 例如確認刪除時確認鈕進入 pending 而 disabled,那次提交早於 job,焦點已經掉到 body
       const focus = captureFocus(tasksColumnRef.current)
@@ -601,27 +674,30 @@ export default function ThreeColumnLayout() {
             if (!response.ok) {
               const failure = await readApiError(response)
               if (index > 0) {
-                await refetch()
+                await (includeTrash ? Promise.all([refetch(), refetchTrash()]) : refetch())
               }
-              setError(toGeneralMessage(failure))
+              setError(formatError(failure))
               return failure
             }
           }
 
-          const refetchFailure = await refetch()
-          setError(refetchFailure === null ? null : toGeneralMessage(refetchFailure))
+          const [refetchFailure, trashFailure] = includeTrash
+            ? await Promise.all([refetch(), refetchTrash()])
+            : [await refetch(), null]
+          const failure = refetchFailure ?? trashFailure
+          setError(failure === null ? null : formatError(failure))
           // 失敗時任務與焦點都不動
-          if (refetchFailure === null && focus !== null && tasksColumnRef.current !== null) {
+          if (failure === null && focus !== null && tasksColumnRef.current !== null) {
             restoreFocus(tasksColumnRef.current, focus)
           }
-          return refetchFailure
+          return failure
         } catch {
           setError(generalMessage('NETWORK'))
           return NETWORK_ERROR
         }
       })
     },
-    [enqueue, refetch],
+    [enqueue, refetch, refetchTrash],
   )
 
   const handleCreate = useCallback(
@@ -736,7 +812,7 @@ export default function ThreeColumnLayout() {
     [mutate],
   )
 
-  // 硬刪除,沒有 undo。刪除鈕在右欄,刪的一定是選取中那筆:成功後清掉 task、保留 view;
+  // 軟刪除(移進垃圾桶,不跳確認)。刪除鈕在右欄,刪的一定是選取中那筆:成功後清掉 task、保留 view;
   // 失敗時 mutate 已經 setError,任務與選取都不動。焦點由 mutate 統一處理(離開視圖的規則)
   const handleDelete = useCallback(
     async (id: number) => {
@@ -748,6 +824,52 @@ export default function ThreeColumnLayout() {
     },
     [mutate, replaceParams],
   )
+
+  // 從垃圾桶還原:重抓一般清單與垃圾桶清單,成功後清掉 task,焦點由 mutate 遞補
+  const handleRestore = useCallback(
+    async (id: number) => {
+      const failure = await mutate(
+        () => fetch(`/api/tasks/trash/${id}/restore`, { method: 'POST' }),
+        { includeTrash: true, errorMessage: toTrashMessage },
+      )
+      if (failure === null) {
+        replaceParams((params) => params.delete('task'))
+      }
+      return failure
+    },
+    [mutate, replaceParams],
+  )
+
+  // 永久刪除單筆垃圾桶任務:重抓一般清單與垃圾桶清單,成功後清掉 task,焦點由 mutate 遞補
+  const handlePurge = useCallback(
+    async (id: number) => {
+      const failure = await mutate(
+        () => fetch(`/api/tasks/trash/${id}`, { method: 'DELETE' }),
+        { includeTrash: true, errorMessage: toTrashMessage },
+      )
+      if (failure === null) {
+        replaceParams((params) => params.delete('task'))
+      }
+      return failure
+    },
+    [mutate, replaceParams],
+  )
+
+  // 清空垃圾桶:重抓一般清單與垃圾桶清單,成功後清掉 task;清空鈕卸載使焦點掉到 body 時移回中欄容器
+  const handleEmptyTrash = useCallback(async () => {
+    const failure = await mutate(() => fetch('/api/tasks/trash', { method: 'DELETE' }), {
+      includeTrash: true,
+      errorMessage: toTrashMessage,
+    })
+    if (failure === null) {
+      replaceParams((params) => params.delete('task'))
+      const active = document.activeElement
+      if (active === null || active === document.body) {
+        tasksColumnRef.current?.focus()
+      }
+    }
+    return failure
+  }, [mutate, replaceParams])
 
   // 習慣的一般寫入(新增以外):排進同一條佇列,成功後整份重抓習慣,不做樂觀更新。
   // 回傳 null 代表成功;欄位錯誤原樣回傳給右欄,不進中欄的錯誤區
@@ -1053,7 +1175,15 @@ export default function ThreeColumnLayout() {
       <section
         ref={tasksColumnRef}
         tabIndex={-1}
-        aria-label={view === 'habits' ? '習慣清單' : view === 'reminders' ? '提醒' : '任務清單'}
+        aria-label={
+          view === 'habits'
+            ? '習慣清單'
+            : view === 'reminders'
+              ? '提醒'
+              : view === 'trash'
+                ? '垃圾桶'
+                : '任務清單'
+        }
         className={
           effective.rightCollapsed || view === 'reminders'
             ? `${styles.column} ${styles.tasks} ${styles.tasksNoRightBorder}`
@@ -1084,6 +1214,18 @@ export default function ThreeColumnLayout() {
             onSelect={handleSelectHabit}
             onCreate={handleCreateHabit}
             onStep={stepHabit}
+            leftToggle={leftToggle}
+            rightToggle={drawerOpen ? undefined : rightToggle}
+          />
+        ) : view === 'trash' ? (
+          <TrashList
+            tasks={trashedTasks}
+            today={today}
+            loading={trashLoading}
+            error={error}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            onEmpty={handleEmptyTrash}
             leftToggle={leftToggle}
             rightToggle={drawerOpen ? undefined : rightToggle}
           />
@@ -1151,6 +1293,16 @@ export default function ThreeColumnLayout() {
               onDelete={handleDeleteHabit}
               onError={setError}
               onReminderChanged={handleReminderChanged}
+            />
+          ) : view === 'trash' ? (
+            <TrashDetail
+              key={selectedTask?.id ?? 'empty'}
+              task={selectedTask}
+              today={today}
+              tasksVersion={tasksVersion}
+              onRestore={handleRestore}
+              onPurge={handlePurge}
+              onError={setError}
             />
           ) : (
             <TaskDetail
