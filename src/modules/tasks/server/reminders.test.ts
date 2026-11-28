@@ -9,6 +9,7 @@ import { createHabit, deleteHabit, listHabits, updateHabit } from './habits'
 import { createRuleFromTask, getRule, updateRule } from './recurrence'
 import { createTask, deleteTask, listTasks, updateTask } from './tasks'
 import { createReminder, deleteReminder, listReminders, updateReminder } from './reminders'
+import { purgeTask } from './trash'
 
 // 規格:docs/tasks/decisions.md §6j「提醒」表末「(2026-11-22 改)」的條目
 
@@ -222,7 +223,8 @@ describe('updateReminder / deleteReminder', () => {
     )
   })
 
-  test('deleting the task or habit deletes its reminders', () => {
+  // §6h:任務丟進垃圾桶時提醒留著,永久刪除才一起刪;習慣沒有垃圾桶
+  test('deleting the habit or purging the task deletes its reminders', () => {
     const h = createHabit({ name: '冥想', periodType: 'daily', target: 1 }, TODAY)
     const t = createTask({ title: '繳電費', dueDate: TOMORROW })
     createReminder({ habitId: h.id }, { kind: 'daily', time: '09:00' }, NOW)
@@ -230,6 +232,9 @@ describe('updateReminder / deleteReminder', () => {
 
     deleteHabit(h.id)
     deleteTask(t.id)
+    assert.equal(reminderRows().length, 1)
+
+    purgeTask(t.id)
     assert.deepEqual(reminderRows(), [])
   })
 })

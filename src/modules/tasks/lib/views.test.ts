@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { Task } from './tasks'
-import { collapseRecurring, earliestIncomplete, filterTasks } from './views'
+import { collapseRecurring, earliestIncomplete, filterTasks, parseView, VIEWS } from './views'
 
 const TODAY = '2026-09-18'
 
@@ -143,5 +143,16 @@ describe('earliestIncomplete', () => {
 
     assert.equal(earliestIncomplete([done], 1), undefined)
     assert.equal(earliestIncomplete([], 1), undefined)
+  })
+})
+
+// 規格:docs/tasks/decisions.md §6h「垃圾桶這一輪」
+describe('trash view', () => {
+  test('is a valid view id', () => {
+    assert.equal(parseView('trash'), 'trash')
+  })
+
+  test('is the last entry of the category column', () => {
+    assert.equal(VIEWS[VIEWS.length - 1].id, 'trash')
   })
 })

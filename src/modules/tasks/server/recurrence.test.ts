@@ -146,9 +146,12 @@ describe('fillInstances', () => {
     fillInstances(TODAY)
     fillInstances('2026-09-19')
 
-    // 9/19 補齊時 9/18 已錯過、沒動過,被跳過(§6a)
+    // 9/19 補齊時 9/18 已錯過、沒動過,被跳過(§6a)。9/20 留在垃圾桶(§6h),不出現在 listTasks
     assert.deepEqual(
-      dates(rule.id),
+      listTasks({ today: '2026-09-19' })
+        .filter((row) => row.recurrenceRuleId === rule.id)
+        .map((row) => row.occurrenceDate!)
+        .sort(),
       range('2026-09-19', '2026-09-25').filter((date) => date !== '2026-09-20'),
     )
   })

@@ -13,6 +13,7 @@ import {
   updateChecklistItem,
 } from './checklist'
 import { createTask, deleteTask, NotFoundError, ValidationError } from './tasks'
+import { purgeTask } from './trash'
 
 before(() => {
   // 保險:萬一 test/setup 沒先載入,不在真的資料庫上跑 migration 與寫入
@@ -32,12 +33,15 @@ function setupTaskWithItems(count: number) {
 }
 
 describe('cascade', () => {
-  test('deleting a task deletes its checklist items', () => {
+  // §6h:deleteTask 只是丟進垃圾桶,永久刪除(purgeTask)才帶走 checklist
+  test('purging a task deletes its checklist items; moving it to the trash keeps them', () => {
     const { taskId } = setupTaskWithItems(2)
     assert.equal(rowsForTask(taskId).length, 2)
 
     deleteTask(taskId)
+    assert.equal(rowsForTask(taskId).length, 2)
 
+    purgeTask(taskId)
     assert.equal(rowsForTask(taskId).length, 0)
   })
 })

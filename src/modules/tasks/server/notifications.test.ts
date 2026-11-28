@@ -8,7 +8,8 @@ import { habit, task, taskNotificationSent, taskNotificationSetting, taskRecurre
 import { addLog, createHabit, pauseHabit, removeLog } from './habits'
 import { createRuleFromTask, updateRule } from './recurrence'
 import { createReminder, updateReminder, type Reminder } from './reminders'
-import { createTask, listTasks, updateTask } from './tasks'
+import { createTask, deleteTask, listTasks, updateTask } from './tasks'
+import { restoreTask } from './trash'
 import { ValidationError } from './errors'
 import {
   dueTaskNotifications,
@@ -610,6 +611,59 @@ describe('task reminders', () => {
     // 取消完成後,當天晚一點也不會突然收到
     updateTask(t.id, { done: false })
     assert.deepEqual(keysAt(TODAY, '10:00'), [])
+  })
+})
+
+// 規格:docs/tasks/decisions.md §6h「垃圾桶這一輪」
+describe('tasks in the trash', () => {
+  test('are left out of the morning and evening summaries, and come back when restored', () => {
+    createTask({ title: '寫週報', dueDate: TODAY })
+    const trashed = createTask({ title: '丟掉的事', dueDate: TODAY })
+    deleteTask(trashed.id)
+
+    assert.equal(messageOf(TODAY, '08:00', `summary:morning@${TODAY}`).body, ['任務', '- 寫週報'].join('\n'))
+    assert.equal(messageOf(TODAY, '21:00', `summary:evening@${TODAY}`).body, ['任務', '- 寫週報'].join('\n'))
+
+    restoreTask(trashed.id)
+    assert.equal(
+      messageOf(TOMORROW, '08:00', `summary:morning@${TOMORROW}`).body,
+      ['任務', '- 寫週報(逾期)', '- 丟掉的事(逾期)'].join('\n'),
+    )
+  })
+
+  test('get no individual reminders, and none show up as upcoming', () => {
+    allSummariesOff()
+    const t = createTask({ title: '繳電費', dueDate: TODAY })
+    relativeReminder(t.id, 0, '09:00')
+    deleteTask(t.id)
+
+    assert.deepEqual(keysAt(TODAY, '09:00'), [])
+    assert.deepEqual(upcomingTaskNotifications(at(TODAY, '08:00')), [])
+  })
+
+  test('a restored task gets its reminder again the same day', () => {
+    allSummariesOff()
+    const t = createTask({ title: '繳電費', dueDate: TODAY })
+    const r = relativeReminder(t.id, 0, '09:00')
+    deleteTask(t.id)
+    assert.deepEqual(keysAt(TODAY, '09:00'), [])
+
+    restoreTask(t.id)
+    assert.deepEqual(keysAt(TODAY, '09:30'), [taskKey(r, t.id, TODAY)])
+  })
+
+  test('a trashed recurring instance gets no reminder from its rule', () => {
+    allSummariesOff()
+    const source = createTask({ title: '倒垃圾', dueDate: TODAY })
+    const rule = createRuleFromTask(source.id, { freq: 'daily', interval: 1, startDate: TODAY }, TODAY)
+    createReminder({ ruleId: rule.id }, { kind: 'relative', daysBefore: 0, time: '19:00' }, SETUP_NOW)
+    const todayInstance = listTasks({ today: TODAY }).find(
+      (row) => row.recurrenceRuleId === rule.id && row.dueDate === TODAY,
+    )
+    assert.ok(todayInstance)
+
+    deleteTask(todayInstance.id)
+    assert.deepEqual(keysAt(TODAY, '19:00'), [])
   })
 })
 
