@@ -149,6 +149,22 @@
 6. **左欄底部順序與「清空垃圾桶」位置**：`VIEWS` 尾端加 `trash` 後沿用 `reminders` 上的 `.bottomView`，會讓 `提醒` 與 `垃圾桶` 一起靠左欄底部（`垃圾桶` 在最底）；「清空垃圾桶」放中欄標題列右側（僅垃圾桶非空時出現）。確認排版 OK。
 7. **主線測試確認**：已完整讀過六支測試檔（`trash.test.ts`、`notifications.test.ts`、`checklist.test.ts`、`reminders.test.ts`、`recurrence.test.ts`、`views.test.ts`），規格一致、未發現測試有誤。
 
+### 主線確認(2026-11-28)
+
+計畫通過,可以開始實作。疑問的答覆:
+
+1. `DELETE /api/tasks/trash`:照計畫,`200` + `{ deleted: number }`。
+2. 同意:`updateReminder`、`deleteReminder` 對屬於垃圾桶任務的提醒回 `NotFoundError`。
+3. 同意:非排程欄位的就地更新不動垃圾桶裡的實例(加 `isNull(task.deletedAt)`)。
+4. `deletedAt` 比照 `editedAt`,由白名單忽略,不另外回 `not_allowed`。
+5. 同意:右欄不顯示提醒,`listReminders` 不開例外。
+6. 排版照計畫。
+7. 收到。
+
+另外注意:
+- `ThreeColumnLayout` 的「render 期偵測切換進 trash」那段,寫好後在回報的「最可能出錯的地方」說明:為什麼不會在每次 render 都觸發、從垃圾桶切回其他視圖時狀態怎麼收。
+- `migrations.test.ts`:新的種子照 0011 的 schema 寫;既有那支 0008 的 `reminder_time` 測試是自己裁 journal 跑的,不要改動它的範圍。
+
 ## 回報(Gemini 填寫)
 - 做了什麼(每個檔案一行):
 - 沒做什麼、為什麼:
